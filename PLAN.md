@@ -120,7 +120,7 @@ choices/                         git repo
 
 ## Build order
 
-- [ ] **Phase 1 — Scaffold & enforcement**: git init; `checks/hooks/`
+- [x] **Phase 1 — Scaffold & enforcement**: git init; `checks/hooks/`
       (pre-commit, commit-msg) + `checks/doctor.sh`, activated via
       `core.hooksPath` *before* the seed commit (so the seed itself is
       policed); `.gitignore` (secrets/); empty `learned-rules.md`; AGENTS.md.
