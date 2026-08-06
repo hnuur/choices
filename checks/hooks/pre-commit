@@ -1,0 +1,53 @@
+#!/bin/bash
+# choices pre-commit: deterministic drift guards. See PLAN.md "Deterministic enforcement".
+set -u
+HOOK_NAME="pre-commit"
+. "$(dirname "$0")/common.sh"
+
+staged="$(staged_files)"
+
+# 1) secrets/ is never committed. PORT KNOB: repoint to the target's secret
+# paths (or delete the guard). gitignore does not stop `git add -f`.
+if printf '%s\n' "$staged" | grep -q '^secrets/'; then
+  fail "secrets/ paths are staged. Secrets are never committed (PLAN.md: Secrets never in git)."
+fi
+
+# 2) learned-rules.md hard cap: 20 lines (staged content; unterminated final
+# line counts). PORT KNOB: repoint the file/cap or delete the guard.
+if printf '%s\n' "$staged" | grep -qx 'learned-rules.md'; then
+  lines=$(git show :learned-rules.md | real_lines)
+  if [ "$lines" -gt 20 ]; then
+    fail "learned-rules.md has $lines lines; hard cap is 20 (PLAN.md governance)."
+  fi
+fi
+
+# 3) PLAN.md checkbox discipline: max one flip, in order, never untick,
+#    no checkbox-line deletions in the same commit as a flip.
+if plan_staged; then
+  flips="$(plan_flips)"
+  if printf '%s\n' "$flips" | grep -q '^UNTICK'; then
+    fail "PLAN.md unticks a previously ticked phase checkbox. History is not rewritten; amend the plan instead."
+  fi
+  count=$(printf '%s\n' "$flips" | grep -c '^[0-9]' || true)
+  if [ "$count" -ge 1 ] && printf '%s\n' "$flips" | grep -q '^DELETED'; then
+    fail "PLAN.md deletes phase-checkbox line(s) in the same commit as a flip; restructuring and closing are separate commits."
+  fi
+  if [ "$count" -gt 1 ]; then
+    fail "PLAN.md flips $count phase checkboxes in one commit; exactly one phase closes per commit."
+  fi
+  if [ "$count" -eq 1 ]; then
+    n="$(printf '%s\n' "$flips" | grep '^[0-9]')"
+    # every phase before n must already be ticked in the staged PLAN.md
+    unticked_before=$(git show :PLAN.md | plan_boxes | awk -v n="$n" '$1 < n && $2 != "x" { print $1 }')
+    if [ -n "$unticked_before" ]; then
+      fail "ticking Phase $n while earlier phase(s) [$(printf '%s' "$unticked_before" | tr '\n' ' ' | sed 's/ $//')] are unticked; phases close in order."
+    fi
+    # ritual step 1 as mechanism: a phase cannot close on a red environment
+    if ! "$(dirname "$0")/../doctor.sh" >/dev/null 2>&1; then
+      "$(dirname "$0")/../doctor.sh" >&2 || true
+      fail "checks/doctor.sh failed; a phase cannot close on a red environment."
+    fi
+  fi
+fi
+
+exit 0

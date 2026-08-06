@@ -1,0 +1,34 @@
+#!/bin/bash
+# choices commit-msg: message-level drift guards. See PLAN.md "Deterministic enforcement".
+set -u
+HOOK_NAME="commit-msg"
+. "$(dirname "$0")/common.sh"
+
+# Strip comment lines first: a marker on a stripped '#' line would survive
+# this grep but not the commit, defeating the greppable-history rationale.
+msg="$(git stripspace --strip-comments < "$1")"
+staged="$(staged_files)"
+
+# 1) Frozen improver: touching it requires a conscious, greppable marker.
+# PORT KNOB: no improver layer is designated in choices yet. When one lands,
+# set frozen_re to its path prefixes (e.g. '^(foo/|bar/)') and re-enable
+# gate-phase1 NT10/NT11 in the SAME commit (rule 6).
+frozen_re=''
+if [ -n "$frozen_re" ] && printf '%s\n' "$staged" | grep -Eq "$frozen_re"; then
+  if ! printf '%s' "$msg" | grep -q 'improver-edit:'; then
+    fail "commit touches a frozen improver without an 'improver-edit:' marker in the message. Frozen improvers are human-edited only (PLAN.md governance)."
+  fi
+fi
+
+# 2) Phase-closing commits carry a Phase-N reference and a review: verdict.
+if plan_staged; then
+  count=$(plan_flips | grep -c '^[0-9]' || true)
+  if [ "$count" -ge 1 ]; then
+    printf '%s' "$msg" | grep -Eq 'Phase-[0-9]+' \
+      || fail "this commit closes a phase but the message lacks a 'Phase-N' reference."
+    printf '%s' "$msg" | grep -q 'review:' \
+      || fail "this commit closes a phase but the message lacks a 'review:' verdict line (fresh-context review is part of the phase-close ritual)."
+  fi
+fi
+
+exit 0
