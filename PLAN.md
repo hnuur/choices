@@ -1,7 +1,8 @@
-# PLAN.md — "choices"
+# PLAN.md — "Choices"
 
-**Status: v1 — drift-control scaffold ported 2026-08-06 from the `oc` kit
-(`/Users/baplin/random/oc`). This file is the source of truth.**
+**Status: v1.1 — drift-control scaffold ported 2026-08-06 from the `oc` kit
+(`/Users/baplin/random/oc`); repo role clarified same day (amendment below).
+This file is the source of truth.**
 
 ## Rules for working in this repo
 
@@ -25,10 +26,12 @@
 
 ## Goal
 
-The domain of this project is not yet defined; Phase 2 closes exactly that.
-Until then the plan governs its own scaffold: a drift-control kit (hooks,
-doctor, gates, ritual) enforced by mechanism rather than memory, ready to
-carry whatever build order Phase 2 introduces. The kit's own conventions —
+This repository is the "Choices" project — and, by construction, its own
+control. The drift-control kit (hooks, doctor, gates, ritual) landed first as
+Phase 1, so that from the moment the project's real scope exists, adherence to
+this plan is enforced by mechanism rather than memory, in place, for the life
+of the build. The domain is not yet defined; Phase 2 closes exactly that.
+Until then the plan governs its own scaffold, and the kit's conventions —
 checkbox grammar, rules header, Deferred section, decision log — are part of
 the artifact.
 
@@ -158,6 +161,7 @@ choices/                         git repo
 
 | Decision | Choice |
 | --- | --- |
+| Repo role | This repo IS the Choices project and its own control: the kit is Phase 1 and polices this PLAN.md in place for the life of the build — no separate control repo, no porting step (user decision 2026-08-06, after Phase 1 closed) |
 | Kit provenance | Ported 2026-08-06 from `/Users/baplin/random/oc` `checks/` + PLAN.md grammar (verified clause-by-clause before porting) |
 | Secret dir | `secrets/` (kit default `journal/` repointed; PORT KNOB in pre-commit + doctor) |
 | Rules file | `learned-rules.md`, 20-line hook-enforced cap (carried from kit) |
