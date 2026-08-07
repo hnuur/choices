@@ -1,8 +1,9 @@
 # PLAN.md — "Choices"
 
-**Status: v1.1 — drift-control scaffold ported 2026-08-06 from the `oc` kit
-(`/Users/baplin/random/oc`); repo role clarified same day (amendment below).
-This file is the source of truth.**
+**Status: v2.0 — domain adopted 2026-08-07 (Phase-2 amendment): Choices is a
+local-first PWA for choosing between instances of a thing; the v1.1
+drift-control scaffold is unchanged and governs this build. This file is the
+source of truth.**
 
 ## Rules for working in this repo
 
@@ -26,14 +27,71 @@ This file is the source of truth.**
 
 ## Goal
 
-This repository is the "Choices" project — and, by construction, its own
-control. The drift-control kit (hooks, doctor, gates, ritual) landed first as
-Phase 1, so that from the moment the project's real scope exists, adherence to
-this plan is enforced by mechanism rather than memory, in place, for the life
-of the build. The domain is not yet defined; Phase 2 closes exactly that.
-Until then the plan governs its own scaffold, and the kit's conventions —
-checkbox grammar, rules header, Deferred section, decision log — are part of
-the artifact.
+Choices is a local-first web PWA for choosing between instances of a thing.
+The user defines a **type** of thing (e.g. cameras), the **dimensions** to
+score it on (e.g. weight, price, sexiness), the **options** (specific
+instances, e.g. Sony A7C II, Fuji X-T5), and a **score per option ×
+dimension**, with importance weights 1–5 per dimension. The app ranks the
+options, names a winner with its margin, and re-ranks live on any edit.
+
+Locked product decisions (adopted 2026-08-07 with the Phase-2 amendment):
+
+- **Web PWA**, not native: `vite-plugin-pwa`, Add to Home Screen.
+- **Importance weighting** 1–5 per dimension; totals renormalize weights.
+- **Local-first** persistence (Dexie/IndexedDB); accounts only with Phase 7.
+- **Full score matrix required** before results — partial scoring silently
+  biases rankings; a progress indicator shows instead. Genuinely unknown
+  cells are resolved by deleting the dimension or the option (see Deferred).
+- **Mobile scoring is option-by-option cards**, not a spreadsheet grid.
+- **Objective vs subjective is load-bearing**: objective dimensions carry a
+  raw value + unit + direction (higher/lower better); subjective dimensions
+  are 1–5 ratings. This split decides what Phase 7 shares (objective facts)
+  vs keeps personal (subjective scores), so it exists from day one.
+
+This repository is the project and, by construction, its own control: the
+drift-control kit (hooks, doctor, gates, ritual) landed first as Phase 1, so
+adherence to this plan is enforced by mechanism rather than memory, in place,
+for the life of the build. The kit's conventions — checkbox grammar, rules
+header, Deferred section, decision log — are part of the artifact.
+
+## Product spec
+
+Scoring math: objective normalizes across the option set,
+`(x − min) / (max − min)`, inverted for lower-better, all-equal → 1;
+subjective maps a 1–5 rating via `(r − 1) / 4`; total is
+`Σ(importance × score) / Σ(importance)` (weights explicitly renormalized).
+Known weakness, accepted for v1 and mitigated in the Results UI: set-relative
+min-max exaggerates tiny differences, and rankings depend on which options
+are in the set (independence-of-irrelevant-alternatives violation).
+Mitigations: raw values shown alongside normalized scores; winner margin
+with near-tie flag (≤ 0.02 = "effectively tied"); non-discriminating
+dimensions called out; sensitivity probes surface fragile winners.
+
+Data model — Dexie, versioned from day one (`db.version(1)`) so migrations
+stay routine; IDs client-generated (uuid) for eventual publish/sync:
+
+```
+Decision  { id, name, createdAt, updatedAt }
+Dimension { id, decisionId, name, kind: 'objective' | 'subjective',
+            direction: 'higher' | 'lower',   // objective only
+            importance: 1..5, unit?: string }
+Option    { id, decisionId, name, notes? }
+Score     { optionId, dimensionId, value }   // row exists ⇒ cell scored
+```
+
+- Scores live in their own table: cell-level rows make Phase 6's "LLM
+  proposes one score → user approves" trivial and map 1:1 to Phase 7's
+  server DB.
+- Cascades — deleting a dimension/option deletes its scores; deleting a
+  decision deletes everything under it — are enforced in the mutation layer
+  inside transactions, never ad hoc in UI.
+- **Mutation contract**: all writes go through typed mutation functions
+  (createDecision, addDimension, setScore, exportDecision, …) taking
+  explicit edit payloads; UI never touches Dexie directly. A Phase 6 LLM
+  proposal is the same payload rendered as a confirm/reject card.
+- **Backup**: JSON export/import of a whole decision — mutation-layer
+  functions in Phase 3, UI in Phase 5. Local-first plus iOS's aggressive
+  storage eviction makes this v1 scope, not Deferred.
 
 ## Governance rules (non-negotiable)
 
@@ -112,13 +170,14 @@ config is set — a fresh clone without it fails the gate).
 choices/                         git repo
 ├── PLAN.md                      this file
 ├── AGENTS.md                    points here first; summarized binding rules
-├── .gitignore                   secrets/ never committed
+├── .gitignore                   secrets/ never committed; app build output
 ├── learned-rules.md             always-on guardrails, hard cap 20 lines
 ├── secrets/                     never committed (gitignored; local only)
-└── checks/
-    ├── hooks/                   pre-commit, commit-msg (core.hooksPath)
-    ├── doctor.sh                environment assertions, run at every phase gate
-    └── gate-phaseN.sh           per-phase verify batteries (rule 6)
+├── checks/
+│   ├── hooks/                   pre-commit, commit-msg (core.hooksPath)
+│   ├── doctor.sh                environment assertions, run at every phase gate
+│   └── gate-phaseN.sh           per-phase verify batteries (rule 6)
+└── app/                         the product (Phase 3+): Vite/React/TS PWA
 ```
 
 ## Build order
@@ -144,6 +203,56 @@ choices/                         git repo
       domain dictates. **Verify**: PLAN.md carries a concrete Goal and at
       least one further phase; `checks/gate-phase1.sh` still passes (the
       battery survives plan amendments); doctor exits 0.
+- [ ] **Phase 3 — Engine**: scaffold `app/` (Vite + React + TypeScript +
+      Tailwind v4 via `@tailwindcss/vite` + Dexie + `vite-plugin-pwa` +
+      Vitest); versioned schema and mutation layer per Product spec
+      (transactional cascades, JSON export/import functions); scoring
+      engine. `.gitignore` gains app build output and node_modules.
+      **Verify**: `checks/gate-phase3.sh` passes — vitest suite green:
+      normalization (incl. lower-better inversion, all-equal), weight
+      renormalization, winner margin / near-tie flag, cascade integrity,
+      export/import round-trip; doctor exits 0.
+- [ ] **Phase 4 — UI**: home list of decisions (`updatedAt` desc: name,
+      option count, winner preview, last edited; delete requires
+      confirmation); decision view with 4 freely jumpable tabs
+      (Dimensions / Options / Score / Results); Score tab as option-cards
+      (objective cells take raw values + unit, subjective 1–5) with matrix
+      progress; live re-ranking on any edit; adding a dimension/option
+      mid-flow shows the progress state, never stale rankings. Results:
+      ranked totals, per-dimension breakdown bars, raw values for objective
+      dims, winner margin with near-tie flag (≤ 0.02), non-discriminating
+      callouts. Stretch: sensitivity probes (break-even importance per
+      option × dimension — "if price mattered at 4+ instead of 2, the
+      winner flips to X"; drop-one-dimension winner flips). **Verify**:
+      `checks/gate-phase4.sh` passes — tsc and production build clean;
+      documented manual checklist covers the full decision lifecycle
+      end-to-end; doctor exits 0.
+- [ ] **Phase 5 — PWA & backup**: manifest, maskable + apple-touch icons,
+      iOS install hint (Share → Add to Home Screen; iOS never fires an
+      install prompt), `apple-mobile-web-app-capable` + status-bar styling,
+      `navigator.storage.persist()` on startup (iOS evicts non-persisted
+      IndexedDB), precache for full offline; JSON export/import UI.
+      **Verify**: `checks/gate-phase5.sh` passes — build clean; checklist:
+      offline reload, standalone display, export → wipe → import
+      round-trip; doctor exits 0.
+- [ ] **Phase 6 — LLM integration**: chat surface attached to each level —
+      type ("what dims should I consider for cameras?"), dimension
+      (refine/split, e.g. "portability" → weight + size), option (suggest
+      options, prefill objective scores, propose anchors), result ("why did
+      X win?", "argue me out of this choice"). LLM proposes typed mutation
+      payloads; user approves per-edit. **Precondition (rule 2)**:
+      provider, auth/key placement (a client-side PWA cannot hold a shared
+      key: BYO-key in settings vs a thin proxy; any dev key lives in
+      `secrets/`), and proposal rendering (per-edit card vs batched diff)
+      are decided by plan amendment before work starts. **Verify**: defined
+      in that amendment.
+- [ ] **Phase 7 — Shared database**: opt-in per-decision anonymous publish,
+      never blanket consent; community templates (type + dimension sets +
+      objective facts); subjective scores stay personal; `schemaVersion`
+      added before first publish. **Precondition (rule 2)**: server stack,
+      identity/pseudonymity model, moderation, stale facts (prices change)
+      decided by plan amendment first. **Verify**: defined in that
+      amendment.
 
 ## Escape hatches
 
@@ -155,7 +264,12 @@ choices/                         git repo
 
 ## Deferred (do not implement; add ideas here, not to code)
 
-- (empty — ideas that surface mid-build land here, never in code)
+- User-set **anchors** (reference min/max per dimension) instead of
+  set-relative min-max normalization — the escape hatch for the IIA
+  weakness in the Product spec; Phase 6's LLM could propose them.
+- "Unknown" cells with weight redistribution — rejected at adoption: it
+  reintroduces the silent bias the full-matrix rule locks out. Revisit only
+  together with anchors.
 
 ## Decision log
 
@@ -167,5 +281,10 @@ choices/                         git repo
 | Rules file | `learned-rules.md`, 20-line hook-enforced cap (carried from kit) |
 | Frozen improver | none designated yet; commit-msg guard live-but-inert, wired with rule 6 when one lands |
 | Hooks activation | `core.hooksPath` set *before* the seed commit — the seed is policed (the source kit set it after; its PLAN.md/AGENTS.md pre-init anomaly is deliberately not inherited) |
-| Phase 2 placeholder | real next step (scope is undefined) AND keeps two unticked phases so gate NT4–NT6 stay exercised |
+| Domain | Choices: local-first web PWA for choosing between instances of a thing — weighted dimensions, full score matrix, live ranking (adopted 2026-08-07 via Phase-2 amendment) |
+| External plan merge | user-supplied `choices-app-plan.md` reviewed, fully merged into this file in the Phase-2 amendment, then deleted — one source of truth (rule 2) |
+| Scaffold location | `app/` in this repo — the external plan's `/Users/baplin/qwen/chat` path contradicted the Repo-role decision and was dropped |
+| Stack | Vite + React + TS + Tailwind v4 + Dexie + vite-plugin-pwa + Vitest; v1 tests cover scoring math + mutation layer only (no UI tests) |
+| Backup | JSON export/import of a decision is v1 scope (functions in Phase 3, UI in Phase 5) — local-first plus iOS's aggressive storage eviction |
+| Phase numbering | app milestones renumbered as repo Phases 3–7; ≥2 unticked boxes keep gate NT4–NT6 exercised (supersedes the Phase-2-placeholder device) |
 | Drift enforcement | deterministic hooks + doctor + per-phase gates; instructions only where mechanism is impossible |
