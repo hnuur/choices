@@ -61,6 +61,8 @@ rules_cap() {
 check "core.hooksPath = checks/hooks"      sh -c '[ "$(git config core.hooksPath)" = "checks/hooks" ]'
 check "pre-commit hook executable"         test -x checks/hooks/pre-commit
 check "commit-msg hook executable"         test -x checks/hooks/commit-msg
+# PORT KNOB: secrets probe — repoint the prefix/path (or delete the checks)
+# when porting the kit; the decision log's Secret-dir row points here.
 check "secrets/ is git-ignored"            git check-ignore -q secrets/probe
 check "no secrets paths tracked by git"    sh -c '! git ls-files | grep -q "^secrets/"'
 check "learned-rules.md within 20 lines"   rules_cap
