@@ -196,7 +196,7 @@ choices/                         git repo
       its own setup (something actually staged, rejection message matches the
       expected guard) so a broken test can never pass vacuously, and must run
       correctly in a fresh clone (secrets/ dir recreated).
-- [ ] **Phase 2 — Domain & build order**: define this project's goal,
+- [x] **Phase 2 — Domain & build order**: define this project's goal,
       component specs, and phases 3+ via a plan-first amendment (rule 2).
       Designate frozen improvers, if any, wiring `frozen_re` + NT10/NT11 in
       the same commit (rule 6); repoint or drop the secrets/rules knobs as the
