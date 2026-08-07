@@ -1,2 +1,6 @@
 secrets/
 .qwen/
+
+# app build output and dependencies (Phase 3)
+node_modules/
+dist/
