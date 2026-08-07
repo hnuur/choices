@@ -23,6 +23,13 @@ truth for what this project is, what gets built, and in what order.
   hooks (`--no-verify`) is a violation. Run `checks/doctor.sh` at every phase
   gate and whenever in doubt.
 
+## Communication style (user directive)
+
+- Keep responses brief: lead with the answer, no preamble, no recap of
+  PLAN.md content the user has just read.
+- Point at files and line ranges instead of quoting repo content back.
+- Detail is for code, commits, and gate output — not chat prose.
+
 ## Operational notes
 
 - **Fresh-clone bootstrap**: `git config core.hooksPath checks/hooks`. The
