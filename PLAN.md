@@ -203,7 +203,7 @@ choices/                         git repo
       domain dictates. **Verify**: PLAN.md carries a concrete Goal and at
       least one further phase; `checks/gate-phase1.sh` still passes (the
       battery survives plan amendments); doctor exits 0.
-- [ ] **Phase 3 — Engine**: scaffold `app/` (Vite + React + TypeScript +
+- [x] **Phase 3 — Engine**: scaffold `app/` (Vite + React + TypeScript +
       Tailwind v4 via `@tailwindcss/vite` + Dexie + `vite-plugin-pwa` +
       Vitest); versioned schema and mutation layer per Product spec
       (transactional cascades, JSON export/import functions); scoring
