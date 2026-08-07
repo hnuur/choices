@@ -70,6 +70,11 @@ check "PLAN.md phase order sane"           phase_order_sane
 check "last phase-close followed ritual"   ritual_audit
 
 # --- Phase 2 appends here ----------------------------------------------------
+# (Phase 2 was a plan amendment; it added no environment assertions.)
+
+# --- Phase 3 appends here ----------------------------------------------------
+check "node available (app/ engine)"       command -v node
+check "app/package.json present"           test -f app/package.json
 
 echo
 if [ "$fails" -gt 0 ]; then

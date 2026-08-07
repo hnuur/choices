@@ -36,9 +36,9 @@ truth for what this project is, what gets built, and in what order.
   setting is local git config and does not travel with a clone; doctor asserts
   it first, so a fresh clone fails loudly until this is run.
 - **Dependencies**: hooks need bash/grep/sed/awk/tr; gate-phase1 needs perl
-  (in-place checkbox edits); doctor is currently pure bash+git (python3 lands
-  with the first JSON-parsing check). Fine on macOS/Linux; audit before a
-  container/CI or Windows target.
+  (in-place checkbox edits); gate-phase3 needs node/npm (engine vitest suite);
+  doctor is currently pure bash+git (python3 lands with the first JSON-parsing
+  check). Fine on macOS/Linux; audit before a container/CI or Windows target.
 - **Known accepted limits**: `--no-verify` and history rewrites cannot be
   locally prevented — they are declared violations, caught after the fact by
   doctor's ritual audit and `git log` review (PLAN.md states this too).
