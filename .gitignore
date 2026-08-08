@@ -1,5 +1,6 @@
 secrets/
 .qwen/
+.DS_Store
 
 # app build output and dependencies (Phase 3)
 node_modules/
