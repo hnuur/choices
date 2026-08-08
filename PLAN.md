@@ -212,7 +212,7 @@ choices/                         git repo
       normalization (incl. lower-better inversion, all-equal), weight
       renormalization, winner margin / near-tie flag, cascade integrity,
       export/import round-trip; doctor exits 0.
-- [ ] **Phase 4 — UI**: home list of decisions (`updatedAt` desc: name,
+- [x] **Phase 4 — UI**: home list of decisions (`updatedAt` desc: name,
       option count, winner preview, last edited; delete requires
       confirmation); decision view with 4 freely jumpable tabs
       (Dimensions / Options / Score / Results); Score tab as option-cards
