@@ -35,6 +35,19 @@ for the human verifier.
 - [ ] Reload the page; every decision, dimension, option and score persists
       (IndexedDB).
 
-## Phase 5 — install & data portability (added when Phase 5 lands)
+## Phase 5 — install, offline & data portability
 
-- [ ] Offline reload, standalone display, export → wipe → import.
+- [ ] On iPhone/iPad Safari the install hint is visible; follow Share → Add to
+      Home Screen and Choices opens standalone (no browser chrome). Installed
+      or on desktop, the hint stays hidden.
+- [ ] With the app loaded once, go offline (airplane mode) and reload: the
+      shell loads from the service-worker precache and every decision,
+      dimension, option and score loads from IndexedDB.
+- [ ] Open a fully-scored decision and tap Export backup: a .json file
+      downloads.
+- [ ] Wipe: delete that decision (two-step confirm), then Import backup from
+      the home screen and pick the file; the restored decision has identical
+      dimensions, importance weights, options and scores, and Results names
+      the same winner.
+- [ ] Import a file that is not a Choices backup; an error is shown and
+      nothing is created.

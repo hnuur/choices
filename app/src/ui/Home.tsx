@@ -1,11 +1,12 @@
-import { useState } from 'react'
-import { createDecision, deleteDecision } from '../mutations'
+import { useRef, useState, type ChangeEvent } from 'react'
+import { createDecision, deleteDecision, importDecision, ValidationError } from '../mutations'
 import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
-import type { Decision } from '../types'
+import type { Decision, DecisionExport } from '../types'
 import { useLiveQuery } from '../useLiveQuery'
-import { ConfirmButton, inputClass } from './bits'
+import { ConfirmButton, FieldError, inputClass } from './bits'
 import { timeAgo } from './format'
+import InstallHint from './InstallHint'
 
 function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
   const dimensions = data.dimensions.filter((d) => d.decisionId === decisionId)
@@ -35,6 +36,8 @@ function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
 export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   const data = useLiveQuery(queryHome, [])
   const [name, setName] = useState('')
+  const [importError, setImportError] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const create = async () => {
     const trimmed = name.trim()
@@ -42,6 +45,23 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
     const decision = await createDecision(trimmed)
     setName('')
     onOpen(decision.id)
+  }
+
+  const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // allow re-picking the same file after an error
+    if (!file) return
+    try {
+      const id = await importDecision(JSON.parse(await file.text()) as DecisionExport)
+      setImportError(null)
+      onOpen(id)
+    } catch (err) {
+      setImportError(
+        err instanceof ValidationError
+          ? err.message
+          : 'not a Choices backup file (invalid JSON)',
+      )
+    }
   }
 
   return (
@@ -67,6 +87,26 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           Create
         </button>
       </div>
+
+      <div className="mt-2">
+        <button
+          type="button"
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+          onClick={() => fileRef.current?.click()}
+        >
+          Import backup (.json)
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={(e) => void onImportFile(e)}
+        />
+        {importError && <FieldError message={importError} />}
+      </div>
+
+      <InstallHint />
 
       {data === undefined ? (
         <p className="mt-8 text-center text-sm text-slate-400">Loading…</p>

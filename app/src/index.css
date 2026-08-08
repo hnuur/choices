@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+/* black-translucent status bar lets the shell run under it when installed;
+   env() is 0 in browsers, so this only bites in standalone display. */
+body {
+  padding-top: env(safe-area-inset-top);
+}
