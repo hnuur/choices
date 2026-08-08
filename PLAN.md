@@ -227,7 +227,7 @@ choices/                         git repo
       `checks/gate-phase4.sh` passes — tsc and production build clean;
       documented manual checklist covers the full decision lifecycle
       end-to-end; doctor exits 0.
-- [ ] **Phase 5 — PWA & backup**: manifest, maskable + apple-touch icons,
+- [x] **Phase 5 — PWA & backup**: manifest, maskable + apple-touch icons,
       iOS install hint (Share → Add to Home Screen; iOS never fires an
       install prompt), `apple-mobile-web-app-capable` + status-bar styling,
       `navigator.storage.persist()` on startup (iOS evicts non-persisted
