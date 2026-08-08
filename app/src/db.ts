@@ -1,7 +1,10 @@
 // The only module that imports Dexie. Everything else goes through the
-// mutation layer (PLAN.md: "UI never touches Dexie directly").
+// mutation layer and typed queries (PLAN.md: "UI never touches Dexie directly").
 import Dexie, { type Table } from 'dexie'
 import type { Decision, Dimension, Option, Score } from './types'
+
+// Re-exported so reactive reads stay confined to db.ts too.
+export { liveQuery } from 'dexie'
 
 export class ChoicesDB extends Dexie {
   decisions!: Table<Decision, string>

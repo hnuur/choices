@@ -1,10 +1,16 @@
+import { useState } from 'react'
+import DecisionView from './ui/DecisionView'
+import Home from './ui/Home'
+
 export default function App() {
-  // UI lands in Phase 4; Phase 3 is engine-only (schema, mutations, scoring).
+  const [decisionId, setDecisionId] = useState<string | null>(null)
   return (
-    <main className="flex min-h-dvh items-center justify-center">
-      <p className="text-sm text-slate-500">
-        Choices — engine in place, UI arrives in Phase 4.
-      </p>
-    </main>
+    <div className="min-h-dvh bg-slate-50 text-slate-900">
+      {decisionId === null ? (
+        <Home onOpen={setDecisionId} />
+      ) : (
+        <DecisionView key={decisionId} id={decisionId} onBack={() => setDecisionId(null)} />
+      )}
+    </div>
   )
 }

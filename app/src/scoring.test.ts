@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   NEAR_TIE_MARGIN,
+  breakEvenProbes,
+  dropOneProbes,
   normalizeObjective,
   rankOptions,
   subjectiveScore,
@@ -197,5 +199,80 @@ describe('rankOptions — non-discriminating dimensions', () => {
       ],
     )
     expect(r.nonDiscriminating).toEqual([])
+  })
+})
+
+describe('sensitivity — break-even importance', () => {
+  // d1 favors A, d2 (importance 5) favors B; B wins 5/6 vs 1/6.
+  const d1 = dim({ id: 'd1', importance: 1 })
+  const d2 = dim({ id: 'd2', importance: 5 })
+  const [a, b] = [opt('a'), opt('b')]
+  const scores: Score[] = [
+    { optionId: 'a', dimensionId: 'd1', value: 10 },
+    { optionId: 'b', dimensionId: 'd1', value: 0 },
+    { optionId: 'a', dimensionId: 'd2', value: 0 },
+    { optionId: 'b', dimensionId: 'd2', value: 10 },
+  ]
+
+  it('finds the smallest importance at which the challenger leads', () => {
+    // A on d1: A(w) = w/(w+5) ≥ B(w) = 5/(w+5) first holds at w = 5 (a tie).
+    expect(breakEvenProbes([d1, d2], [a, b], scores)).toEqual([
+      { optionId: 'a', dimensionId: 'd1', importanceNeeded: 5 },
+    ])
+  })
+
+  it('requires leading the whole field, not just catching the winner', () => {
+    // d1 raw 8/10/0 favors b over a over c; d2 makes c the winner. Raising
+    // d1's importance can never put a ahead of b, so a gets no probe even
+    // though it closes on c; b takes the field at importance 2.
+    const w1 = dim({ id: 'd1', importance: 1 })
+    const w2 = dim({ id: 'd2', importance: 2 })
+    const [x, y, z] = [opt('a'), opt('b'), opt('c')]
+    const s: Score[] = [
+      { optionId: 'a', dimensionId: 'd1', value: 8 },
+      { optionId: 'b', dimensionId: 'd1', value: 10 },
+      { optionId: 'c', dimensionId: 'd1', value: 0 },
+      { optionId: 'a', dimensionId: 'd2', value: 0 },
+      { optionId: 'b', dimensionId: 'd2', value: 0 },
+      { optionId: 'c', dimensionId: 'd2', value: 10 },
+    ]
+    expect(breakEvenProbes([w1, w2], [x, y, z], s)).toEqual([
+      { optionId: 'b', dimensionId: 'd1', importanceNeeded: 2 },
+    ])
+  })
+
+  it('stays silent without results', () => {
+    expect(breakEvenProbes([d1], [a], [{ optionId: 'a', dimensionId: 'd1', value: 1 }])).toEqual([])
+    expect(breakEvenProbes([d1], [a, b], [{ optionId: 'a', dimensionId: 'd1', value: 1 }])).toEqual([])
+  })
+})
+
+describe('sensitivity — drop-one-dimension', () => {
+  it('flags dimensions whose removal flips the winner', () => {
+    const d1 = dim({ id: 'd1', importance: 1 })
+    const d2 = dim({ id: 'd2', importance: 5 })
+    const [a, b] = [opt('a'), opt('b')]
+    const scores: Score[] = [
+      { optionId: 'a', dimensionId: 'd1', value: 10 },
+      { optionId: 'b', dimensionId: 'd1', value: 0 },
+      { optionId: 'a', dimensionId: 'd2', value: 0 },
+      { optionId: 'b', dimensionId: 'd2', value: 10 },
+    ]
+    // B wins overall; drop d2 and only A-favoring d1 remains.
+    expect(dropOneProbes([d1, d2], [a, b], scores)).toEqual([
+      { dimensionId: 'd2', newWinnerId: 'a' },
+    ])
+  })
+
+  it('stays silent without results or with a single dimension', () => {
+    const d1 = dim({ id: 'd1' })
+    const [a, b] = [opt('a'), opt('b')]
+    expect(
+      dropOneProbes([d1], [a, b], [
+        { optionId: 'a', dimensionId: 'd1', value: 1 },
+        { optionId: 'b', dimensionId: 'd1', value: 0 },
+      ]),
+    ).toEqual([])
+    expect(dropOneProbes([d1, dim({ id: 'd2' })], [a, b], [])).toEqual([])
   })
 })

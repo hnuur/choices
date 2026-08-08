@@ -124,3 +124,91 @@ export function rankOptions(
     nonDiscriminating,
   }
 }
+
+// --- sensitivity probes (PLAN.md Phase 4 stretch) ------------------------------
+// Pure re-rankings over the same full matrix; they only exist when results
+// exist (complete matrix, ≥2 options), so they can never show a stale picture.
+
+export interface BreakEvenProbe {
+  optionId: string
+  dimensionId: string
+  /** Smallest integer importance at which this option leads (ties included). */
+  importanceNeeded: number
+}
+
+/**
+ * "If <dimension> mattered at <importanceNeeded>+ instead of <current>, the
+ * winner flips to <option>." For every non-winning option × dimension the
+ * option scores better than the winner on, find the smallest importance
+ * (current+1..5) at which the option leads the whole field.
+ */
+export function breakEvenProbes(
+  dimensions: Dimension[],
+  options: Option[],
+  scores: Score[],
+): BreakEvenProbe[] {
+  const results = rankOptions(dimensions, options, scores)
+  if (!results.complete || !results.winner || results.ranking.length < 2) return []
+  const winner = results.winner
+
+  const norm = new Map<string, number>()
+  for (const r of results.ranking) {
+    for (const d of dimensions) norm.set(`${r.option.id}\u0000${d.id}`, r.cells[d.id].normalized)
+  }
+  const totalWith = (dimensionId: string, importance: number, optionId: string): number => {
+    let weightSum = 0
+    let weighted = 0
+    for (const d of dimensions) {
+      const w = d.id === dimensionId ? importance : d.importance
+      weightSum += w
+      weighted += w * norm.get(`${optionId}\u0000${d.id}`)!
+    }
+    return weighted / weightSum
+  }
+
+  const probes: BreakEvenProbe[] = []
+  for (const result of results.ranking.slice(1)) {
+    for (const d of dimensions) {
+      const challenger = result.cells[d.id].normalized
+      if (challenger <= winner.cells[d.id].normalized) continue
+      for (let w = d.importance + 1; w <= 5; w++) {
+        const mine = totalWith(d.id, w, result.option.id)
+        const leads = results.ranking.every(
+          (r) => r.option.id === result.option.id || mine >= totalWith(d.id, w, r.option.id) - 1e-9,
+        )
+        if (leads) {
+          probes.push({ optionId: result.option.id, dimensionId: d.id, importanceNeeded: w })
+          break
+        }
+      }
+    }
+  }
+  return probes
+}
+
+export interface DropDimensionProbe {
+  dimensionId: string
+  newWinnerId: string
+}
+
+/** Removing which single dimensions flips the winner. */
+export function dropOneProbes(
+  dimensions: Dimension[],
+  options: Option[],
+  scores: Score[],
+): DropDimensionProbe[] {
+  const base = rankOptions(dimensions, options, scores)
+  if (!base.complete || !base.winner || options.length < 2 || dimensions.length < 2) return []
+  const probes: DropDimensionProbe[] = []
+  for (const d of dimensions) {
+    const result = rankOptions(
+      dimensions.filter((x) => x.id !== d.id),
+      options,
+      scores.filter((s) => s.dimensionId !== d.id),
+    )
+    if (result.complete && result.winner && result.winner.option.id !== base.winner.option.id) {
+      probes.push({ dimensionId: d.id, newWinnerId: result.winner.option.id })
+    }
+  }
+  return probes
+}
