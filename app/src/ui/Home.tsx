@@ -88,6 +88,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
               >
                 <div className="truncate font-medium">{decision.name}</div>
                 <div className="mt-0.5 text-xs text-slate-500">
+                  {data.options.filter((o) => o.decisionId === decision.id).length} options ·{' '}
                   <Preview decisionId={decision.id} data={data} /> · edited{' '}
                   {timeAgo(decision.updatedAt)}
                 </div>

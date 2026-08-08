@@ -128,7 +128,7 @@ export default function ResultsTab({
                     If <span className="font-medium">{d.name}</span> had importance ≥{' '}
                     {p.importanceNeeded} (now {d.importance}),{' '}
                     <span className="font-medium">{optionById.get(p.optionId)!.name}</span> would
-                    win.
+                    lead.
                   </li>
                 )
               })}
