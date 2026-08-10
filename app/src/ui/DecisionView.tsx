@@ -33,7 +33,9 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
       a.href = url
       a.download = `choices-${bundle.decision.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'decision'}.json`
       a.click()
-      URL.revokeObjectURL(url)
+      // iOS Safari only fetches the blob once the user confirms its download
+      // dialog, so an immediate revoke kills the download (seen on iOS 18.2).
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
       setExportNote('Backup saved.')
     } catch {
       setExportNote('Export failed.')
