@@ -337,7 +337,7 @@ choices/                         git repo
       dark-theme visual criteria (tokens, ••• menu, underline tabs,
       winner banner, bar normalization + weight encoding, bottom bar,
       self-hosted fonts offline); doctor exits 0.
-- [ ] **Phase 9 — Home redesign (landing)**: the home screen becomes the
+- [x] **Phase 9 — Home redesign (landing)**: the home screen becomes the
       designed landing the user mocked on 2026-08-11: composer as one
       rounded unit — input and Create inside a single field, Create a
       cyan gradient pill — with tappable starter prompts below that seed
