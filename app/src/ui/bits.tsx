@@ -72,7 +72,7 @@ export function ImportancePicker({
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          className={`h-8 w-8 rounded-md text-sm font-medium ${
+          className={`h-11 w-11 rounded-md text-sm font-medium ${
             n === value ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
           }`}
         >
@@ -88,4 +88,4 @@ export function FieldError({ message }: { message: string }) {
 }
 
 export const inputClass =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none'
+  'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none'

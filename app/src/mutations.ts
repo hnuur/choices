@@ -130,9 +130,11 @@ export async function addDimension(
 export interface DimensionPatch {
   name?: string
   kind?: Dimension['kind']
-  direction?: Dimension['direction']
+  /** null clears the direction (required when switching to subjective). */
+  direction?: Dimension['direction'] | null
   importance?: number
-  unit?: string
+  /** null clears the unit. */
+  unit?: string | null
 }
 
 /**
@@ -143,7 +145,17 @@ export interface DimensionPatch {
 export async function updateDimension(id: string, patch: DimensionPatch): Promise<void> {
   const dimension = await db.dimensions.get(id)
   if (!dimension) throw new ValidationError(`dimension ${id} does not exist`)
-  const merged = { ...dimension, ...patch }
+  // null clears (the JSON-safe form, used by AI patches); an explicit
+  // undefined value clears too (key present), matching the pre-Phase-6
+  // semantics relied on by the UI forms.
+  const clearsDirection = patch.direction === null || ('direction' in patch && patch.direction === undefined)
+  const clearsUnit = patch.unit === null || ('unit' in patch && patch.unit === undefined)
+  const merged: Dimension = {
+    ...dimension,
+    ...patch,
+    direction: clearsDirection ? undefined : patch.direction ?? dimension.direction,
+    unit: clearsUnit ? undefined : patch.unit ?? dimension.unit,
+  }
   validateDimensionFields(merged)
   await db.transaction('rw', db.dimensions, db.scores, async () => {
     if (patch.kind !== undefined && patch.kind !== dimension.kind) {

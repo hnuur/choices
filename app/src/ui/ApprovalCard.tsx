@@ -19,7 +19,7 @@ const TYPE_LABEL: Record<Proposal['type'], string> = {
 }
 
 const smallSelect =
-  'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-sky-500 focus:outline-none'
+  'w-full rounded-md border border-slate-300 bg-white px-2 py-2.5 text-sm focus:border-sky-500 focus:outline-none'
 
 function rowInvalid(p: Proposal): boolean {
   switch (p.type) {
@@ -132,19 +132,23 @@ export default function ApprovalCard({
     return (
       <div className="rounded-xl bg-white p-3 shadow-sm">
         <p className="text-sm font-medium text-slate-700">
-          {applied === outcomes.length
-            ? `${applied} ${applied === 1 ? 'change' : 'changes'} applied`
-            : `${applied} applied, ${outcomes.length - applied} failed`}
+          {outcomes.length === 0
+            ? 'Rejected — nothing changed'
+            : applied === outcomes.length
+              ? `${applied} ${applied === 1 ? 'change' : 'changes'} applied`
+              : `${applied} applied, ${outcomes.length - applied} failed`}
         </p>
-        <ul className="mt-2 space-y-1">
-          {outcomes.map((o) => (
-            <li key={o.index} className="text-xs text-slate-600">
-              <span className={o.ok ? 'text-emerald-600' : 'text-red-600'}>{o.ok ? '✓' : '✗'}</span>{' '}
-              {o.label}
-              {!o.ok && o.error && <span className="text-red-600"> — {o.error}</span>}
-            </li>
-          ))}
-        </ul>
+        {outcomes.length > 0 && (
+          <ul className="mt-2 space-y-1">
+            {outcomes.map((o) => (
+              <li key={o.index} className="text-xs text-slate-600">
+                <span className={o.ok ? 'text-emerald-600' : 'text-red-600'}>{o.ok ? '✓' : '✗'}</span>{' '}
+                {o.label}
+                {!o.ok && o.error && <span className="text-red-600"> — {o.error}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     )
   }
@@ -165,7 +169,7 @@ export default function ApprovalCard({
               <button
                 type="button"
                 aria-label="Remove row"
-                className="h-7 w-7 rounded-md text-slate-400 hover:bg-slate-200"
+                className="h-11 w-11 rounded-md text-lg text-slate-400 hover:bg-slate-200"
                 onClick={() => remove(i)}
               >
                 ×
@@ -185,6 +189,75 @@ export default function ApprovalCard({
                     className={inputClass}
                     value={p.patch.name}
                     onChange={(e) => update(i, { ...p, patch: { ...p.patch, name: e.target.value } })}
+                  />
+                )}
+                {p.patch.kind !== undefined && (
+                  <>
+                    <div className="flex gap-1">
+                      {(['objective', 'subjective'] as const).map((kind) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          onClick={() =>
+                            update(i, {
+                              ...p,
+                              patch:
+                                kind === 'subjective'
+                                  ? { ...p.patch, kind, direction: null }
+                                  : {
+                                      ...p.patch,
+                                      kind,
+                                      direction:
+                                        p.patch.direction === 'higher' || p.patch.direction === 'lower'
+                                          ? p.patch.direction
+                                          : 'higher',
+                                    },
+                            })
+                          }
+                          className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium ${
+                            p.patch.kind === kind ? 'bg-sky-500 text-white' : 'bg-white text-slate-600'
+                          }`}
+                        >
+                          {kind}
+                        </button>
+                      ))}
+                    </div>
+                    {bundle.dimensions.find((d) => d.id === p.id)?.kind !== p.patch.kind && (
+                      <p className="text-xs text-amber-600">
+                        Changing the kind clears this dimension's scores.
+                      </p>
+                    )}
+                  </>
+                )}
+                {p.patch.direction !== undefined && p.patch.kind !== 'subjective' && (
+                  <div className="flex gap-1">
+                    {(['higher', 'lower'] as const).map((direction) => (
+                      <button
+                        key={direction}
+                        type="button"
+                        onClick={() => update(i, { ...p, patch: { ...p.patch, direction } })}
+                        className={`flex-1 rounded-md px-2 py-1.5 text-sm ${
+                          p.patch.direction === direction
+                            ? 'bg-sky-500 text-white'
+                            : 'bg-white text-slate-600'
+                        }`}
+                      >
+                        {direction} is better
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {p.patch.unit !== undefined && (
+                  <input
+                    className={inputClass}
+                    placeholder="Unit (empty clears)"
+                    value={p.patch.unit ?? ''}
+                    onChange={(e) =>
+                      update(i, {
+                        ...p,
+                        patch: { ...p.patch, unit: e.target.value.trim() === '' ? null : e.target.value.trim() },
+                      })
+                    }
                   />
                 )}
                 {p.patch.importance !== undefined && (
@@ -299,14 +372,14 @@ export default function ApprovalCard({
         <button
           type="button"
           disabled={proposals.length === 0 || invalid}
-          className="w-full rounded-md bg-sky-500 py-2.5 text-sm font-semibold text-white enabled:hover:bg-sky-600 disabled:opacity-40"
+          className="w-full rounded-md bg-sky-500 py-3 text-sm font-semibold text-white enabled:hover:bg-sky-600 disabled:opacity-40"
           onClick={() => onApply(proposals)}
         >
           Approve{proposals.length > 0 ? ` (${proposals.length})` : ''}
         </button>
         <button
           type="button"
-          className="w-full rounded-md py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-100"
+          className="w-full rounded-md py-3 text-sm font-medium text-slate-500 hover:bg-slate-100"
           onClick={onReject}
         >
           Reject

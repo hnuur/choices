@@ -12,6 +12,7 @@ export function createQuota(limit, now = () => new Date()) {
   const usage = new Map()
   return {
     take(token) {
+      if (!Number.isFinite(limit) || limit <= 0) return { ok: false, remaining: 0 }
       const day = utcDay(now())
       const entry = usage.get(token)
       if (!entry || entry.day !== day) {
@@ -25,11 +26,24 @@ export function createQuota(limit, now = () => new Date()) {
   }
 }
 
+const MAX_BODY_BYTES = 1024 * 1024
+
+// Resolves null when the body exceeds the cap (buffering stops at the cap,
+// so memory stays bounded); the caller answers 413.
 const readBody = (req) =>
   new Promise((resolve, reject) => {
     const chunks = []
-    req.on('data', (c) => chunks.push(c))
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+    let size = 0
+    let tooLarge = false
+    req.on('data', (c) => {
+      size += c.length
+      if (size > MAX_BODY_BYTES) {
+        tooLarge = true
+        return
+      }
+      chunks.push(c)
+    })
+    req.on('end', () => resolve(tooLarge ? null : Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
 
@@ -83,9 +97,18 @@ export function createRelayServer({
           },
         })
       }
+      let raw
+      try {
+        raw = await readBody(req)
+      } catch {
+        return sendJson(res, 400, { error: { message: 'Body unreadable' } })
+      }
+      if (raw === null) {
+        return sendJson(res, 413, { error: { message: 'Body too large' } })
+      }
       let payload
       try {
-        payload = JSON.parse(await readBody(req))
+        payload = JSON.parse(raw)
       } catch {
         return sendJson(res, 400, { error: { message: 'Body must be JSON' } })
       }

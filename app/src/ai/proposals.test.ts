@@ -99,6 +99,28 @@ describe('parseReply', () => {
     ).toThrowError(/at least one field/)
   })
 
+  it('accepts null direction/unit in patches (clearing)', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({
+        proposals: [
+          { type: 'updateDimension', id: 'd1', patch: { kind: 'subjective', direction: null } },
+          { type: 'updateDimension', id: 'd2', patch: { unit: null } },
+        ],
+      })),
+    )
+    expect(parsed.proposals).toHaveLength(2)
+    const first = parsed.proposals[0]
+    expect(first.type === 'updateDimension' && first.patch.direction).toBeNull()
+  })
+
+  it('rejects invalid direction values in patches', () => {
+    expect(() =>
+      parseReply(fence(JSON.stringify({
+        proposals: [{ type: 'updateDimension', id: 'd1', patch: { direction: 'sideways' } }],
+      }))),
+    ).toThrowError(/direction/)
+  })
+
   it('rejects non-array proposals', () => {
     expect(() => parseReply(fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o' } })))).toThrowError(/must be an array/)
   })

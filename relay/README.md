@@ -28,7 +28,7 @@ node server.js
 | ---------------- | -------------------------------------------------- |
 | `RELAY_UPSTREAM` | OpenAI-compatible base URL to forward to           |
 | `RELAY_API_KEY`  | the operator's key for that upstream               |
-| `RELAY_QUOTA`    | chat requests per token per UTC day (default 10)   |
+| `RELAY_QUOTA`    | chat requests per token per UTC day (default 10; 0 disables free use) |
 | `RELAY_MODEL`    | if set, overrides the model in every request       |
 | `PORT`           | listen port (default 8787)                         |
 

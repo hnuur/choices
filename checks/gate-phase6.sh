@@ -89,7 +89,7 @@ CL="$APP/MANUAL-CHECKLIST.md"
 [ -f "$CL" ] || fail "manual checklist missing"
 items=$(grep -c '^- \[' "$CL" || true)
 [ "$items" -ge 25 ] || fail "checklist too thin ($items items)"
-for kw in 'Validate key' 'OpenAI' 'Anthropic' 'Gemini' 'custom endpoint' quota 'Approve' 'Reject' peek chip 'Ask AI'; do
+for kw in 'Validate key' 'OpenAI' 'Anthropic' 'Gemini' 'custom endpoint' quota 'Approve' 'Reject' peek chip 'Ask AI' malformed dismiss; do
   grep -qi "$kw" "$CL" || fail "checklist missing Phase-6 step: $kw"
 done
 ok "manual checklist covers the Phase-6 lifecycle ($items items)"

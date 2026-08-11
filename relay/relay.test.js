@@ -120,6 +120,28 @@ describe('relay', () => {
     await relay.close()
   })
 
+  it('quota 0 grants no free requests', async () => {
+    const { relay, url } = await startRelay({ quota: 0 })
+    const res = await fetch(`${url}/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      body: JSON.stringify({ messages: [] }),
+    })
+    assert.equal(res.status, 429)
+    await relay.close()
+  })
+
+  it('rejects bodies over 1 MB', async () => {
+    const { relay, url } = await startRelay()
+    const res = await fetch(`${url}/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer tok' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'x'.repeat(1.5 * 1024 * 1024) }] }),
+    })
+    assert.equal(res.status, 413)
+    await relay.close()
+  })
+
   it('passes upstream error statuses through', async () => {
     const failing = createServer((req, res) => {
       res.writeHead(500, { 'content-type': 'application/json' })

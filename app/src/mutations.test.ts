@@ -174,6 +174,20 @@ describe('updateDimension', () => {
     expect(await db.scores.count()).toBe(0)
     expect((await db.dimensions.get(weight.id))!.kind).toBe('subjective')
   })
+
+  it('patch null clears direction/unit (JSON-safe form used by AI patches)', async () => {
+    const { weight, sony } = await buildDecision()
+    await setScore(sony.id, weight.id, 500)
+    await updateDimension(weight.id, { kind: 'subjective', direction: null })
+    const after = await db.dimensions.get(weight.id)
+    expect(after!.kind).toBe('subjective')
+    expect(after!.direction).toBeUndefined()
+    expect(await db.scores.count()).toBe(0)
+
+    const { sexiness } = await buildDecision()
+    await updateDimension(sexiness.id, { unit: null })
+    expect((await db.dimensions.get(sexiness.id))!.unit).toBeUndefined()
+  })
 })
 
 describe('export / import', () => {

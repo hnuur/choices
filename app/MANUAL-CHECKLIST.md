@@ -88,5 +88,11 @@ mobile-width viewport.
 - [ ] Break the setup (bad key or unreachable endpoint) and send a
       message: the error is shown visibly in the chat; the app stays
       usable and nothing is written.
+- [ ] Malformed proposals error visibly and write nothing: point the
+      custom endpoint at a stub whose reply contains a broken ```json
+      block, send a message; the chat shows "Couldn't read the suggested
+      changes" and the decision is untouched.
+- [ ] Dismiss the sheet with ✕; the transcript survives reopening within
+      the same session; a page reload resets it (ephemeral).
 - [ ] Reload the page: chat transcripts are gone (ephemeral); the decision
       itself persists.

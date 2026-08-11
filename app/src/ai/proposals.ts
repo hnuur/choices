@@ -91,12 +91,13 @@ function parseDimensionPatch(v: unknown, label: string): DimensionPatch {
     patch.kind = obj.kind
   }
   if (obj.direction !== undefined) {
-    if (obj.direction !== 'higher' && obj.direction !== 'lower') {
-      fail(`${label}.direction must be "higher" or "lower"`)
-    }
-    patch.direction = obj.direction
+    if (obj.direction === null) patch.direction = null
+    else if (obj.direction === 'higher' || obj.direction === 'lower') patch.direction = obj.direction
+    else fail(`${label}.direction must be "higher", "lower" or null`)
   }
-  if (obj.unit !== undefined) patch.unit = requireString(obj.unit, `${label}.unit`)
+  if (obj.unit !== undefined) {
+    patch.unit = obj.unit === null ? null : requireString(obj.unit, `${label}.unit`)
+  }
   return patch
 }
 
