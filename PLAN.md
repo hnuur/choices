@@ -284,7 +284,7 @@ choices/                         git repo
       user-edited), reject changes nothing, malformed proposal errors
       visibly, chat sheet lifecycle (open, context chip follows/switches
       tab, approve → peek, dismiss); doctor exits 0.
-- [ ] **Phase 7 — Voice ramble input** (promoted from Deferred, amendment
+- [x] **Phase 7 — Voice ramble input** (promoted from Deferred, amendment
       2026-08-11): a home-screen mic button records a voice ramble —
       MediaRecorder with supported-mimeType detection (Safari records
       AAC/mp4) and a recording UI; STT transcribes it — Whisper
