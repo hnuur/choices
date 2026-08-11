@@ -250,3 +250,13 @@ Chat with a configured provider, in a mobile-width viewport.
       speech; reopening starts silent until the next reply.
 - [ ] Reload: the transcript is gone (ephemeral) but the voice setting
       persists.
+
+## Phase 11 — ramble sheet voice parity
+
+- [ ] The ramble sheet header carries the same VOICE ON/OFF toggle as
+      the chat sheet; flipping it in one sheet is reflected when the
+      other is reopened (one shared persisted setting).
+- [ ] With voice on, a ramble's prose reply is read aloud (neural on
+      openai, on-device elsewhere); a skeleton-card reply reads only
+      the prose intro, never the card.
+- [ ] Closing the ramble sheet stops any speech in flight.
