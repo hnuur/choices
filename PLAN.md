@@ -374,7 +374,7 @@ choices/                         git repo
       chat wiring asserted (toggle, speak-on-reply, stop-on-close, card
       outcomes in history); checklist carries the voice-reply criteria;
       doctor exits 0.
-- [ ] **Phase 11 — Ramble sheet voice parity**: the ramble sheet carries
+- [x] **Phase 11 — Ramble sheet voice parity**: the ramble sheet carries
       the same persisted VOICE ON/OFF setting as the chat sheet (one
       toggle, shared — flipping it in either sheet is reflected in the
       other) and speaks its assistant replies with the same engine
