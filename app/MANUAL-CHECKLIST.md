@@ -187,3 +187,35 @@ Visual pass in a mobile-width viewport (simulator or phone too, if handy).
 - [ ] Offline reload (airplane mode): the shell and the self-hosted fonts
       load from the precache — Inter Tight / JetBrains Mono render, not
       system fallbacks.
+
+## Phase 9 — home redesign (landing)
+
+Landing pass in a mobile-width viewport, against the 2026-08-11 mock.
+
+- [ ] Composer is one rounded field: "What are you deciding?" input with
+      the Create pill inside at the right (cyan gradient with a soft
+      glow); Enter and Create both create and open the decision.
+- [ ] Tapping a starter prompt (Next camera / Where to live / Which
+      offer) seeds the input without creating; chips are dashed pills.
+- [ ] Ramble it and Import backup are equal-width quiet buttons; Ramble
+      it carries the cyan dot, still greys out with its note on
+      anthropic/relay, and import errors still surface below.
+- [ ] Mono section header reads "YOUR DECISIONS · N"; the RECENT ▾ menu
+      offers Recent and A–Z and re-sorts the list live; tapping outside
+      closes it.
+- [ ] A fully-scored decision's row: full cyan progress bar, cyan WINNER
+      chip, leading "Name · NN%" line, mono "N DIM · M OPT" at the bar's
+      end, mono uppercase timestamp at the right.
+- [ ] A partially-scored row: partial cyan bar, grey SCORING chip, "X of
+      Y scored"; a draft row: grey stub bar, grey DRAFT chip, "Add
+      options to start" (or "Add dimensions to start").
+- [ ] Timestamps read JUST NOW / NM AGO / NH AGO / YESTERDAY / ND AGO,
+      and MON D (e.g. MAR 4) once a week old.
+- [ ] Row Delete is muted grey, reddens on hover, and still requires the
+      two-step confirm; the same muted style shows in the edit tabs.
+- [ ] Dashed footer note reads "Decisions stay on this device. Export a
+      backup to keep them." and closes the screen — no dead space below
+      the list.
+- [ ] Tap targets ≥44px across composer, starter chips, secondaries,
+      sort and Delete; the composer input stays 16px so iOS does not
+      zoom on focus.
