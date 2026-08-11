@@ -216,6 +216,7 @@ Landing pass in a mobile-width viewport, against the 2026-08-11 mock.
 - [ ] Dashed footer note reads "Decisions stay on this device. Export a
       backup to keep them." and closes the screen — no dead space below
       the list.
-- [ ] Tap targets ≥44px across composer, starter chips, secondaries,
-      sort and Delete; the composer input stays 16px so iOS does not
-      zoom on focus.
+- [ ] Rows open from a full-card tap (Delete sits above the tap layer);
+      controls ≥44px across composer, starter chips, secondaries, sort
+      and Delete; the composer input stays 16px and its field shows an
+      accent border on focus.

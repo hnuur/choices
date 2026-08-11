@@ -52,15 +52,18 @@ function Row({
         : 'Add dimensions to start'
 
   return (
-    <li className="rounded-2xl border border-hairline bg-surface p-4">
+    <li className="relative rounded-2xl border border-hairline bg-surface p-4">
+      {/* full-card tap target; Delete sits above it */}
+      <button
+        type="button"
+        aria-label={`Open ${decision.name}`}
+        className="absolute inset-0 z-0 rounded-2xl"
+        onClick={() => onOpen(decision.id)}
+      />
       <div className="flex items-baseline justify-between gap-3">
-        <button
-          type="button"
-          className="min-w-0 flex-1 truncate text-left text-[17px] font-bold tracking-[-0.3px]"
-          onClick={() => onOpen(decision.id)}
-        >
+        <div className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-[-0.3px]">
           {decision.name}
-        </button>
+        </div>
         <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-4">
           {timeAgo(decision.updatedAt)}
         </span>
@@ -86,20 +89,20 @@ function Row({
         >
           {status}
         </span>
-        <button
-          type="button"
-          className={`min-w-0 flex-1 truncate text-left text-sm ${
+        <div
+          className={`min-w-0 flex-1 truncate text-sm ${
             status === 'winner'
               ? 'font-medium text-ink'
               : status === 'scoring'
                 ? 'text-ink-2'
                 : 'text-ink-3'
           }`}
-          onClick={() => onOpen(decision.id)}
         >
           {leading}
-        </button>
-        <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
+        </div>
+        <div className="relative z-10">
+          <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
+        </div>
       </div>
     </li>
   )
@@ -151,7 +154,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         Weigh what matters, then decide with the numbers in front of you.
       </p>
 
-      <div className="mt-5 flex items-center gap-2 rounded-2xl border border-hairline bg-surface py-1.5 pl-4 pr-1.5">
+      <div className="mt-5 flex items-center gap-2 rounded-2xl border border-hairline bg-surface py-1.5 pl-4 pr-1.5 focus-within:border-accent">
         <input
           className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-4 focus:outline-none"
           placeholder="What are you deciding?"
