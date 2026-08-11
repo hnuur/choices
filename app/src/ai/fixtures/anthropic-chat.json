@@ -1,0 +1,14 @@
+{
+  "id": "msg_recorded_phase6",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-3-5-haiku-latest",
+  "content": [
+    {
+      "type": "text",
+      "text": "Weight and price are good starting points.\n```json\n{\"message\":\"Two dimensions to start with.\",\"proposals\":[{\"type\":\"addDimension\",\"dimension\":{\"name\":\"Weight\",\"kind\":\"objective\",\"direction\":\"lower\",\"importance\":3,\"unit\":\"g\"}}]}\n```"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": { "input_tokens": 412, "output_tokens": 71 }
+}

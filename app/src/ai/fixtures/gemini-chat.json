@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "Weight and price are good starting points.\n```json\n{\"message\":\"Two dimensions to start with.\",\"proposals\":[{\"type\":\"addDimension\",\"dimension\":{\"name\":\"Weight\",\"kind\":\"objective\",\"direction\":\"lower\",\"importance\":3,\"unit\":\"g\"}}]}\n```"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 412, "candidatesTokenCount": 71, "totalTokenCount": 483 }
+}

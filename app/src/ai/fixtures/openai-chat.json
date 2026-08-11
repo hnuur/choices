@@ -1,0 +1,17 @@
+{
+  "id": "chatcmpl-recorded-phase6",
+  "object": "chat.completion",
+  "created": 1754900000,
+  "model": "gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Weight and price are good starting points.\n```json\n{\"message\":\"Two dimensions to start with.\",\"proposals\":[{\"type\":\"addDimension\",\"dimension\":{\"name\":\"Weight\",\"kind\":\"objective\",\"direction\":\"lower\",\"importance\":3,\"unit\":\"g\"}}]}\n```"
+      },
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": { "prompt_tokens": 412, "completion_tokens": 71, "total_tokens": 483 }
+}
