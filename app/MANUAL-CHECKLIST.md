@@ -141,6 +141,14 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       ramble flow works inside the standalone app too.
 - [ ] Reload the page: ramble transcripts and cards are gone (ephemeral);
       created decisions persist.
+- [ ] Ramble from a decision: the bottom bar shows a mic button beside
+      Ask AI (greyed when the provider has no STT or the page is not
+      secure); tap it, record, stop — the transcript lands in that
+      decision's chat as a user bubble and the AI answers there with
+      proposals/approval card; approve applies to the current decision
+      and the bar shows "Changes applied · HH:MM".
+- [ ] Home ramble unchanged: still creates a whole new decision skeleton
+      (createDecision card), never touching an existing decision's chat.
 
 ## Phase 8 — dark redesign
 

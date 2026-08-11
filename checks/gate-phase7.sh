@@ -89,7 +89,15 @@ grep -q 'supportsStt' "$APP/src/ui/Home.tsx" || fail "home lacks the greyed-mic 
 grep -q 'RambleSheet' "$APP/src/ui/Home.tsx" || fail "home lacks the ramble entry point"
 ok "recorder + sheet wiring (mimeType probe, insecure message, greyed mic) present"
 
-# NT10: checklist covers the Phase-7 lifecycle
+# NT10: ramble-everywhere wiring (decision-view mic → chat injection)
+grep -q 'aria-label="Ramble"' "$APP/src/ui/DecisionView.tsx" || fail "decision bottom bar lacks the mic button"
+grep -q 'supportsStt' "$APP/src/ui/DecisionView.tsx" || fail "decision mic lacks the greyed-STT guard"
+grep -q 'onTranscript' "$APP/src/ui/DecisionView.tsx" || fail "decision view does not hand the transcript to the chat"
+grep -q 'onTranscript' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the transcript hand-off mode"
+grep -q 'injection' "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet lacks transcript injection"
+ok "ramble-everywhere wiring (mic in bottom bar, transcript → chat) present"
+
+# NT11: checklist covers the Phase-7 lifecycle
 CL="$APP/MANUAL-CHECKLIST.md"
 [ -f "$CL" ] || fail "manual checklist missing"
 items=$(grep -c '^- \[' "$CL" || true)
@@ -99,7 +107,7 @@ for kw in Ramble transcript HTTPS iPhone standalone Reject Anthropic permission 
 done
 ok "manual checklist covers the Phase-7 lifecycle ($items items)"
 
-# NT11: doctor green
+# NT12: doctor green
 bash checks/doctor.sh >/dev/null || fail "doctor failed"
 ok "doctor exits 0"
 
