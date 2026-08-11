@@ -58,7 +58,7 @@ function DimensionForm({
   }
 
   return (
-    <div className="space-y-3 rounded-xl bg-slate-50 p-3">
+    <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
       <input
         className={inputClass}
         placeholder="Dimension name — e.g. weight, sexiness"
@@ -71,8 +71,10 @@ function DimensionForm({
             key={kind}
             type="button"
             onClick={() => patch({ kind })}
-            className={`flex-1 rounded-md px-2 py-1.5 text-sm font-medium ${
-              form.kind === kind ? 'bg-sky-500 text-white' : 'bg-white text-slate-600'
+            className={`flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
+              form.kind === kind
+                ? 'bg-accent font-semibold text-on-accent'
+                : 'bg-hover text-ink-2 hover:bg-white/9'
             }`}
           >
             {kind}
@@ -87,8 +89,10 @@ function DimensionForm({
                 key={direction}
                 type="button"
                 onClick={() => patch({ direction })}
-                className={`flex-1 rounded-md px-2 py-1.5 text-sm ${
-                  form.direction === direction ? 'bg-sky-500 text-white' : 'bg-white text-slate-600'
+                className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                  form.direction === direction
+                    ? 'bg-accent font-semibold text-on-accent'
+                    : 'bg-hover text-ink-2 hover:bg-white/9'
                 }`}
               >
                 {direction} is better
@@ -104,17 +108,17 @@ function DimensionForm({
         </>
       )}
       <div>
-        <p className="mb-1 text-xs text-slate-500">Importance</p>
+        <p className="mb-1 text-xs text-ink-3">Importance</p>
         <ImportancePicker value={form.importance} onChange={(importance) => patch({ importance })} />
       </div>
       {initial.kind !== form.kind && (
-        <p className="text-xs text-amber-600">Changing the kind clears this dimension's scores.</p>
+        <p className="text-xs text-amber-300">Changing the kind clears this dimension's scores.</p>
       )}
       {error && <FieldError message={error} />}
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600"
+          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
           onClick={() => void submit()}
         >
           {submitLabel}
@@ -122,7 +126,7 @@ function DimensionForm({
         {onCancel && (
           <button
             type="button"
-            className="rounded-md px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+            className="min-h-11 rounded-xl px-3 text-sm text-ink-3 hover:bg-hover"
             onClick={onCancel}
           >
             Cancel
@@ -142,7 +146,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
   return (
     <div className="space-y-2">
       {bundle.dimensions.map((d) => (
-        <div key={d.id} className="rounded-xl bg-white p-3 shadow-sm">
+        <div key={d.id} className="rounded-xl border border-hairline bg-surface p-3">
           {editing === d.id ? (
             <DimensionForm
               initial={formOf(d)}
@@ -166,7 +170,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
               </div>
               <button
                 type="button"
-                className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
                 onClick={() => setEditing(d.id)}
               >
                 Edit
@@ -191,7 +195,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
       ) : (
         <button
           type="button"
-          className="w-full rounded-xl border border-dashed border-slate-300 py-2.5 text-sm text-slate-500 hover:bg-slate-100"
+          className="w-full rounded-xl border border-dashed border-hairline py-3 text-sm text-ink-3 hover:bg-hover"
           onClick={() => setAdding(true)}
         >
           + Add dimension

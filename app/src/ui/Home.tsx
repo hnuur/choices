@@ -20,7 +20,7 @@ function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
 
   if (results.complete && results.winner) {
     return (
-      <span className="font-medium text-sky-700">
+      <span className="font-medium text-accent-ink">
         → {results.winner.option.name}
         {results.nearTie ? ' (near tie)' : ''}
       </span>
@@ -28,12 +28,12 @@ function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
   }
   if (results.totalCells > 0) {
     return (
-      <span className="text-slate-500">
+      <span className="text-ink-3">
         {results.scoredCells}/{results.totalCells} scored
       </span>
     )
   }
-  return <span className="text-slate-400">no dimensions or options yet</span>
+  return <span className="text-ink-4">no dimensions or options yet</span>
 }
 
 export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
@@ -74,9 +74,9 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-6">
-      <h1 className="text-2xl font-bold">Choices</h1>
-      <p className="mt-1 text-sm text-slate-500">Choose between instances of a thing.</p>
+    <main className="mx-auto max-w-md px-4 py-6 pb-24">
+      <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-1.2px]">Choices</h1>
+      <p className="mt-1 text-sm text-ink-3">Choose between instances of a thing.</p>
 
       <div className="mt-4 flex gap-2">
         <input
@@ -90,7 +90,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         />
         <button
           type="button"
-          className="shrink-0 rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+          className="shrink-0 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
           onClick={() => void create()}
         >
           Create
@@ -101,14 +101,14 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         <button
           type="button"
           disabled={sttGreyed}
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 enabled:hover:bg-slate-100 disabled:opacity-40"
+          className="min-h-11 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
           onClick={() => setRambleOpen(true)}
         >
           🎤 Ramble it
         </button>
         <button
           type="button"
-          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
+          className="min-h-11 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2 hover:bg-white/9"
           onClick={() => fileRef.current?.click()}
         >
           Import backup (.json)
@@ -122,7 +122,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         />
       </div>
       {sttGreyed && (
-        <p className="mt-1 text-xs text-slate-400">
+        <p className="mt-1 text-xs text-ink-4">
           Voice needs OpenAI, Gemini or a custom endpoint — the current provider has no
           speech-to-text.
         </p>
@@ -142,9 +142,9 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
       <InstallHint />
 
       {data === undefined ? (
-        <p className="mt-8 text-center text-sm text-slate-400">Loading…</p>
+        <p className="mt-8 text-center text-sm text-ink-3">Loading…</p>
       ) : data.decisions.length === 0 ? (
-        <p className="mt-8 text-center text-sm text-slate-400">
+        <p className="mt-8 text-center text-sm text-ink-3">
           No decisions yet — create one above.
         </p>
       ) : (
@@ -152,7 +152,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           {data.decisions.map((decision: Decision) => (
             <li
               key={decision.id}
-              className="flex items-center gap-2 rounded-xl bg-white p-3 shadow-sm"
+              className="flex items-center gap-2 rounded-xl border border-hairline bg-surface p-3"
             >
               <button
                 type="button"
@@ -160,7 +160,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
                 onClick={() => onOpen(decision.id)}
               >
                 <div className="truncate font-medium">{decision.name}</div>
-                <div className="mt-0.5 text-xs text-slate-500">
+                <div className="mt-0.5 text-xs text-ink-3">
                   {data.options.filter((o) => o.decisionId === decision.id).length} options ·{' '}
                   <Preview decisionId={decision.id} data={data} /> · edited{' '}
                   {timeAgo(decision.updatedAt)}

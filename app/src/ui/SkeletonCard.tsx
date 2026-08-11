@@ -25,8 +25,8 @@ export default function SkeletonCard({
 
   if (outcome === 'rejected') {
     return (
-      <div className="rounded-xl bg-white p-3 shadow-sm">
-        <p className="text-sm font-medium text-slate-700">Rejected — nothing created</p>
+      <div className="rounded-xl border border-hairline bg-surface p-3">
+        <p className="text-sm font-medium text-ink-2">Rejected — nothing created</p>
       </div>
     )
   }
@@ -45,8 +45,8 @@ export default function SkeletonCard({
     skeleton.options.some((o) => o.name.trim() === '')
 
   return (
-    <div className="rounded-xl bg-white p-3 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+    <div className="rounded-xl border border-hairline bg-surface p-3">
+      <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
         Proposed decision — edit before approving
       </p>
 
@@ -60,17 +60,17 @@ export default function SkeletonCard({
       </div>
 
       {skeleton.dimensions.length > 0 && (
-        <p className="mt-3 text-xs font-semibold text-slate-500">Dimensions</p>
+        <p className="mt-3 text-xs font-semibold text-ink-3">Dimensions</p>
       )}
       <div className="mt-1 space-y-3">
         {skeleton.dimensions.map((d, i) => (
-          <div key={i} className="rounded-lg bg-slate-50 p-2.5">
+          <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Dimension {i + 1}</span>
+              <span className="text-xs font-semibold text-ink-3">Dimension {i + 1}</span>
               <button
                 type="button"
                 aria-label="Remove dimension"
-                className="h-11 w-11 rounded-md text-lg text-slate-400 hover:bg-slate-200"
+                className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
                 onClick={() =>
                   setSkeleton((s) => ({ ...s, dimensions: s.dimensions.filter((_, j) => j !== i) }))
                 }
@@ -84,17 +84,17 @@ export default function SkeletonCard({
       </div>
 
       {skeleton.options.length > 0 && (
-        <p className="mt-3 text-xs font-semibold text-slate-500">Options</p>
+        <p className="mt-3 text-xs font-semibold text-ink-3">Options</p>
       )}
       <div className="mt-1 space-y-3">
         {skeleton.options.map((o, i) => (
-          <div key={i} className="rounded-lg bg-slate-50 p-2.5">
+          <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500">Option {i + 1}</span>
+              <span className="text-xs font-semibold text-ink-3">Option {i + 1}</span>
               <button
                 type="button"
                 aria-label="Remove option"
-                className="h-11 w-11 rounded-md text-lg text-slate-400 hover:bg-slate-200"
+                className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
                 onClick={() =>
                   setSkeleton((s) => ({ ...s, options: s.options.filter((_, j) => j !== i) }))
                 }
@@ -125,7 +125,7 @@ export default function SkeletonCard({
       <div className="mt-2 flex flex-wrap gap-1">
         <button
           type="button"
-          className="rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
           onClick={() =>
             setSkeleton((s) => ({
               ...s,
@@ -137,7 +137,7 @@ export default function SkeletonCard({
         </button>
         <button
           type="button"
-          className="rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
           onClick={() => setSkeleton((s) => ({ ...s, options: [...s.options, { name: '' }] }))}
         >
           + option
@@ -145,7 +145,7 @@ export default function SkeletonCard({
       </div>
 
       {outcome && typeof outcome === 'object' && (
-        <p className="mt-2 rounded-md bg-red-50 px-2 py-1.5 text-xs text-red-700">
+        <p className="mt-2 rounded-md border border-red-400/30 bg-red-400/10 px-2 py-1.5 text-xs text-red-300">
           Couldn't create the decision: {outcome.error}
         </p>
       )}
@@ -154,14 +154,14 @@ export default function SkeletonCard({
         <button
           type="button"
           disabled={invalid}
-          className="w-full rounded-md bg-sky-500 py-3 text-sm font-semibold text-white enabled:hover:bg-sky-600 disabled:opacity-40"
+          className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
           onClick={() => onApply(skeleton)}
         >
           Approve — create this decision
         </button>
         <button
           type="button"
-          className="w-full rounded-md py-3 text-sm font-medium text-slate-500 hover:bg-slate-100"
+          className="w-full rounded-xl py-3 text-sm font-medium text-ink-3 hover:bg-hover"
           onClick={onReject}
         >
           Reject

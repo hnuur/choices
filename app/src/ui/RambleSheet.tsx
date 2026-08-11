@@ -205,11 +205,11 @@ export default function RambleSheet({
 
   if (view === 'settings') {
     return (
-      <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+      <div className="fixed inset-0 z-40 flex flex-col bg-bg">
         <div className="px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
             onClick={() => setView('ramble')}
           >
             ← Back to ramble
@@ -221,16 +221,16 @@ export default function RambleSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+    <div className="fixed inset-0 z-40 flex flex-col bg-bg">
       <div
-        className="relative flex items-center gap-2 border-b border-slate-200 bg-white px-4 pb-2"
+        className="relative flex items-center gap-2 border-b border-hairline px-4 pb-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
-        <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-slate-300" />
-        <span className="flex-1 text-center text-sm font-semibold text-slate-700">Ramble</span>
+        <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-hover" />
+        <span className="flex-1 text-center text-sm font-semibold text-ink">Ramble</span>
         <button
           type="button"
-          className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+          className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
           onClick={() => setView('settings')}
         >
           Settings
@@ -238,7 +238,7 @@ export default function RambleSheet({
         <button
           type="button"
           aria-label="Close"
-          className="h-8 w-8 rounded-md text-slate-500 hover:bg-slate-100"
+          className="h-11 w-11 rounded-md text-ink-3 hover:bg-hover"
           onClick={onClose}
         >
           ✕
@@ -247,14 +247,14 @@ export default function RambleSheet({
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {!configured && entries.length === 0 && (
-          <div className="mt-8 rounded-xl bg-white p-4 text-center shadow-sm">
-            <p className="text-sm text-slate-600">
+          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
+            <p className="text-sm text-ink-2">
               Ramble what you're choosing out loud — the AI builds the decision skeleton. Set up
               AI first.
             </p>
             <button
               type="button"
-              className="mt-3 rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+              className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
               onClick={() => setView('settings')}
             >
               Set up AI
@@ -262,14 +262,14 @@ export default function RambleSheet({
           </div>
         )}
         {configured && !hasStt && (
-          <div className="mt-8 rounded-xl bg-white p-4 text-center shadow-sm">
-            <p className="text-sm text-slate-600">
+          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
+            <p className="text-sm text-ink-2">
               Voice needs a provider with speech-to-text — OpenAI, Gemini or a custom endpoint.
               The current provider has none, so the mic is greyed out.
             </p>
             <button
               type="button"
-              className="mt-3 rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+              className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
               onClick={() => setView('settings')}
             >
               Change provider
@@ -277,8 +277,8 @@ export default function RambleSheet({
           </div>
         )}
         {hasStt && noMic && (
-          <div className="mt-8 rounded-xl bg-white p-4 text-center shadow-sm">
-            <p className="text-sm text-slate-600">
+          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
+            <p className="text-sm text-ink-2">
               The microphone needs a secure page (HTTPS or localhost), and this one isn't — open
               the https link instead.
             </p>
@@ -298,51 +298,53 @@ export default function RambleSheet({
               key={entry.id}
               className={
                 entry.kind === 'transcript'
-                  ? 'ml-8 rounded-xl bg-sky-500 px-3 py-2 text-sm text-white'
+                  ? 'ml-8 rounded-xl bg-accent px-3 py-2 text-sm text-on-accent'
                   : entry.kind === 'error'
-                    ? 'rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700'
-                    : 'mr-8 rounded-xl bg-white px-3 py-2 text-sm text-slate-800 shadow-sm'
+                    ? 'rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300'
+                    : 'mr-8 rounded-xl bg-surface px-3 py-2 text-sm text-ink-2'
               }
             >
               {entry.kind === 'transcript' && (
-                <span className="mr-1 text-xs uppercase tracking-wide opacity-70">You said</span>
+                <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.1em] opacity-70">
+                  You said
+                </span>
               )}
               {entry.text}
             </div>
           ),
         )}
         {phase === 'transcribing' && (
-          <div className="mr-8 animate-pulse rounded-xl bg-white px-3 py-2 text-sm text-slate-400 shadow-sm">
+          <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
             Transcribing…
           </div>
         )}
         {phase === 'thinking' && (
-          <div className="mr-8 animate-pulse rounded-xl bg-white px-3 py-2 text-sm text-slate-400 shadow-sm">
+          <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
             Thinking…
           </div>
         )}
       </div>
 
       <div
-        className="border-t border-slate-200 bg-white px-4 pt-3"
+        className="border-t border-hairline bg-menu px-4 pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
       >
         {phase === 'recording' ? (
           <div className="flex items-center justify-center gap-4">
             <button
               type="button"
-              className="min-h-11 rounded-md px-3 text-sm font-medium text-slate-500 hover:bg-slate-100"
+              className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
               onClick={cancelRecording}
             >
               Cancel
             </button>
             <div className="flex items-center gap-2">
               <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-              <span className="text-sm font-medium text-slate-700">{formatElapsed(elapsed)}</span>
+              <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
             </div>
             <button
               type="button"
-              className="min-h-11 rounded-md bg-sky-500 px-6 py-3 text-sm font-semibold text-white hover:bg-sky-600"
+              className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
               onClick={stopRecording}
             >
               Stop
@@ -354,12 +356,12 @@ export default function RambleSheet({
               type="button"
               disabled={!hasStt || noMic || phase !== 'idle'}
               aria-label="Record a ramble"
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-sky-500 text-2xl text-white enabled:hover:bg-sky-600 disabled:opacity-40"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-2xl text-on-accent disabled:opacity-40"
               onClick={() => void startRecording()}
             >
               🎤
             </button>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-3">
               {hasStt && !noMic
                 ? 'Tap, ramble what you are choosing, tap Stop.'
                 : noMic

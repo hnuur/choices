@@ -28,7 +28,7 @@ function OptionForm({
   }
 
   return (
-    <div className="space-y-3 rounded-xl bg-slate-50 p-3">
+    <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
       <input
         className={inputClass}
         placeholder="Option name — e.g. Sony A7C II"
@@ -46,7 +46,7 @@ function OptionForm({
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded-md bg-sky-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-sky-600"
+          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
           onClick={() => void submit()}
         >
           {submitLabel}
@@ -54,7 +54,7 @@ function OptionForm({
         {onCancel && (
           <button
             type="button"
-            className="rounded-md px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+            className="min-h-11 rounded-xl px-3 text-sm text-ink-3 hover:bg-hover"
             onClick={onCancel}
           >
             Cancel
@@ -75,7 +75,7 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
   return (
     <div className="space-y-2">
       {bundle.options.map((o) => (
-        <div key={o.id} className="rounded-xl bg-white p-3 shadow-sm">
+        <div key={o.id} className="rounded-xl border border-hairline bg-surface p-3">
           {editing === o.id ? (
             <OptionForm
               initial={formOf(o)}
@@ -91,12 +91,12 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
               <div className="min-w-0 flex-1">
                 <div className="font-medium">{o.name}</div>
                 {o.notes && (
-                  <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-500">{o.notes}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap text-xs text-ink-3">{o.notes}</p>
                 )}
               </div>
               <button
                 type="button"
-                className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+                className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
                 onClick={() => setEditing(o.id)}
               >
                 Edit
@@ -121,7 +121,7 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
       ) : (
         <button
           type="button"
-          className="w-full rounded-xl border border-dashed border-slate-300 py-2.5 text-sm text-slate-500 hover:bg-slate-100"
+          className="w-full rounded-xl border border-dashed border-hairline py-3 text-sm text-ink-3 hover:bg-hover"
           onClick={() => setAdding(true)}
         >
           + Add option

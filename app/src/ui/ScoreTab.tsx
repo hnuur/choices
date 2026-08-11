@@ -47,7 +47,7 @@ function ObjectiveCell({
           if (e.key === 'Enter') e.currentTarget.blur()
         }}
       />
-      {dimension.unit && <span className="shrink-0 text-sm text-slate-500">{dimension.unit}</span>}
+      {dimension.unit && <span className="shrink-0 text-sm text-ink-3">{dimension.unit}</span>}
     </div>
   )
 }
@@ -68,10 +68,10 @@ function SubjectiveCell({
           key={n}
           type="button"
           onClick={() => void setScore(optionId, dimension.id, n)}
-          className={`h-9 flex-1 rounded-md text-sm font-medium ${
+          className={`h-11 flex-1 rounded-md text-sm font-medium ${
             score?.value === n
-              ? 'bg-sky-500 text-white'
-              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              ? 'bg-accent font-semibold text-on-accent'
+              : 'bg-hover text-ink-2 hover:bg-white/9'
           }`}
         >
           {n}
@@ -80,7 +80,7 @@ function SubjectiveCell({
       {score && (
         <button
           type="button"
-          className="h-9 shrink-0 rounded-md px-2 text-xs text-slate-400 hover:bg-slate-100"
+          className="h-11 shrink-0 rounded-md px-2 text-xs text-ink-4 hover:bg-hover"
           onClick={() => void clearScore(optionId, dimension.id)}
         >
           ✕
@@ -98,7 +98,7 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
 
   if (dimensions.length === 0 || options.length === 0) {
     return (
-      <p className="rounded-xl bg-white p-4 text-sm text-slate-500 shadow-sm">
+      <p className="rounded-xl border border-hairline bg-surface p-4 text-sm text-ink-3">
         Add at least one dimension and one option before scoring.
       </p>
     )
@@ -106,8 +106,8 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
 
   return (
     <div className="space-y-3">
-      <div className="rounded-xl bg-white p-3 shadow-sm">
-        <div className="mb-1.5 flex justify-between text-xs text-slate-500">
+      <div className="rounded-xl border border-hairline bg-surface p-3">
+        <div className="mb-1.5 flex justify-between font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3">
           <span>Score matrix</span>
           <span>
             {results.scoredCells}/{results.totalCells} cells
@@ -115,15 +115,15 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
         </div>
         <Progress value={results.scoredCells} total={results.totalCells} />
         {results.complete && (
-          <p className="mt-1.5 text-xs text-emerald-600">Matrix complete — results are live.</p>
+          <p className="mt-1.5 text-xs text-accent-ink">Matrix complete — results are live.</p>
         )}
       </div>
 
       {options.map((option) => (
-        <section key={option.id} className="rounded-xl bg-white p-3 shadow-sm">
+        <section key={option.id} className="rounded-xl border border-hairline bg-surface p-3">
           <h3 className="font-medium">{option.name}</h3>
           {option.notes && (
-            <p className="mt-0.5 whitespace-pre-wrap text-xs text-slate-500">{option.notes}</p>
+            <p className="mt-0.5 whitespace-pre-wrap text-xs text-ink-3">{option.notes}</p>
           )}
           <ul className="mt-2 space-y-3">
             {dimensions.map((d) => {
@@ -131,13 +131,13 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
               return (
                 <li key={d.id}>
                   <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="text-slate-600">
+                    <span className="text-ink-2">
                       {d.name}
                       {d.kind === 'objective' && d.direction === 'lower' && (
-                        <span className="text-slate-400"> (lower is better)</span>
+                        <span className="text-ink-4"> (lower is better)</span>
                       )}
                     </span>
-                    <span className={score ? 'text-emerald-600' : 'text-slate-300'}>
+                    <span className={score ? 'text-accent-ink' : 'text-ink-4'}>
                       {score ? '●' : '○'}
                     </span>
                   </div>
