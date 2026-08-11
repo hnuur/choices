@@ -35,6 +35,7 @@ export default function AiSettingsPanel({
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
+  const [showKey, setShowKey] = useState(false)
 
   const patch = (p: Partial<AiSettings>) => {
     setSettings((s) => ({ ...s, ...p }))
@@ -95,14 +96,23 @@ export default function AiSettingsPanel({
         <div className="mt-4 space-y-3">
           <div>
             <label className={labelClass}>API key (stored on this device only)</label>
-            <input
-              className={inputClass}
-              type="password"
-              autoComplete="off"
-              placeholder={settings.mode === 'anthropic' ? 'sk-ant-…' : settings.mode === 'gemini' ? 'AIza…' : 'sk-…'}
-              value={settings.apiKey}
-              onChange={(e) => patch({ apiKey: e.target.value })}
-            />
+            <div className="flex gap-2">
+              <input
+                className={inputClass}
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                placeholder={settings.mode === 'anthropic' ? 'sk-ant-…' : settings.mode === 'gemini' ? 'AIza…' : 'sk-…'}
+                value={settings.apiKey}
+                onChange={(e) => patch({ apiKey: e.target.value })}
+              />
+              <button
+                type="button"
+                className="shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-600"
+                onClick={() => setShowKey((v) => !v)}
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelClass}>
@@ -131,13 +141,22 @@ export default function AiSettingsPanel({
           </div>
           <div>
             <label className={labelClass}>API key</label>
-            <input
-              className={inputClass}
-              type="password"
-              autoComplete="off"
-              value={settings.apiKey}
-              onChange={(e) => patch({ apiKey: e.target.value })}
-            />
+            <div className="flex gap-2">
+              <input
+                className={inputClass}
+                type={showKey ? 'text' : 'password'}
+                autoComplete="off"
+                value={settings.apiKey}
+                onChange={(e) => patch({ apiKey: e.target.value })}
+              />
+              <button
+                type="button"
+                className="shrink-0 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-600"
+                onClick={() => setShowKey((v) => !v)}
+              >
+                {showKey ? 'Hide' : 'Show'}
+              </button>
+            </div>
           </div>
           <div>
             <label className={labelClass}>Model</label>
