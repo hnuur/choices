@@ -337,7 +337,26 @@ choices/                         git repo
       dark-theme visual criteria (tokens, ••• menu, underline tabs,
       winner banner, bar normalization + weight encoding, bottom bar,
       self-hosted fonts offline); doctor exits 0.
-- [ ] **Phase 9 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 9 — Home redesign (landing)**: the home screen becomes the
+      designed landing the user mocked on 2026-08-11: composer as one
+      rounded unit — input and Create inside a single field, Create a
+      cyan gradient pill — with tappable starter prompts below that seed
+      the input; Ramble it / Import backup as equal-width quiet buttons
+      that no longer compete with Create; a mono section header
+      ("YOUR DECISIONS · N" plus a Recent / A–Z sort) giving the list
+      structure; decision rows carrying real state — progress bar,
+      mono "N DIM · M OPT", status chip (WINNER in cyan with the leading
+      option and its share, SCORING with scored-cell progress, DRAFT
+      with the next step), mono uppercase timestamp, and Delete demoted
+      to a muted tertiary that only reddens on hover (two-step confirm
+      kept); a dashed footer note explains local-only storage instead of
+      leaving the screen empty. Tagline becomes "Weigh what matters,
+      then decide with the numbers in front of you." **Verify**:
+      `checks/gate-phase9.sh` passes — tsc and build clean; vitest
+      green; the landing wiring asserted (composer unit, starter seeds,
+      equal-width secondaries, row states, muted delete, sort, footer);
+      checklist carries the landing criteria; doctor exits 0.
+- [ ] **Phase 10 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -395,3 +414,4 @@ choices/                         git repo
 | Phase 6 anchors | plan inconsistency resolved at implementation start: anchors are Deferred, so "propose anchors" cannot be a payload type — objective prefill only, scale guidance in prose (amendment 2026-08-11) |
 | Voice ramble phase | promoted from Deferred to its own Phase 7 rather than folded into the pending UI redesign (user decision 2026-08-11); Shared database renumbered Phase 7 → 8 so voice is not blocked behind the unscheduled shared-db precondition. STT only where a provider has one: Whisper on openai/custom, Gemini inline audio on gemini; mic greyed out on anthropic and relay (relay stays text-only — its body cap and quota are chat-sized). Real-phone mic needs HTTPS (getUserMedia is secure-contexts-only), documented in the checklist (amendment 2026-08-11) |
 | UI redesign phase | dark design language scheduled as Phase 8 once Phase 7 closed (c3873aa), with the user's results-screen spec + mock as the kickoff and the whole app restyled in the same pass; Shared database renumbered Phase 8 → 9. The Phase-6 chat peek becomes the decision view's fixed bottom bar (status line + Ask AI), so the sheet drops to the bar after approve (amendment 2026-08-11) |
+| Home redesign phase | landing-page mock (2026-08-11) scheduled as Phase 9 once Phase 8 closed, Shared database renumbered Phase 9 → 10; composer-as-one-unit + tappable starter prompts + stateful decision rows (progress, status chip, mono counts/timestamp) + muted delete + dashed local-only footer per the mock (amendment 2026-08-11) |
