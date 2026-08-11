@@ -315,6 +315,14 @@ choices/                         git repo
   cadence.
 - **Purchased AI credits** / payment for relay usage — the relay is
   free-quota only in v1; payment infra is out of scope for a local-first v1.
+- **Voice ramble input** (parked 2026-08-11): mic button records a ramble;
+  STT (Whisper on openai/custom, or Gemini inline audio — Anthropic has no
+  STT); the transcript feeds the existing chat proposal contract with a
+  "build the decision from this ramble" ask. Global scope: one ramble may
+  create a whole decision skeleton, so the parser gains a createDecision
+  payload type; the editable approval card is the review surface. Risks
+  are device quirks (iOS PWA mic permission, Safari records AAC/mp4), not
+  code size. Folds naturally into the UI redesign when that is scheduled.
 
 ## Decision log
 
