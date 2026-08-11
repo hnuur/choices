@@ -55,8 +55,9 @@ done
 ok "dark tokens present in built css"
 
 # NT6: the light Phase-4 skin is gone from the components (negative test —
-# semantic red/amber stays allowed)
-offenders=$(grep -REl 'bg-white|bg-slate|text-slate|border-slate|shadow-sm|bg-sky-|bg-emerald|bg-red-50$' \
+# semantic red/amber stays allowed; bg-white/9 hover fills are dark-theme
+# tokens, solid bg-white cards are the light skin)
+offenders=$(grep -REl 'bg-white($|[^/])|bg-slate|text-slate|border-slate|shadow-sm|bg-sky-|bg-emerald' \
   "$APP/src/App.tsx" "$APP/src/ui" || true)
 [ -z "$offenders" ] || fail "light-skin classes remain: $offenders"
 ok "light skin removed from components"
