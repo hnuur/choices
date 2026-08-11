@@ -243,7 +243,7 @@ choices/                         git repo
       **Verify**: `checks/gate-phase5.sh` passes — build clean; checklist:
       offline reload, standalone display, export → wipe → import
       round-trip; doctor exits 0.
-- [ ] **Phase 6 — LLM integration**: chat surface attached to each level —
+- [x] **Phase 6 — LLM integration**: chat surface attached to each level —
       type ("what dims should I consider for cameras?"), dimension
       (refine/split, e.g. "portability" → weight + size), option (suggest
       options, prefill objective scores — objective cells only, subjective
