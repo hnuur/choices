@@ -125,6 +125,21 @@ describe('chat', () => {
     expect(body.messages).toEqual(messages)
   })
 
+  it('forwards prior turns on anthropic too (roles preserved)', async () => {
+    stubFetch(() => jsonResponse(fixture['anthropic-chat.json']))
+    await chat(
+      [
+        { role: 'system', content: 'sys' },
+        { role: 'user', content: 'first' },
+        { role: 'assistant', content: 'earlier' },
+        { role: 'user', content: 'follow-up' },
+      ],
+      settings({ mode: 'anthropic', apiKey: 'sk-ant' }),
+    )
+    const body = JSON.parse(calls[0].init.body as string) as { messages: { role: string }[] }
+    expect(body.messages.map((m) => m.role)).toEqual(['user', 'assistant', 'user'])
+  })
+
   it('surfaces provider error bodies as ProviderError', async () => {
     stubFetch(() => jsonResponse(fixture['error.json'], 401))
     await expect(

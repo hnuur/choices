@@ -54,6 +54,9 @@ export default function ChatSheet({
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
+  // Mirror so an in-flight reply re-checks the toggle after its await.
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
   const [view, setView] = useState<'chat' | 'settings'>('chat')
   const scrollRef = useRef<HTMLDivElement>(null)
   // The tab the user was on when they sent each message is what counts; the
@@ -141,7 +144,7 @@ export default function ChatSheet({
         }
         return next
       })
-      if (voice && spokenText) void speak(spokenText, loadSettings())
+      if (voiceRef.current && spokenText) void speak(spokenText, loadSettings())
     } catch (e) {
       const message =
         e instanceof ProposalParseError

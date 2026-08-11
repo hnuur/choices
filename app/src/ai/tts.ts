@@ -23,11 +23,17 @@ export function cleanForSpeech(text: string): string {
 }
 
 let current: HTMLAudioElement | null = null
+let currentUrl: string | null = null
 
 export function stopSpeaking(): void {
   if (current) {
+    current.onended = null
     current.pause()
     current = null
+  }
+  if (currentUrl) {
+    URL.revokeObjectURL(currentUrl)
+    currentUrl = null
   }
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
 }
@@ -40,8 +46,13 @@ async function speakRemote(baseUrl: string, apiKey: string, text: string): Promi
   })
   if (!res.ok || typeof Audio === 'undefined') return false
   const url = URL.createObjectURL(await res.blob())
+  currentUrl = url
   current = new Audio(url)
-  current.onended = () => URL.revokeObjectURL(url)
+  current.onended = () => {
+    URL.revokeObjectURL(url)
+    currentUrl = null
+    current = null
+  }
   await current.play()
   return true
 }
