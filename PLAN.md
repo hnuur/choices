@@ -310,7 +310,34 @@ choices/                         git repo
       approve round-trip per STT provider, greyed mic on anthropic/relay,
       insecure-context message, real-iPhone ramble round-trip, reject and
       no-decision-in-ramble paths write nothing; doctor exits 0.
-- [ ] **Phase 8 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 8 — UI redesign (dark)**: replace the utilitarian Phase-4
+      skin with the dark design language the user directed on
+      2026-08-11 ("far sexier"; results-screen spec + mock supplied
+      2026-08-11, whole app in the same pass): app background #08090b
+      with an optional radial top glow; surfaces #12151a / #101317 /
+      menu #171b21; hairline borders rgba(255,255,255,.06) do the
+      separating, not shadows; no pure white/black; cyan accent #5ad0f0
+      (text on accent #04161d). Inter Tight for UI (title
+      34px/700/−1.2px) and JetBrains Mono for all metadata
+      (uppercase, letter-spaced), both self-hosted so the PWA stays
+      fully offline. Decision view: back link + title row with a •••
+      menu (export backup, edit dimensions, mono backup-saved footer)
+      replacing the inline export row; underline tab row replaces the
+      segmented pill; Ask AI moves from a header pill to a full-width
+      gradient button in a fixed bottom bar carrying the AI status line
+      (the bar doubles as the post-approve peek surface). Results:
+      single-line cyan winner banner; rank 1 expanded with
+      per-dimension bars normalized against the dimension's best value,
+      weight encoded as bar thickness (1+weight px) and fill opacity
+      (0.5+weight×0.1) plus a mono legend; ranks 2+ as compact one-line
+      rows. Home, the three edit tabs, chat sheet, approval/skeleton
+      cards, ramble sheet and AI settings restyled to the same tokens;
+      tap targets stay ≥44px. **Verify**: `checks/gate-phase8.sh`
+      passes — tsc and build clean; vitest green; checklist carries the
+      dark-theme visual criteria (tokens, ••• menu, underline tabs,
+      winner banner, bar normalization + weight encoding, bottom bar,
+      self-hosted fonts offline); doctor exits 0.
+- [ ] **Phase 9 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -367,3 +394,4 @@ choices/                         git repo
 | Phase 6 relay stack | zero-dep Node (node:http, ESM) OpenAI-compatible proxy: client-generated opaque bearer token, in-memory per-token UTC-day quota, upstream endpoint + operator key via env, node:test suite (amendment 2026-08-11) |
 | Phase 6 anchors | plan inconsistency resolved at implementation start: anchors are Deferred, so "propose anchors" cannot be a payload type — objective prefill only, scale guidance in prose (amendment 2026-08-11) |
 | Voice ramble phase | promoted from Deferred to its own Phase 7 rather than folded into the pending UI redesign (user decision 2026-08-11); Shared database renumbered Phase 7 → 8 so voice is not blocked behind the unscheduled shared-db precondition. STT only where a provider has one: Whisper on openai/custom, Gemini inline audio on gemini; mic greyed out on anthropic and relay (relay stays text-only — its body cap and quota are chat-sized). Real-phone mic needs HTTPS (getUserMedia is secure-contexts-only), documented in the checklist (amendment 2026-08-11) |
+| UI redesign phase | dark design language scheduled as Phase 8 once Phase 7 closed (c3873aa), with the user's results-screen spec + mock as the kickoff and the whole app restyled in the same pass; Shared database renumbered Phase 8 → 9. The Phase-6 chat peek becomes the decision view's fixed bottom bar (status line + Ask AI), so the sheet drops to the bar after approve (amendment 2026-08-11) |
