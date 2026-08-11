@@ -356,7 +356,25 @@ choices/                         git repo
       green; the landing wiring asserted (composer unit, starter seeds,
       equal-width secondaries, row states, muted delete, sort, footer);
       checklist carries the landing criteria; doctor exits 0.
-- [ ] **Phase 10 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 10 — Voice replies & conversational context**: chat replies
+      are spoken — OpenAI `/audio/speech` (same BYO key, tts-1) on the
+      openai preset, feature-detected `/audio/speech` on custom
+      endpoints, and the on-device `speechSynthesis` voice everywhere
+      else (zero keys, works offline, covers anthropic/gemini/relay);
+      a persisted Voice on/off toggle in the chat header (default on);
+      speech stops when the sheet closes; fenced code blocks are
+      stripped before speaking. Conversational context: user/assistant
+      text turns have been forwarded since Phase 6 — this phase adds
+      approval-card outcomes to that history (proposed payload types +
+      applied/rejected) so the assistant knows what landed, and pins
+      multi-turn forwarding with a provider-client regression test.
+      Transcripts stay ephemeral. **Verify**: `checks/gate-phase10.sh`
+      passes — tsc and build clean; vitest green incl. the TTS
+      engine-selection/fallback tests and the history-forwarding test;
+      chat wiring asserted (toggle, speak-on-reply, stop-on-close, card
+      outcomes in history); checklist carries the voice-reply criteria;
+      doctor exits 0.
+- [ ] **Phase 11 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -387,6 +405,15 @@ choices/                         git repo
   cadence.
 - **Purchased AI credits** / payment for relay usage — the relay is
   free-quota only in v1; payment infra is out of scope for a local-first v1.
+- **Guided "drunk mode"** (user idea 2026-08-11): a voice-first guided
+  flow — ramble in, the app walks you through creation → dimensions →
+  options → cell-by-cell scoring one question at a time, speaks its
+  prompts back (Phase 10 voice replies), and the approval card is the
+  sobriety checkpoint with an optional "sleep on it" deferred approval.
+  Voice-in where the provider has no STT: Web Speech API as the
+  no-setup default, relay transcription passthrough by amendment,
+  on-device Whisper (transformers.js) as a stretch. Promote via
+  amendment when scheduled.
 
 ## Decision log
 
@@ -416,3 +443,4 @@ choices/                         git repo
 | UI redesign phase | dark design language scheduled as Phase 8 once Phase 7 closed (c3873aa), with the user's results-screen spec + mock as the kickoff and the whole app restyled in the same pass; Shared database renumbered Phase 8 → 9. The Phase-6 chat peek becomes the decision view's fixed bottom bar (status line + Ask AI), so the sheet drops to the bar after approve (amendment 2026-08-11) |
 | Home redesign phase | landing-page mock (2026-08-11) scheduled as Phase 9 once Phase 8 closed, Shared database renumbered Phase 9 → 10; composer-as-one-unit + tappable starter prompts + stateful decision rows (progress, status chip, mono counts/timestamp) + muted delete + dashed local-only footer per the mock (amendment 2026-08-11) |
 | Ramble everywhere | decision view's bottom bar gains a mic button beside Ask AI (user decision 2026-08-11): on a decision screen the transcript is injected into that decision's chat as a message (proposals + approval card through the existing Phase-6 machinery), while Home's ramble still creates a whole new decision skeleton; same guards (greyed without provider STT, insecure-context explanation). Lands as a Phase-7 follow-up series (user chose build-now over Deferred) |
+| Voice replies phase | voice-out + fuller chat context scheduled as Phase 10 on user directive 2026-08-11 (OpenAI /audio/speech with on-device speechSynthesis fallback; card outcomes join the existing since-Phase-6 turn history), Shared database renumbered Phase 10 → 11; the guided "drunk mode" walk-through (voice-in, one question at a time, sleep-on-it approval) quarantined to Deferred with its STT menu (amendment 2026-08-11) |
