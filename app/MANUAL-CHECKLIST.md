@@ -96,3 +96,48 @@ mobile-width viewport.
       the same session; a page reload resets it (ephemeral).
 - [ ] Reload the page: chat transcripts are gone (ephemeral); the decision
       itself persists.
+
+## Phase 7 — voice ramble input
+
+Serve the app (`npm run build && npm run preview` in `app/`). The mic needs
+a secure context: localhost works, and phone items need an HTTPS tunnel in
+front of preview (e.g. `cloudflared tunnel --url http://localhost:4173`).
+Configure an STT-capable provider (OpenAI, Gemini or a custom
+Whisper-compatible endpoint) in AI settings for the round-trip items.
+
+- [ ] On a secure-context page (localhost or https) tap Ramble it on the
+      home screen; tap the mic — the browser asks for microphone permission
+      (iOS asks once per site/PWA); recording shows a pulsing dot and an
+      elapsed timer, Stop ends it, Cancel discards it.
+- [ ] Ramble a decision ("I want to pick a new camera, I care about weight
+      and price and sexiness, looking at the Sony A7C II and the Fuji
+      X-T5"), then Stop: the transcript appears as a "You said" bubble,
+      Transcribing… → Thinking…, and the reply arrives with an editable
+      proposed-decision card.
+- [ ] Edit the card before approving: rename the decision, change an
+      importance, remove a dimension, add an option via "+ option";
+      Approve creates exactly the card's contents and opens the new
+      decision — Dimensions and Options tabs show it.
+- [ ] Ramble again and Reject the card: nothing is created ("Rejected —
+      nothing created") and the home list is unchanged.
+- [ ] Ramble something with no decision in it ("what's the weather like"):
+      prose reply, no card, nothing written.
+- [ ] Malformed or non-skeleton proposals error visibly and write nothing:
+      point the custom endpoint at a stub whose reply carries an
+      addDimension proposal (or a broken ```json block) and ramble; the
+      sheet shows the error and no decision is created.
+- [ ] Greyed mic: switch AI settings to Anthropic (or relay) — the home
+      Ramble it button is disabled with a note and the sheet offers
+      "Change provider"; switch back to OpenAI/Gemini/custom and it
+      re-enables.
+- [ ] Insecure context: open the app over plain http://<lan-ip>:4173 on the
+      phone; Ramble it opens but the mic explains the HTTPS requirement
+      instead of failing silently.
+- [ ] Real-iPhone ramble round-trip (https): with preview behind the HTTPS
+      tunnel, record a ramble on the phone (permission prompt appears),
+      approve the skeleton card; the new decision opens and survives a
+      reload.
+- [ ] iOS standalone PWA over https (Share → Add to Home Screen): the
+      ramble flow works inside the standalone app too.
+- [ ] Reload the page: ramble transcripts and cards are gone (ephemeral);
+      created decisions persist.
