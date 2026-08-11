@@ -6,10 +6,12 @@ import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
 import type { Decision, DecisionExport } from '../types'
 import { useLiveQuery } from '../useLiveQuery'
-import { ConfirmButton, FieldError, inputClass } from './bits'
+import { ConfirmButton, FieldError } from './bits'
 import { timeAgo } from './format'
 import InstallHint from './InstallHint'
 import RambleSheet from './RambleSheet'
+
+const STARTERS = ['Next camera', 'Where to live', 'Which offer']
 
 function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
   const dimensions = data.dimensions.filter((d) => d.decisionId === decisionId)
@@ -76,12 +78,14 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   return (
     <main className="mx-auto max-w-md px-4 py-6 pb-24">
       <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-1.2px]">Choices</h1>
-      <p className="mt-1 text-sm text-ink-3">Choose between instances of a thing.</p>
+      <p className="mt-1 text-sm text-ink-3">
+        Weigh what matters, then decide with the numbers in front of you.
+      </p>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-5 flex items-center gap-2 rounded-2xl border border-hairline bg-surface py-1.5 pl-4 pr-1.5">
         <input
-          className={inputClass}
-          placeholder="New decision — e.g. “Next camera”"
+          className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-4 focus:outline-none"
+          placeholder="What are you deciding?"
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => {
@@ -90,37 +94,51 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         />
         <button
           type="button"
-          className="shrink-0 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+          className="min-h-[46px] shrink-0 rounded-xl bg-gradient-to-b from-accent-ink to-accent px-5 text-[15px] font-semibold text-on-accent shadow-[0_0_24px_rgb(90_208_240/0.35)]"
           onClick={() => void create()}
         >
           Create
         </button>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
+        {STARTERS.map((starter) => (
+          <button
+            key={starter}
+            type="button"
+            className="min-h-11 rounded-full border border-dashed border-divider px-4 text-sm text-ink-2 hover:bg-hover"
+            onClick={() => setName(starter)}
+          >
+            {starter}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
         <button
           type="button"
           disabled={sttGreyed}
-          className="min-h-11 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
+          className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-hairline bg-surface-2 text-sm font-medium text-ink-2 enabled:hover:bg-hover disabled:opacity-40"
           onClick={() => setRambleOpen(true)}
         >
-          🎤 Ramble it
+          <span className="size-1.5 rounded-full bg-accent" />
+          Ramble it
         </button>
         <button
           type="button"
-          className="min-h-11 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2 hover:bg-white/9"
+          className="min-h-[52px] rounded-xl border border-hairline bg-surface-2 text-sm font-medium text-ink-2 hover:bg-hover"
           onClick={() => fileRef.current?.click()}
         >
-          Import backup (.json)
+          Import backup
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json,.json"
-          className="hidden"
-          onChange={(e) => void onImportFile(e)}
-        />
       </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={(e) => void onImportFile(e)}
+      />
       {sttGreyed && (
         <p className="mt-1 text-xs text-ink-4">
           Voice needs OpenAI, Gemini or a custom endpoint — the current provider has no
