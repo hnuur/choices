@@ -2,24 +2,24 @@ import { useEffect, useState } from 'react'
 import { exportDecision } from '../mutations'
 import { queryDecision } from '../queries'
 import { useLiveQuery } from '../useLiveQuery'
+import ChatSheet, { type ChatState } from './ChatSheet'
 import DimensionsTab from './DimensionsTab'
 import OptionsTab from './OptionsTab'
 import ResultsTab from './ResultsTab'
 import ScoreTab from './ScoreTab'
-
-export type Tab = 'dimensions' | 'options' | 'score' | 'results'
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'dimensions', label: 'Dimensions' },
-  { id: 'options', label: 'Options' },
-  { id: 'score', label: 'Score' },
-  { id: 'results', label: 'Results' },
-]
+import { TABS, type Tab } from './tabs'
 
 export default function DecisionView({ id, onBack }: { id: string; onBack: () => void }) {
   const bundle = useLiveQuery(() => queryDecision(id), [id])
   const [tab, setTab] = useState<Tab>('dimensions')
   const [exportNote, setExportNote] = useState<string | null>(null)
+  const [chatState, setChatState] = useState<ChatState>('closed')
+
+  // The chip in the sheet header cycles the tab the AI is looking at.
+  const cycleTab = () => {
+    const index = TABS.findIndex((t) => t.id === tab)
+    setTab(TABS[(index + 1) % TABS.length].id)
+  }
 
   const exportBackup = async () => {
     if (!bundle) return
@@ -92,12 +92,30 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
         ))}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-2 flex justify-end">
+        <button
+          type="button"
+          className="rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-sky-600"
+          onClick={() => setChatState('full')}
+        >
+          Ask AI
+        </button>
+      </div>
+
+      <div className="mt-2">
         {tab === 'dimensions' && <DimensionsTab bundle={bundle} />}
         {tab === 'options' && <OptionsTab bundle={bundle} />}
         {tab === 'score' && <ScoreTab bundle={bundle} />}
         {tab === 'results' && <ResultsTab bundle={bundle} onGoScore={() => setTab('score')} />}
       </div>
+
+      <ChatSheet
+        bundle={bundle}
+        tab={tab}
+        state={chatState}
+        onStateChange={setChatState}
+        onCycleTab={cycleTab}
+      />
     </main>
   )
 }

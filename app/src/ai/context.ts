@@ -5,7 +5,7 @@
 
 import type { DecisionBundle } from '../queries'
 import { rankOptions, NEAR_TIE_MARGIN } from '../scoring'
-import type { Tab } from '../ui/DecisionView'
+import type { Tab } from '../ui/tabs'
 
 const LEVEL_FOCUS: Record<Tab, string> = {
   dimensions:
