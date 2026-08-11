@@ -74,6 +74,12 @@ export default function ChatSheet({
   }, [state])
   useEffect(() => () => stopSpeaking(), [])
 
+  // The ramble sheet can flip the shared toggle while this sheet stays
+  // mounted — re-read the setting every time the chat opens.
+  useEffect(() => {
+    if (state === 'full') setVoice(loadSettings().voiceReplies)
+  }, [state])
+
   // Ramble-everywhere: a transcript handed over from the decision view's mic
   // enters the chat exactly as if typed (proposals, approval card, all of it).
   useEffect(() => {

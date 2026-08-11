@@ -44,12 +44,19 @@ grep -q 'loadSettings().voiceReplies' "$R" || fail "ramble sheet does not read t
 grep -q 'loadSettings().voiceReplies' "$C" || fail "chat sheet no longer reads the shared voice setting"
 grep -q 'saveSettings' "$R" || fail "ramble voice toggle is not persisted"
 grep -q 'speak(spokenText' "$R" || fail "ramble replies are not spoken"
-grep -q 'stopSpeaking()' "$R" || fail "ramble sheet does not stop speech on close"
+# stop-on-close must live in the unmount teardown, not just the toggle
+grep -A3 'recorder.stop()' "$R" | grep -q 'stopSpeaking()' \
+  || fail "unmount teardown does not stop speech"
 grep -q 'Voice {voice' "$R" || fail "voice toggle missing from the ramble header"
+# the chat sheet must re-read the shared setting on open (it stays mounted)
+grep -q "state === 'full') setVoice(loadSettings().voiceReplies)" "$C" \
+  || fail "chat sheet does not re-read the shared toggle on open"
 ok "ramble sheet shares the voice toggle and speaks prose replies"
 
-# NT5: the skeleton card is never read aloud (spoken text is prose-only)
-grep -q 'parsed.message || reply.trim()' "$R" || fail "prose-only spoken text missing"
+# NT5: the skeleton card is never read aloud (spoken text is prose-only;
+# the ?? '' marker is unique to the spoken-text computation)
+grep -q 'const spokenText' "$R" || fail "spoken-text computation missing"
+grep -q "parsed.message ?? ''" "$R" || fail "createDecision branch not prose-only"
 grep -q 'speak(spokenText' "$R" || fail "spoken gate missing"
 ok "prose-only speaking on the ramble sheet"
 
