@@ -13,7 +13,7 @@ export function ConfirmButton({
     return (
       <button
         type="button"
-        className="min-h-11 rounded-md px-2 text-xs font-medium text-red-400 hover:bg-hover"
+        className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-4 hover:bg-hover hover:text-red-400"
         onClick={() => setArming(true)}
       >
         {label}

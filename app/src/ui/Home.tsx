@@ -7,35 +7,102 @@ import { rankOptions } from '../scoring'
 import type { Decision, DecisionExport } from '../types'
 import { useLiveQuery } from '../useLiveQuery'
 import { ConfirmButton, FieldError } from './bits'
-import { timeAgo } from './format'
+import { pct, timeAgo } from './format'
 import InstallHint from './InstallHint'
 import RambleSheet from './RambleSheet'
 
 const STARTERS = ['Next camera', 'Where to live', 'Which offer']
 
-function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
-  const dimensions = data.dimensions.filter((d) => d.decisionId === decisionId)
-  const options = data.options.filter((o) => o.decisionId === decisionId)
+const SORTS = [
+  { id: 'recent', label: 'Recent' },
+  { id: 'alpha', label: 'A–Z' },
+] as const
+
+type RowStatus = 'winner' | 'scoring' | 'draft'
+
+function Row({
+  decision,
+  data,
+  onOpen,
+}: {
+  decision: Decision
+  data: HomeData
+  onOpen: (id: string) => void
+}) {
+  const dimensions = data.dimensions.filter((d) => d.decisionId === decision.id)
+  const options = data.options.filter((o) => o.decisionId === decision.id)
   const optionIds = new Set(options.map((o) => o.id))
   const scores = data.scores.filter((s) => optionIds.has(s.optionId))
   const results = rankOptions(dimensions, options, scores)
 
-  if (results.complete && results.winner) {
-    return (
-      <span className="font-medium text-accent-ink">
-        → {results.winner.option.name}
-        {results.nearTie ? ' (near tie)' : ''}
-      </span>
-    )
-  }
-  if (results.totalCells > 0) {
-    return (
-      <span className="text-ink-3">
-        {results.scoredCells}/{results.totalCells} scored
-      </span>
-    )
-  }
-  return <span className="text-ink-4">no dimensions or options yet</span>
+  const winner = results.complete ? results.winner : undefined
+  const status: RowStatus =
+    winner ? 'winner' : results.totalCells > 0 ? 'scoring' : 'draft'
+  const percent =
+    results.totalCells === 0
+      ? 0
+      : Math.round((results.scoredCells / results.totalCells) * 100)
+
+  const leading = winner
+    ? `${winner.option.name} · ${pct(winner.total)}`
+    : status === 'scoring'
+      ? `${results.scoredCells} of ${results.totalCells} scored`
+      : options.length === 0
+        ? 'Add options to start'
+        : 'Add dimensions to start'
+
+  return (
+    <li className="rounded-2xl border border-hairline bg-surface p-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate text-left text-[17px] font-bold tracking-[-0.3px]"
+          onClick={() => onOpen(decision.id)}
+        >
+          {decision.name}
+        </button>
+        <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-4">
+          {timeAgo(decision.updatedAt)}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center gap-3">
+        <div className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-hairline">
+          <div
+            className={`h-full rounded-full ${status === 'draft' ? 'bg-bar-dim' : 'bg-accent'}`}
+            style={{ width: status === 'draft' ? '24px' : `${percent}%` }}
+          />
+        </div>
+        <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
+          {dimensions.length} dim · {options.length} opt
+        </span>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <span
+          className={`shrink-0 rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${
+            status === 'winner'
+              ? 'bg-accent font-semibold text-on-accent'
+              : 'bg-hover text-ink-3'
+          }`}
+        >
+          {status}
+        </span>
+        <button
+          type="button"
+          className={`min-w-0 flex-1 truncate text-left text-sm ${
+            status === 'winner'
+              ? 'font-medium text-ink'
+              : status === 'scoring'
+                ? 'text-ink-2'
+                : 'text-ink-3'
+          }`}
+          onClick={() => onOpen(decision.id)}
+        >
+          {leading}
+        </button>
+        <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
+      </div>
+    </li>
+  )
 }
 
 export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
@@ -43,6 +110,8 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   const [name, setName] = useState('')
   const [importError, setImportError] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
+  const [sort, setSort] = useState<(typeof SORTS)[number]['id']>('recent')
+  const [sortOpen, setSortOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Greyed mic: the provider has no speech-to-text (anthropic/relay). An
@@ -161,33 +230,68 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
 
       {data === undefined ? (
         <p className="mt-8 text-center text-sm text-ink-3">Loading…</p>
-      ) : data.decisions.length === 0 ? (
-        <p className="mt-8 text-center text-sm text-ink-3">
-          No decisions yet — create one above.
-        </p>
       ) : (
-        <ul className="mt-4 space-y-2">
-          {data.decisions.map((decision: Decision) => (
-            <li
-              key={decision.id}
-              className="flex items-center gap-2 rounded-xl border border-hairline bg-surface p-3"
-            >
+        <>
+          <div className="mt-8 flex items-center justify-between">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
+              Your decisions · {data.decisions.length}
+            </h2>
+            <div className="relative">
               <button
                 type="button"
-                className="min-w-0 flex-1 text-left"
-                onClick={() => onOpen(decision.id)}
+                className="min-h-11 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3 hover:text-ink-2"
+                onClick={() => setSortOpen((v) => !v)}
               >
-                <div className="truncate font-medium">{decision.name}</div>
-                <div className="mt-0.5 text-xs text-ink-3">
-                  {data.options.filter((o) => o.decisionId === decision.id).length} options ·{' '}
-                  <Preview decisionId={decision.id} data={data} /> · edited{' '}
-                  {timeAgo(decision.updatedAt)}
-                </div>
+                {SORTS.find((s) => s.id === sort)?.label} ▾
               </button>
-              <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
-            </li>
-          ))}
-        </ul>
+              {sortOpen && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close sort menu"
+                    tabIndex={-1}
+                    className="fixed inset-0 z-30 cursor-default"
+                    onClick={() => setSortOpen(false)}
+                  />
+                  <div className="absolute right-0 z-40 mt-1 w-[140px] rounded-[14px] border border-hairline bg-menu p-1.5">
+                    {SORTS.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="block w-full rounded-lg px-3 py-3 text-left text-sm text-ink-2 hover:bg-hover"
+                        onClick={() => {
+                          setSort(s.id)
+                          setSortOpen(false)
+                        }}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {data.decisions.length === 0 ? (
+            <p className="mt-6 text-center text-sm text-ink-3">
+              No decisions yet — create one above.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {(sort === 'recent'
+                ? data.decisions
+                : [...data.decisions].sort((a, b) => a.name.localeCompare(b.name))
+              ).map((decision) => (
+                <Row key={decision.id} decision={decision} data={data} onOpen={onOpen} />
+              ))}
+            </ul>
+          )}
+
+          <p className="mt-6 rounded-2xl border border-dashed border-divider px-6 py-5 text-center text-sm leading-relaxed text-ink-3">
+            Decisions stay on this device. Export a backup to keep them.
+          </p>
+        </>
       )}
     </main>
   )

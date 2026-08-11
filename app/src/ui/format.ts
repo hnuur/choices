@@ -6,8 +6,9 @@ export function timeAgo(ts: number): string {
   const hours = Math.floor(minutes / 60)
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
+  if (days === 1) return 'yesterday'
   if (days < 7) return `${days}d ago`
-  return new Date(ts).toLocaleDateString()
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
 export const pct = (x: number): string => `${Math.round(x * 100)}%`
