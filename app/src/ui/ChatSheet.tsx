@@ -1,6 +1,8 @@
 // Chat surface per PLAN.md Phase-6: full-screen bottom sheet, one entry
 // point, context implicit from the active tab (tappable chip), transcripts
 // ephemeral (in-memory only — leaving the decision resets them).
+// Phase-8: the decision view's fixed bottom bar is the peek surface — after
+// approve the sheet drops to the bar, which carries the status line.
 
 import { useEffect, useRef, useState } from 'react'
 import { applyProposals, type ApplyOutcome } from '../ai/apply'
@@ -27,12 +29,14 @@ export default function ChatSheet({
   state,
   onStateChange,
   onCycleTab,
+  onApplied,
 }: {
   bundle: DecisionBundle
   tab: Tab
   state: ChatState
   onStateChange: (s: ChatState) => void
   onCycleTab: () => void
+  onApplied?: () => void
 }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
@@ -48,23 +52,7 @@ export default function ChatSheet({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [entries, busy, state])
 
-  if (state === 'closed') return null
-
-  if (state === 'peek') {
-    return (
-      <button
-        type="button"
-        className="fixed inset-x-0 bottom-0 z-40 rounded-t-2xl border-t border-slate-200 bg-white px-4 pt-2 shadow-lg"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
-        onClick={() => onStateChange('full')}
-      >
-        <div className="mx-auto h-1 w-10 rounded-full bg-slate-300" />
-        <p className="mt-2 text-center text-sm font-medium text-slate-700">
-          Ask AI — changes applied · tap to continue
-        </p>
-      </button>
-    )
-  }
+  if (state !== 'full') return null
 
   const configured = isConfigured(loadSettings())
 
@@ -122,6 +110,7 @@ export default function ChatSheet({
     setEntries((prev) =>
       prev.map((e) => (e.kind === 'card' && e.id === cardId ? { ...e, outcomes } : e)),
     )
+    onApplied?.()
     onStateChange('peek')
   }
 
@@ -133,11 +122,11 @@ export default function ChatSheet({
 
   if (view === 'settings') {
     return (
-      <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+      <div className="fixed inset-0 z-40 flex flex-col bg-bg">
         <div className="px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-slate-800"
+            className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
             onClick={() => setView('chat')}
           >
             ← Back to chat
@@ -149,24 +138,24 @@ export default function ChatSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50">
+    <div className="fixed inset-0 z-40 flex flex-col bg-bg">
       <div
-        className="relative flex items-center gap-2 border-b border-slate-200 bg-white px-4 pb-2"
+        className="relative flex items-center gap-2 border-b border-hairline px-4 pb-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
-        <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-slate-300" />
+        <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-hover" />
         <button
           type="button"
-          className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600"
+          className="min-h-11 rounded-full bg-hover px-3 text-xs font-medium text-ink-2"
           onClick={onCycleTab}
           title="Tap to switch what the AI is looking at"
         >
           {TABS.find((t) => t.id === tab)?.label} ▾
         </button>
-        <span className="flex-1 text-center text-sm font-semibold text-slate-700">Ask AI</span>
+        <span className="flex-1 text-center text-sm font-semibold text-ink">Ask AI</span>
         <button
           type="button"
-          className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+          className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
           onClick={() => setView('settings')}
         >
           Settings
@@ -174,7 +163,7 @@ export default function ChatSheet({
         <button
           type="button"
           aria-label="Close"
-          className="h-8 w-8 rounded-md text-slate-500 hover:bg-slate-100"
+          className="h-11 w-11 rounded-md text-ink-3 hover:bg-hover"
           onClick={() => onStateChange('closed')}
         >
           ✕
@@ -183,13 +172,13 @@ export default function ChatSheet({
 
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {!configured && entries.length === 0 && (
-          <div className="mt-8 rounded-xl bg-white p-4 text-center shadow-sm">
-            <p className="text-sm text-slate-600">
+          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
+            <p className="text-sm text-ink-2">
               Ask about dimensions, options, scores or results — but set up AI first.
             </p>
             <button
               type="button"
-              className="mt-3 rounded-md bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600"
+              className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
               onClick={() => setView('settings')}
             >
               Set up AI
@@ -211,10 +200,10 @@ export default function ChatSheet({
               key={entry.id}
               className={
                 entry.kind === 'user'
-                  ? 'ml-8 rounded-xl bg-sky-500 px-3 py-2 text-sm text-white'
+                  ? 'ml-8 rounded-xl bg-accent px-3 py-2 text-sm text-on-accent'
                   : entry.kind === 'error'
-                    ? 'rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700'
-                    : 'mr-8 rounded-xl bg-white px-3 py-2 text-sm text-slate-800 shadow-sm'
+                    ? 'rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300'
+                    : 'mr-8 rounded-xl bg-surface px-3 py-2 text-sm text-ink-2'
               }
             >
               {entry.text}
@@ -222,14 +211,14 @@ export default function ChatSheet({
           ),
         )}
         {busy && (
-          <div className="mr-8 animate-pulse rounded-xl bg-white px-3 py-2 text-sm text-slate-400 shadow-sm">
+          <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
             Thinking…
           </div>
         )}
       </div>
 
       <form
-        className="flex gap-2 border-t border-slate-200 bg-white px-4 pt-2"
+        className="flex gap-2 border-t border-hairline bg-menu px-4 pt-2"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)' }}
         onSubmit={(e) => {
           e.preventDefault()
@@ -237,7 +226,7 @@ export default function ChatSheet({
         }}
       >
         <input
-          className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-base focus:border-sky-500 focus:outline-none"
+          className="flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
           placeholder={configured ? 'Ask about this decision…' : 'Set up AI first…'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -245,7 +234,7 @@ export default function ChatSheet({
         <button
           type="submit"
           disabled={busy || input.trim() === ''}
-          className="rounded-md bg-sky-500 px-4 text-sm font-semibold text-white enabled:hover:bg-sky-600 disabled:opacity-40"
+          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent enabled:hover:bg-accent-ink disabled:opacity-40"
         >
           Send
         </button>
