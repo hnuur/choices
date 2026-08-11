@@ -26,7 +26,8 @@ ${LEVEL_FOCUS[tab]}
 The current decision is attached as JSON. Dimensions and options carry ids — reference those ids, never invent new ones for existing things.
 
 Response contract:
-- If no changes are needed, answer in plain prose; no JSON block.
+- Suggestions are proposals: when the user asks which dimensions, options or objective scores to add — or how to refine, split or rebalance them — attach them in the \`\`\`json block. Never list suggestions only in prose; the user applies suggestions through approval cards, so a prose-only suggestion is unusable.
+- Answer in plain prose (no JSON block) only when there is genuinely nothing to add or change — e.g. explaining results on the Results tab.
 - To propose changes, include exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [...]}. The user reviews every proposal on an approval card and may edit or delete rows before applying, so propose concrete values.
 - Payload types:
   - {"type":"addDimension","dimension":{"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}}
