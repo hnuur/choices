@@ -374,7 +374,17 @@ choices/                         git repo
       chat wiring asserted (toggle, speak-on-reply, stop-on-close, card
       outcomes in history); checklist carries the voice-reply criteria;
       doctor exits 0.
-- [ ] **Phase 11 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 11 — Ramble sheet voice parity**: the ramble sheet carries
+      the same persisted VOICE ON/OFF setting as the chat sheet (one
+      toggle, shared — flipping it in either sheet is reflected in the
+      other) and speaks its assistant replies with the same engine
+      ladder (OpenAI tts-1 → feature-detected custom → on-device
+      speechSynthesis); prose only, never the skeleton card; speech
+      stops when the sheet closes or unmounts. **Verify**:
+      `checks/gate-phase11.sh` passes — tsc and build clean; vitest
+      green; ramble wiring asserted (shared toggle, speak-on-reply,
+      stop-on-close); checklist carries the parity items; doctor exits 0.
+- [ ] **Phase 12 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -444,3 +454,4 @@ choices/                         git repo
 | Home redesign phase | landing-page mock (2026-08-11) scheduled as Phase 9 once Phase 8 closed, Shared database renumbered Phase 9 → 10; composer-as-one-unit + tappable starter prompts + stateful decision rows (progress, status chip, mono counts/timestamp) + muted delete + dashed local-only footer per the mock (amendment 2026-08-11) |
 | Ramble everywhere | decision view's bottom bar gains a mic button beside Ask AI (user decision 2026-08-11): on a decision screen the transcript is injected into that decision's chat as a message (proposals + approval card through the existing Phase-6 machinery), while Home's ramble still creates a whole new decision skeleton; same guards (greyed without provider STT, insecure-context explanation). Lands as a Phase-7 follow-up series (user chose build-now over Deferred) |
 | Voice replies phase | voice-out + fuller chat context scheduled as Phase 10 on user directive 2026-08-11 (OpenAI /audio/speech with on-device speechSynthesis fallback; card outcomes join the existing since-Phase-6 turn history), Shared database renumbered Phase 10 → 11; the guided "drunk mode" walk-through (voice-in, one question at a time, sleep-on-it approval) quarantined to Deferred with its STT menu (amendment 2026-08-11) |
+| Ramble voice parity | user directive 2026-08-11 after the Phase-10 close: the ramble sheet gets the same persisted voice toggle and speaks its prose replies (skeleton card never read aloud), scheduled as Phase 11, Shared database renumbered Phase 11 → 12 |
