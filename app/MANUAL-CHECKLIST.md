@@ -228,3 +228,25 @@ Landing pass in a mobile-width viewport, against the 2026-08-11 mock.
       controls ≥44px across composer, starter chips, secondaries, sort
       and Delete; the composer input stays 16px and its field shows an
       accent border on focus.
+
+## Phase 10 — voice replies & conversational context
+
+Chat with a configured provider, in a mobile-width viewport.
+
+- [ ] OpenAI preset with a key: chat replies play aloud in a neural
+      voice; anthropic/gemini/relay (or a custom endpoint without
+      /audio/speech): the same replies play in the on-device voice,
+      including offline.
+- [ ] The VOICE ON/OFF toggle in the chat header persists across sheet
+      close/reopen and reload; switching off stops any current speech.
+- [ ] A reply that carries proposals speaks only the prose part — no
+      JSON read aloud.
+- [ ] Apply a card, then ask a follow-up ("did that land?"): the
+      assistant answers knowing the proposals were applied; reject
+      another and it knows that too.
+- [ ] Multi-turn context: a follow-up can reference an earlier answer
+      ("what did you just say?") without re-explaining the decision.
+- [ ] Closing the sheet (✕, or approve dropping it to peek) stops the
+      speech; reopening starts silent until the next reply.
+- [ ] Reload: the transcript is gone (ephemeral) but the voice setting
+      persists.
