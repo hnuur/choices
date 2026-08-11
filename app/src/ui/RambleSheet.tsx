@@ -8,8 +8,9 @@ import { applyDecisionSkeleton } from '../ai/apply'
 import { rambleSystemPrompt } from '../ai/context'
 import { chat, ProviderError } from '../ai/providers'
 import { parseReply, ProposalParseError } from '../ai/proposals'
-import { isConfigured, loadSettings } from '../ai/settings'
+import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
+import { speak, stopSpeaking } from '../ai/tts'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
 import SkeletonCard, { type SkeletonOutcome } from './SkeletonCard'
@@ -63,6 +64,10 @@ export default function RambleSheet({
   const [entries, setEntries] = useState<Entry[]>([])
   const [phase, setPhase] = useState<Phase>('idle')
   const [elapsed, setElapsed] = useState(0)
+  const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
+  // Mirror so a reply finishing mid-toggle re-checks the setting.
+  const voiceRef = useRef(voice)
+  voiceRef.current = voice
   const [view, setView] = useState<'ramble' | 'settings'>('ramble')
   const scrollRef = useRef<HTMLDivElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -83,9 +88,18 @@ export default function RambleSheet({
         cancelledRef.current = true
         recorder.stop()
       }
+      stopSpeaking()
     },
     [],
   )
+
+  // Same persisted setting as the chat sheet's toggle.
+  const toggleVoice = () => {
+    const next = !voice
+    setVoice(next)
+    saveSettings({ ...loadSettings(), voiceReplies: next })
+    if (!next) stopSpeaking()
+  }
 
   const pushEntry = (entry: NewEntry) =>
     setEntries((prev) => [...prev, { ...entry, id: ++entrySeq } as Entry])
@@ -114,6 +128,13 @@ export default function RambleSheet({
       )
       const parsed = parseReply(reply)
       const only = parsed.proposals.length === 1 ? parsed.proposals[0] : null
+      // Prose only — the skeleton card is reviewed with the eyes, not ears.
+      const spokenText =
+        parsed.proposals.length === 0
+          ? parsed.message || reply.trim()
+          : only && only.type === 'createDecision'
+            ? (parsed.message ?? '')
+            : ''
       if (only && only.type === 'createDecision') {
         if (parsed.message) pushEntry({ kind: 'assistant', text: parsed.message })
         pushEntry({ kind: 'card', skeleton: only.decision })
@@ -125,6 +146,7 @@ export default function RambleSheet({
           text: "The AI suggested changes that don't fit creating one new decision — try rambling again.",
         })
       }
+      if (voiceRef.current && spokenText) void speak(spokenText, loadSettings())
     } catch (e) {
       const message =
         e instanceof ProposalParseError
@@ -236,6 +258,15 @@ export default function RambleSheet({
       >
         <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-hover" />
         <span className="flex-1 text-center text-sm font-semibold text-ink">Ramble</span>
+        <button
+          type="button"
+          className={`min-h-11 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
+            voice ? 'text-accent-ink' : 'text-ink-4'
+          }`}
+          onClick={toggleVoice}
+        >
+          Voice {voice ? 'on' : 'off'}
+        </button>
         <button
           type="button"
           className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
