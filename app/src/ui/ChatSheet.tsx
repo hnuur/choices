@@ -9,7 +9,8 @@ import { applyProposals, type ApplyOutcome } from '../ai/apply'
 import { decisionSnapshot, systemPrompt } from '../ai/context'
 import { chat, ProviderError } from '../ai/providers'
 import { parseReply, ProposalParseError, type Proposal } from '../ai/proposals'
-import { isConfigured, loadSettings } from '../ai/settings'
+import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
+import { speak, stopSpeaking } from '../ai/tts'
 import type { DecisionBundle } from '../queries'
 import AiSettingsPanel from './AiSettingsPanel'
 import ApprovalCard from './ApprovalCard'
@@ -19,7 +20,13 @@ export type ChatState = 'closed' | 'peek' | 'full'
 
 type Entry =
   | { id: number; kind: 'user' | 'assistant' | 'error'; text: string }
-  | { id: number; kind: 'card'; proposals: Proposal[]; outcomes?: ApplyOutcome[] }
+  | {
+      id: number
+      kind: 'card'
+      proposals: Proposal[]
+      outcomes?: ApplyOutcome[]
+      resolved?: 'applied' | 'rejected'
+    }
 
 let entrySeq = 0
 
@@ -46,6 +53,7 @@ export default function ChatSheet({
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
   const [view, setView] = useState<'chat' | 'settings'>('chat')
   const scrollRef = useRef<HTMLDivElement>(null)
   // The tab the user was on when they sent each message is what counts; the
@@ -56,6 +64,12 @@ export default function ChatSheet({
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [entries, busy, state])
+
+  // Spoken replies stop when the sheet drops or unmounts.
+  useEffect(() => {
+    if (state !== 'full') stopSpeaking()
+  }, [state])
+  useEffect(() => () => stopSpeaking(), [])
 
   // Ramble-everywhere: a transcript handed over from the decision view's mic
   // enters the chat exactly as if typed (proposals, approval card, all of it).
@@ -71,6 +85,13 @@ export default function ChatSheet({
 
   const configured = isConfigured(loadSettings())
 
+  const toggleVoice = () => {
+    const next = !voice
+    setVoice(next)
+    saveSettings({ ...loadSettings(), voiceReplies: next })
+    if (!next) stopSpeaking()
+  }
+
   const send = async (raw?: string) => {
     const text = (raw ?? input).trim()
     if (!text || busy) return
@@ -79,9 +100,20 @@ export default function ChatSheet({
       return
     }
     if (raw === undefined) setInput('')
-    const history = entries.flatMap((e) =>
-      e.kind === 'user' || e.kind === 'assistant' ? [{ role: e.kind, content: e.text }] : [],
-    )
+    // Prior turns are forwarded so the assistant keeps context; resolved
+    // approval cards join as an assistant turn so it knows what landed.
+    const history = entries.flatMap((e) => {
+      if (e.kind === 'user' || e.kind === 'assistant') return [{ role: e.kind, content: e.text }]
+      if (e.kind === 'card' && e.resolved) {
+        return [
+          {
+            role: 'assistant' as const,
+            content: `I proposed: ${e.proposals.map((p) => p.type).join(', ')}. The user ${e.resolved} them.`,
+          },
+        ]
+      }
+      return []
+    })
     setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'user', text }])
     setBusy(true)
     try {
@@ -97,6 +129,8 @@ export default function ChatSheet({
         loadSettings(),
       )
       const parsed = parseReply(reply)
+      const spokenText =
+        parsed.message || (parsed.proposals.length === 0 ? reply.trim() : '')
       setEntries((prev) => {
         const next = [...prev]
         if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: parsed.message })
@@ -107,6 +141,7 @@ export default function ChatSheet({
         }
         return next
       })
+      if (voice && spokenText) void speak(spokenText, loadSettings())
     } catch (e) {
       const message =
         e instanceof ProposalParseError
@@ -123,7 +158,9 @@ export default function ChatSheet({
   const apply = async (cardId: number, proposals: Proposal[]) => {
     const outcomes = await applyProposals(bundle.decision.id, proposals)
     setEntries((prev) =>
-      prev.map((e) => (e.kind === 'card' && e.id === cardId ? { ...e, outcomes } : e)),
+      prev.map((e) =>
+        e.kind === 'card' && e.id === cardId ? { ...e, outcomes, resolved: 'applied' } : e,
+      ),
     )
     onApplied?.()
     onStateChange('peek')
@@ -131,7 +168,9 @@ export default function ChatSheet({
 
   const reject = (cardId: number) => {
     setEntries((prev) =>
-      prev.map((e) => (e.kind === 'card' && e.id === cardId ? { ...e, outcomes: [] } : e)),
+      prev.map((e) =>
+        e.kind === 'card' && e.id === cardId ? { ...e, outcomes: [], resolved: 'rejected' } : e,
+      ),
     )
   }
 
@@ -168,6 +207,15 @@ export default function ChatSheet({
           {TABS.find((t) => t.id === tab)?.label} ▾
         </button>
         <span className="flex-1 text-center text-sm font-semibold text-ink">Ask AI</span>
+        <button
+          type="button"
+          className={`min-h-11 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
+            voice ? 'text-accent-ink' : 'text-ink-4'
+          }`}
+          onClick={toggleVoice}
+        >
+          Voice {voice ? 'on' : 'off'}
+        </button>
         <button
           type="button"
           className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"

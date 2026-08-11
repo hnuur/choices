@@ -112,6 +112,19 @@ describe('chat', () => {
     expect(body.contents.map((c) => c.role)).toEqual(['user', 'model'])
   })
 
+  it('forwards prior turns untouched so the assistant keeps context', async () => {
+    stubFetch(() => jsonResponse(fixture['openai-chat.json']))
+    const messages = [
+      { role: 'system', content: 'sys' },
+      { role: 'user', content: 'first' },
+      { role: 'assistant', content: 'earlier reply' },
+      { role: 'user', content: 'follow-up' },
+    ] as const
+    await chat([...messages], settings({ mode: 'openai', apiKey: 'sk-test' }))
+    const body = JSON.parse(calls[0].init.body as string) as { messages: unknown[] }
+    expect(body.messages).toEqual(messages)
+  })
+
   it('surfaces provider error bodies as ProviderError', async () => {
     stubFetch(() => jsonResponse(fixture['error.json'], 401))
     await expect(
