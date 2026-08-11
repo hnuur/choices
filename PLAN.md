@@ -310,7 +310,7 @@ choices/                         git repo
       approve round-trip per STT provider, greyed mic on anthropic/relay,
       insecure-context message, real-iPhone ramble round-trip, reject and
       no-decision-in-ramble paths write nothing; doctor exits 0.
-- [ ] **Phase 8 — UI redesign (dark)**: replace the utilitarian Phase-4
+- [x] **Phase 8 — UI redesign (dark)**: replace the utilitarian Phase-4
       skin with the dark design language the user directed on
       2026-08-11 ("far sexier"; results-screen spec + mock supplied
       2026-08-11, whole app in the same pass): app background #08090b
