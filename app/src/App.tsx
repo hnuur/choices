@@ -5,7 +5,7 @@ import Home from './ui/Home'
 export default function App() {
   const [decisionId, setDecisionId] = useState<string | null>(null)
   return (
-    <div className="min-h-dvh bg-slate-50 text-slate-900">
+    <div className="app-bg min-h-dvh text-ink">
       {decisionId === null ? (
         <Home onOpen={setDecisionId} />
       ) : (

@@ -13,7 +13,7 @@ export function ConfirmButton({
     return (
       <button
         type="button"
-        className="rounded-md px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+        className="min-h-11 rounded-md px-2 text-xs font-medium text-red-400 hover:bg-hover"
         onClick={() => setArming(true)}
       >
         {label}
@@ -24,14 +24,14 @@ export function ConfirmButton({
     <span className="inline-flex items-center gap-1">
       <button
         type="button"
-        className="rounded-md bg-red-600 px-2 py-1 text-xs font-medium text-white"
+        className="min-h-11 rounded-md bg-red-500 px-3 text-xs font-medium text-ink"
         onClick={onConfirm}
       >
         Confirm
       </button>
       <button
         type="button"
-        className="rounded-md px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"
+        className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
         onClick={() => setArming(false)}
       >
         Cancel
@@ -43,9 +43,9 @@ export function ConfirmButton({
 export function Progress({ value, total }: { value: number; total: number }) {
   const percent = total === 0 ? 0 : Math.round((value / total) * 100)
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200">
+    <div className="h-1 w-full overflow-hidden rounded-full bg-hairline">
       <div
-        className="h-full rounded-full bg-sky-500 transition-all"
+        className="h-full rounded-full bg-accent transition-all"
         style={{ width: `${percent}%` }}
       />
     </div>
@@ -54,7 +54,9 @@ export function Progress({ value, total }: { value: number; total: number }) {
 
 export function Badge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">{children}</span>
+    <span className="rounded-full border border-hairline bg-hover px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-2">
+      {children}
+    </span>
   )
 }
 
@@ -72,8 +74,8 @@ export function ImportancePicker({
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          className={`h-11 w-11 rounded-md text-sm font-medium ${
-            n === value ? 'bg-sky-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          className={`h-11 w-11 rounded-lg text-sm font-medium ${
+            n === value ? 'bg-accent font-semibold text-on-accent' : 'bg-hover text-ink-2 hover:bg-white/9'
           }`}
         >
           {n}
@@ -84,8 +86,8 @@ export function ImportancePicker({
 }
 
 export function FieldError({ message }: { message: string }) {
-  return <p className="mt-2 text-xs text-red-600">{message}</p>
+  return <p className="mt-2 text-xs text-red-400">{message}</p>
 }
 
 export const inputClass =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-sky-500 focus:outline-none'
+  'w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none'

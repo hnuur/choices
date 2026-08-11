@@ -18,8 +18,8 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        background_color: '#f8fafc',
-        theme_color: '#0ea5e9',
+        background_color: '#08090b',
+        theme_color: '#08090b',
         icons: [
           { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -28,8 +28,10 @@ export default defineConfig({
       },
       workbox: {
         // Precache the whole shell for full offline; the plugin adds the
-        // manifest and its icons to the precache automatically.
-        globPatterns: ['**/*.{js,css,html}'],
+        // manifest and its icons to the precache automatically. Fonts are
+        // self-hosted (Phase 8) and must ride along or offline falls back
+        // to system faces.
+        globPatterns: ['**/*.{js,css,html,woff,woff2}'],
         navigateFallback: '/index.html',
       },
     }),

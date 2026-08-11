@@ -1,7 +1,45 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+/* Phase-8 dark design language. Borders do the separating, not shadows;
+   no pure-white text, no pure-black surfaces. */
+@theme {
+  --font-ui: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+
+  --color-bg: #08090b;
+  --color-surface: #12151a;
+  --color-surface-2: #101317;
+  --color-menu: #171b21;
+  --color-hairline: rgb(255 255 255 / 0.06);
+  --color-divider: rgb(255 255 255 / 0.07);
+  --color-hover: rgb(255 255 255 / 0.08);
+  --color-ink: #f4f7fa;
+  --color-ink-2: #aab4c1;
+  --color-ink-3: #7b8695;
+  --color-ink-4: #5d6875;
+  --color-accent: #5ad0f0;
+  --color-accent-ink: #8ddcf2;
+  --color-on-accent: #04161d;
+  --color-bar-dim: #4a6273;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-ui);
+  }
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+  }
+}
 
 /* black-translucent status bar lets the shell run under it when installed;
    env() is 0 in browsers, so this only bites in standalone display. */
 body {
   padding-top: env(safe-area-inset-top);
+}
+
+.app-bg {
+  background-color: var(--color-bg);
+  background-image: radial-gradient(120% 80% at 50% 0%, #14171c, #08090b 60%);
 }
