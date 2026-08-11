@@ -356,7 +356,7 @@ choices/                         git repo
       green; the landing wiring asserted (composer unit, starter seeds,
       equal-width secondaries, row states, muted delete, sort, footer);
       checklist carries the landing criteria; doctor exits 0.
-- [ ] **Phase 10 — Voice replies & conversational context**: chat replies
+- [x] **Phase 10 — Voice replies & conversational context**: chat replies
       are spoken — OpenAI `/audio/speech` (same BYO key, tts-1) on the
       openai preset, feature-detected `/audio/speech` on custom
       endpoints, and the on-device `speechSynthesis` voice everywhere
