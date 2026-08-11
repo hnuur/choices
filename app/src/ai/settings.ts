@@ -25,6 +25,8 @@ export interface AiSettings {
   relayUrl: string
   /** Client-generated opaque bearer token identifying this device to the relay. */
   relayToken: string
+  /** Phase 10: speak chat replies aloud. */
+  voiceReplies: boolean
 }
 
 const STORAGE_KEY = 'choices.ai-settings'
@@ -39,6 +41,7 @@ export function defaultSettings(): AiSettings {
     baseUrl: '',
     relayUrl: '',
     relayToken: newRelayToken(),
+    voiceReplies: true,
   }
 }
 
