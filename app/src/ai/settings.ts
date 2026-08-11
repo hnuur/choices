@@ -3,6 +3,8 @@
 // relay. Settings live in localStorage — keys stay on-device and no Dexie
 // schema is touched (the decision remains the only durable artifact).
 
+import { uid } from '../uid'
+
 export type ProviderPreset = 'anthropic' | 'openai' | 'gemini'
 export type AiMode = ProviderPreset | 'custom' | 'relay'
 
@@ -27,7 +29,7 @@ export interface AiSettings {
 
 const STORAGE_KEY = 'choices.ai-settings'
 
-export const newRelayToken = (): string => crypto.randomUUID()
+export const newRelayToken = (): string => uid()
 
 export function defaultSettings(): AiSettings {
   return {

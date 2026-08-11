@@ -2,6 +2,7 @@
 // typed functions; cascades live here inside transactions, never in the UI.
 
 import { db } from './db'
+import { uid } from './uid'
 import type {
   Decision,
   DecisionExport,
@@ -14,7 +15,7 @@ import type {
 
 export class ValidationError extends Error {}
 
-const newId = () => crypto.randomUUID()
+const newId = uid
 const now = () => Date.now()
 
 function requireName(name: unknown): string {
