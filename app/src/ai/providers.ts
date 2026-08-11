@@ -20,7 +20,7 @@ export interface ChatMessage {
 
 const stripTrailingSlash = (url: string) => url.replace(/\/+$/, '')
 
-async function errorFrom(res: Response, provider: string): Promise<ProviderError> {
+export async function errorFrom(res: Response, provider: string): Promise<ProviderError> {
   let detail = ''
   try {
     const body = (await res.json()) as { error?: { message?: string } | string; message?: string }

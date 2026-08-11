@@ -6,6 +6,7 @@ import { uid } from './uid'
 import type {
   Decision,
   DecisionExport,
+  DecisionSkeletonInput,
   Dimension,
   DimensionInput,
   Option,
@@ -88,6 +89,46 @@ export async function createDecision(name: string): Promise<Decision> {
 export async function renameDecision(id: string, name: string): Promise<void> {
   await requireDecision(id)
   await db.decisions.update(id, { name: requireName(name), updatedAt: now() })
+}
+
+/**
+ * Phase-7 ramble path: a whole decision skeleton (name + dimensions +
+ * options) validated up front and written in one transaction — a malformed
+ * row never creates a half-built decision.
+ */
+export async function createDecisionSkeleton(input: DecisionSkeletonInput): Promise<Decision> {
+  const name = requireName(input.name)
+  if (!Array.isArray(input.dimensions)) throw new ValidationError('dimensions must be an array')
+  if (!Array.isArray(input.options)) throw new ValidationError('options must be an array')
+  for (const dimension of input.dimensions) validateDimensionFields(dimension)
+  for (const option of input.options) {
+    requireName(option.name)
+    if (option.notes !== undefined && typeof option.notes !== 'string') {
+      throw new ValidationError('notes must be a string')
+    }
+  }
+  const decision: Decision = { id: newId(), name, createdAt: now(), updatedAt: now() }
+  const dimensions: Dimension[] = input.dimensions.map((d) => ({
+    id: newId(),
+    decisionId: decision.id,
+    name: requireName(d.name),
+    kind: d.kind,
+    direction: d.kind === 'objective' ? d.direction : undefined,
+    importance: requireImportance(d.importance),
+    unit: d.unit,
+  }))
+  const options: Option[] = input.options.map((o) => ({
+    id: newId(),
+    decisionId: decision.id,
+    name: requireName(o.name),
+    notes: o.notes,
+  }))
+  await db.transaction('rw', db.decisions, db.dimensions, db.options, async () => {
+    await db.decisions.put(decision)
+    if (dimensions.length) await db.dimensions.bulkPut(dimensions)
+    if (options.length) await db.options.bulkPut(options)
+  })
+  return decision
 }
 
 /** Deleting a decision deletes everything under it, in one transaction. */

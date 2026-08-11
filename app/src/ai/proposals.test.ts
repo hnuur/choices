@@ -125,3 +125,62 @@ describe('parseReply', () => {
     expect(() => parseReply(fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o' } })))).toThrowError(/must be an array/)
   })
 })
+
+describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
+  const skeleton = (decision: unknown) =>
+    fence(JSON.stringify({ message: 'Here is your decision.', proposals: [{ type: 'createDecision', decision }] }))
+
+  it('parses a well-formed whole-decision skeleton', () => {
+    const parsed = parseReply(
+      skeleton({
+        name: 'Next camera',
+        dimensions: [
+          { name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' },
+          { name: 'Sexiness', kind: 'subjective', importance: 2 },
+        ],
+        options: [{ name: 'Sony A7C II' }, { name: 'Fuji X-T5', notes: 'aps-c' }],
+      }),
+    )
+    expect(parsed.proposals).toHaveLength(1)
+    const p = parsed.proposals[0]
+    expect(p.type).toBe('createDecision')
+    if (p.type !== 'createDecision') throw new Error('unreachable')
+    expect(p.decision.name).toBe('Next camera')
+    expect(p.decision.dimensions).toHaveLength(2)
+    expect(p.decision.dimensions[0]).toEqual({ name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' })
+    expect(p.decision.options[1]).toEqual({ name: 'Fuji X-T5', notes: 'aps-c' })
+  })
+
+  it('defaults omitted dimensions/options to empty', () => {
+    const parsed = parseReply(skeleton({ name: 'Bare' }))
+    const p = parsed.proposals[0]
+    expect(p.type === 'createDecision' && p.decision.dimensions).toEqual([])
+    expect(p.type === 'createDecision' && p.decision.options).toEqual([])
+  })
+
+  it('rejects createDecision without a decision object', () => {
+    expect(() => parseReply(fence(JSON.stringify({ proposals: [{ type: 'createDecision' }] })))).toThrowError(/must be an object/)
+  })
+
+  it('rejects skeletons without a name', () => {
+    expect(() => parseReply(skeleton({ dimensions: [] }))).toThrowError(/name/)
+  })
+
+  it('rejects unknown fields in the skeleton (no scores at creation)', () => {
+    expect(() => parseReply(skeleton({ name: 'X', scores: [] }))).toThrowError(/unknown field/)
+  })
+
+  it('rejects non-array dimensions in the skeleton', () => {
+    expect(() => parseReply(skeleton({ name: 'X', dimensions: { name: 'Weight' } }))).toThrowError(/dimensions must be an array/)
+  })
+
+  it('rejects malformed dimension entries inside the skeleton', () => {
+    expect(() =>
+      parseReply(skeleton({ name: 'X', dimensions: [{ name: 'Weight', kind: 'objective', importance: 9 }] }),
+    )).toThrowError(/importance/)
+  })
+
+  it('rejects unknown fields on skeleton options', () => {
+    expect(() => parseReply(skeleton({ name: 'X', options: [{ name: 'A', price: 1 }] }))).toThrowError(/unknown field/)
+  })
+})

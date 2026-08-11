@@ -58,3 +58,10 @@ export interface OptionInput {
   name: string
   notes?: string
 }
+
+/** Whole-decision skeleton (Phase-7 ramble payload → one transactional write). */
+export interface DecisionSkeletonInput {
+  name: string
+  dimensions: DimensionInput[]
+  options: OptionInput[]
+}

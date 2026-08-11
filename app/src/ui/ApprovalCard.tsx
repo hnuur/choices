@@ -16,6 +16,8 @@ const TYPE_LABEL: Record<Proposal['type'], string> = {
   addOption: 'Add option',
   deleteOption: 'Delete option',
   setScore: 'Set score',
+  // Ramble scope only — decision-bound cards never render this row.
+  createDecision: 'Create decision',
 }
 
 const smallSelect =

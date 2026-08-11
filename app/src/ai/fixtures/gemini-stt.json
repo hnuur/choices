@@ -1,0 +1,16 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "So I want to pick a new camera and I care about weight and price and how sexy it is. I'm looking at the Sony A7C II and the Fuji X-T5."
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": { "promptTokenCount": 260, "candidatesTokenCount": 38, "totalTokenCount": 298 }
+}

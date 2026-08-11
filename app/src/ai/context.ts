@@ -40,6 +40,21 @@ Response contract:
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.`
 }
 
+/** Phase-7 ramble scope: no decision exists yet — the reply may propose one. */
+export function rambleSystemPrompt(): string {
+  return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
+
+The user just dictated a voice ramble (transcribed below). Listen for a decision in it: a thing they want to choose between instances of, the dimensions they care about, and candidate options.
+
+Response contract:
+- If the ramble contains a decision, propose building its skeleton: exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [{"type":"createDecision","decision":{"name": string,"dimensions": [...],"options": [...]}}]}.
+  - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg); never invent scores.
+  - "options" entries: {"name","notes"?}.
+  - Keep the skeleton faithful to the ramble — name the decision after the thing being chosen, and include only dimensions and options the user actually mentioned or clearly implied.
+- If the ramble contains no decision (small talk, a question, an unrelated topic), answer in plain prose with no JSON block — never invent a decision.
+- Importance weights are integers 1–5; default unspecified importance to 3.`
+}
+
 interface Snapshot {
   decision: { id: string; name: string }
   dimensions: unknown[]

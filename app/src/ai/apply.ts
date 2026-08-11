@@ -6,12 +6,14 @@
 import {
   addDimension,
   addOption,
+  createDecisionSkeleton,
   deleteDimension,
   deleteOption,
   setScore,
   updateDimension,
 } from '../mutations'
 import { queryDecision } from '../queries'
+import type { Decision, DecisionSkeletonInput } from '../types'
 import type { Proposal } from './proposals'
 
 export interface ApplyOutcome {
@@ -36,7 +38,18 @@ export function describeProposal(p: Proposal): string {
       return 'Delete option'
     case 'setScore':
       return 'Set score'
+    case 'createDecision':
+      return `Create decision “${p.decision.name}”`
   }
+}
+
+/**
+ * Phase-7 ramble path: the approved (possibly user-edited) skeleton becomes
+ * a decision in one transactional mutation-layer call. Errors bubble to the
+ * ramble surface, which shows them and writes nothing.
+ */
+export async function applyDecisionSkeleton(skeleton: DecisionSkeletonInput): Promise<Decision> {
+  return createDecisionSkeleton(skeleton)
 }
 
 /**
@@ -87,6 +100,9 @@ export async function applyProposals(
           await setScore(p.optionId, p.dimensionId, p.value)
           break
         }
+        case 'createDecision':
+          // Ramble scope only — a decision-bound card can never create one.
+          throw new Error('new decisions are only created from a ramble')
       }
       outcomes.push({ index, ok: true, label })
     } catch (e) {

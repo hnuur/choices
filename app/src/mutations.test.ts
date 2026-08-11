@@ -5,6 +5,7 @@ import {
   addOption,
   clearScore,
   createDecision,
+  createDecisionSkeleton,
   deleteDecision,
   deleteDimension,
   deleteOption,
@@ -262,5 +263,46 @@ describe('export / import', () => {
         scores: [{ optionId: out.options[0].id, dimensionId: subj.id, value: 2.5 }],
       }),
     ).rejects.toThrow(/integers 1\.\.5/)
+  })
+})
+
+describe('createDecisionSkeleton (Phase-7 ramble path)', () => {
+  it('creates decision + dimensions + options under the new decision', async () => {
+    const decision = await createDecisionSkeleton({
+      name: 'Next camera',
+      dimensions: [
+        { name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' },
+        { name: 'Sexiness', kind: 'subjective', importance: 2 },
+      ],
+      options: [{ name: 'Sony A7C II' }, { name: 'Fuji X-T5', notes: 'aps-c' }],
+    })
+    expect((await db.decisions.get(decision.id))!.name).toBe('Next camera')
+    const dimensions = await db.dimensions.where('decisionId').equals(decision.id).toArray()
+    expect(dimensions.map((d) => d.name).sort()).toEqual(['Sexiness', 'Weight'])
+    expect(dimensions.find((d) => d.name === 'Sexiness')!.direction).toBeUndefined()
+    const options = await db.options.where('decisionId').equals(decision.id).toArray()
+    expect(options.map((o) => o.name).sort()).toEqual(['Fuji X-T5', 'Sony A7C II'])
+  })
+
+  it('accepts a name-only skeleton', async () => {
+    const decision = await createDecisionSkeleton({ name: 'Bare', dimensions: [], options: [] })
+    expect(await db.dimensions.where('decisionId').equals(decision.id).count()).toBe(0)
+    expect(await db.options.where('decisionId').equals(decision.id).count()).toBe(0)
+  })
+
+  it('writes nothing when any row is invalid (all-or-nothing)', async () => {
+    await expect(
+      createDecisionSkeleton({
+        name: 'Broken',
+        dimensions: [
+          { name: 'Weight', kind: 'objective', direction: 'lower', importance: 3 },
+          { name: 'Bad', kind: 'objective', importance: 3 }, // missing direction
+        ],
+        options: [{ name: 'A' }],
+      }),
+    ).rejects.toThrow(ValidationError)
+    expect(await db.decisions.count()).toBe(0)
+    expect(await db.dimensions.count()).toBe(0)
+    expect(await db.options.count()).toBe(0)
   })
 })

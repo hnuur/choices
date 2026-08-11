@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import { addDimension, addOption, createDecision, setScore } from '../mutations'
 import { queryDecision } from '../queries'
-import { applyProposals } from './apply'
+import { applyDecisionSkeleton, applyProposals } from './apply'
 import type { Proposal } from './proposals'
 
 beforeEach(async () => {
@@ -101,5 +101,41 @@ describe('applyProposals', () => {
     expect(outcomes[0].ok).toBe(true)
     const bundle = await queryDecision(decision.id)
     expect(bundle!.scores).toHaveLength(0)
+  })
+
+  it('refuses createDecision inside a decision-bound card (ramble scope only)', async () => {
+    const { decision } = await buildDecision()
+    const outcomes = await applyProposals(decision.id, [
+      { type: 'createDecision', decision: { name: 'Intruder', dimensions: [], options: [] } },
+    ])
+    expect(outcomes[0].ok).toBe(false)
+    expect(outcomes[0].error).toMatch(/only.*ramble/)
+    expect(await db.decisions.count()).toBe(1)
+  })
+})
+
+describe('applyDecisionSkeleton (Phase-7 ramble path)', () => {
+  it('creates the approved skeleton through the mutation layer', async () => {
+    const decision = await applyDecisionSkeleton({
+      name: 'Next camera',
+      dimensions: [{ name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' }],
+      options: [{ name: 'Sony A7C II' }, { name: 'Fuji X-T5' }],
+    })
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.decision.name).toBe('Next camera')
+    expect(bundle!.dimensions).toHaveLength(1)
+    expect(bundle!.options).toHaveLength(2)
+    expect(bundle!.scores).toHaveLength(0)
+  })
+
+  it('rejects invalid skeletons and writes nothing', async () => {
+    await expect(
+      applyDecisionSkeleton({
+        name: '  ',
+        dimensions: [],
+        options: [],
+      }),
+    ).rejects.toThrow(/name/)
+    expect(await db.decisions.count()).toBe(0)
   })
 })

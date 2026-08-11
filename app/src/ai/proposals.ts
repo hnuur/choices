@@ -3,7 +3,7 @@
 // ProposalParseError the chat surface renders visibly.
 
 import type { DimensionPatch } from '../mutations'
-import type { DimensionInput, OptionInput } from '../types'
+import type { DecisionSkeletonInput, DimensionInput, OptionInput } from '../types'
 
 export type Proposal =
   | { type: 'addDimension'; dimension: DimensionInput }
@@ -12,6 +12,8 @@ export type Proposal =
   | { type: 'addOption'; option: OptionInput }
   | { type: 'deleteOption'; id: string }
   | { type: 'setScore'; optionId: string; dimensionId: string; value: number }
+  /** Phase-7 ramble scope: a whole decision skeleton, created in one go. */
+  | { type: 'createDecision'; decision: DecisionSkeletonInput }
 
 export interface ParsedReply {
   /** Prose part of the reply; may be empty. */
@@ -101,6 +103,33 @@ function parseDimensionPatch(v: unknown, label: string): DimensionPatch {
   return patch
 }
 
+function parseOptionInput(v: unknown, label: string): OptionInput {
+  const opt = requireRecord(v, label)
+  rejectUnknownKeys(opt, ['name', 'notes'], label)
+  const option: OptionInput = { name: requireString(opt.name, `${label}.name`) }
+  if (opt.notes !== undefined) option.notes = requireString(opt.notes, `${label}.notes`)
+  return option
+}
+
+function parseDecisionSkeleton(v: unknown, label: string): DecisionSkeletonInput {
+  const dec = requireRecord(v, label)
+  rejectUnknownKeys(dec, ['name', 'dimensions', 'options'], label)
+  const name = requireString(dec.name, `${label}.name`)
+  const dimensions: DimensionInput[] =
+    dec.dimensions === undefined
+      ? []
+      : Array.isArray(dec.dimensions)
+        ? dec.dimensions.map((d, i) => parseDimensionInput(d, `${label}.dimensions[${i + 1}]`))
+        : fail(`${label}.dimensions must be an array`)
+  const options: OptionInput[] =
+    dec.options === undefined
+      ? []
+      : Array.isArray(dec.options)
+        ? dec.options.map((o, i) => parseOptionInput(o, `${label}.options[${i + 1}]`))
+        : fail(`${label}.options must be an array`)
+  return { name, dimensions, options }
+}
+
 function parseProposal(raw: unknown, index: number): Proposal {
   const label = `proposal ${index + 1}`
   const obj = requireRecord(raw, label)
@@ -123,11 +152,7 @@ function parseProposal(raw: unknown, index: number): Proposal {
     }
     case 'addOption': {
       rejectUnknownKeys(obj, ['type', 'option'], label)
-      const opt = requireRecord(obj.option, `${label}.option`)
-      rejectUnknownKeys(opt, ['name', 'notes'], `${label}.option`)
-      const option: OptionInput = { name: requireString(opt.name, `${label}.option.name`) }
-      if (opt.notes !== undefined) option.notes = requireString(opt.notes, `${label}.option.notes`)
-      return { type: 'addOption', option }
+      return { type: 'addOption', option: parseOptionInput(obj.option, `${label}.option`) }
     }
     case 'deleteOption': {
       rejectUnknownKeys(obj, ['type', 'id'], label)
@@ -141,6 +166,10 @@ function parseProposal(raw: unknown, index: number): Proposal {
         dimensionId: requireString(obj.dimensionId, `${label}.dimensionId`),
         value: requireFiniteNumber(obj.value, `${label}.value`),
       }
+    }
+    case 'createDecision': {
+      rejectUnknownKeys(obj, ['type', 'decision'], label)
+      return { type: 'createDecision', decision: parseDecisionSkeleton(obj.decision, `${label}.decision`) }
     }
     case undefined:
       return fail(`${label} has no type`)
