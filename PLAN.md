@@ -249,7 +249,16 @@ choices/                         git repo
       applies exactly what is on the card at that moment, reject applies
       nothing (batched diff is Deferred). Chat transcripts are ephemeral
       (in-memory only; the decision is the durable artifact, no Dexie
-      schema). Locked by the 2026-08-10 amendment (rule 2):
+      schema). **Mobile-first surface** (2026-08-11): one "Ask AI" entry
+      point in the decision view at the tab bar; chat opens as a
+      full-screen bottom sheet with a drag handle (half-sheet rejected —
+      no room for editable cards + keyboard); context is the active tab,
+      shown as a tappable chip in the sheet header; after approve the card
+      collapses to a result row and the sheet auto-drops to peek height
+      briefly so the updated tab is visible. Rows have ≥44pt touch
+      targets, approve/reject are full-width buttons, the input bar is
+      pinned to the visual viewport with safe-area padding. Locked by the
+      2026-08-10 amendment (rule 2):
       provider is user-selectable — presets Anthropic / OpenAI / Gemini
       plus a custom OpenAI-compatible endpoint (base URL + model + key),
       which also covers proxies and local servers; keys are BYO, stored
@@ -267,7 +276,8 @@ choices/                         git repo
       round-trip per preset, custom endpoint, relay quota-exhausted message,
       approve applies exactly the card's contents (as proposed or
       user-edited), reject changes nothing, malformed proposal errors
-      visibly; doctor exits 0.
+      visibly, chat sheet lifecycle (open, context chip follows/switches
+      tab, approve → peek, dismiss); doctor exits 0.
 - [ ] **Phase 7 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
@@ -319,3 +329,4 @@ choices/                         git repo
 | Phase 6 access model | user-selectable provider: BYO-key presets (Anthropic/OpenAI/Gemini) + custom OpenAI-compatible endpoint; optional operator-run relay (free quota, opt-in, disclosed) for zero-setup use (amendment 2026-08-10) |
 | Phase 6 piggyback | rejected: iOS sandboxing exposes no way for a PWA to use an installed AI app's session or subscription, and providers offer no consumer OAuth for it; on-device web LLMs not viable in Safari today (amendment 2026-08-10) |
 | Phase 6 interaction | approval cards are editable multi-row: rows may be edited/added/removed before approve; approve applies exactly the card's contents, reject nothing; chat transcripts ephemeral (no Dexie schema); data-flow disclosure in AI settings only, never on the chat surface (user decision 2026-08-11) |
+| Phase 6 chat UX | mobile-first: single entry point at the tab bar, full-screen bottom sheet, context implicit from the active tab as a tappable chip, auto-peek after approve so the tab update is visible; half-sheet rejected for card-editing space (user decision 2026-08-11) |
