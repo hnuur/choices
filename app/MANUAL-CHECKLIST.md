@@ -141,3 +141,49 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       ramble flow works inside the standalone app too.
 - [ ] Reload the page: ramble transcripts and cards are gone (ephemeral);
       created decisions persist.
+
+## Phase 8 — dark redesign
+
+Visual pass in a mobile-width viewport (simulator or phone too, if handy).
+
+- [ ] App renders dark everywhere: near-black background with a subtle top
+      glow, cards as dark surfaces separated by hairline borders instead of
+      shadows, no pure-white text and no pure-black surfaces; UI face is
+      Inter Tight; metadata (counts, ranks, badges, legends, matrix labels)
+      is JetBrains Mono, uppercase, letter-spaced.
+- [ ] Decision header: "← All decisions" back link; 34px bold title with a
+      38×38 ••• button at the right; mono "N DIMENSIONS · M OPTIONS" line
+      under it.
+- [ ] ••• menu opens as a 206px dark dropdown: "Edit dimensions" jumps to
+      the Dimensions tab; "Export backup (.json)" downloads the backup and a
+      mono BACKUP SAVED · HH:MM footer line appears (EXPORT FAILED on
+      error); tapping outside closes it. The old inline export row is gone.
+- [ ] Tabs are a plain underline row on a hairline divider: inactive grey,
+      active white with a 2px cyan underline; all four tabs still freely
+      jumpable, and the chat context chip follows the active tab.
+- [ ] Results: single-line winner banner — mono cyan WINNER plus
+      "X by 0.0N over Y" (near-tie wording when the margin ≤ 0.02;
+      only-option wording when alone) on a cyan-tinted banner, the only
+      colored card in the app.
+- [ ] Rank-1 card: mono rank, name, cyan WIN chip, cyan total at the right;
+      per-dimension bars normalized against the dimension's best value (the
+      best fills the width; objective lower-is-better inverts; subjective
+      reads /5) with raw values at the right; bar thickness and fill
+      intensity scale with importance and no ×weight labels remain; mono
+      legend "BAR = SCORE IN DIMENSION · THICKNESS = WEIGHT".
+- [ ] Ranks 2–N render as compact one-line rows: mono rank, name,
+      desaturated 3px mini bar, total at the right; only rank 1 expands.
+- [ ] Non-discriminating callout and the "How fragile is this?" probes
+      render as neutral dark cards.
+- [ ] Ask AI is a full-width cyan gradient button in a fixed bottom bar with
+      a top-fading blur; content scrolls clear of the bar; the safe-area /
+      home-indicator space is kept.
+- [ ] Approving a chat card drops the sheet to the bottom bar and shows
+      "Changes applied · HH:MM" above the button; tapping Ask AI reopens the
+      chat with its transcript intact.
+- [ ] Home, Dimensions/Options/Score tabs, chat sheet, approval cards,
+      ramble sheet and AI settings all carry the dark tokens; inputs stay
+      16px (no iOS focus zoom); tap targets ≥44px.
+- [ ] Offline reload (airplane mode): the shell and the self-hosted fonts
+      load from the precache — Inter Tight / JetBrains Mono render, not
+      system fallbacks.
