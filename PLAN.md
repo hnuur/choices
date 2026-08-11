@@ -284,7 +284,33 @@ choices/                         git repo
       user-edited), reject changes nothing, malformed proposal errors
       visibly, chat sheet lifecycle (open, context chip follows/switches
       tab, approve → peek, dismiss); doctor exits 0.
-- [ ] **Phase 7 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 7 — Voice ramble input** (promoted from Deferred, amendment
+      2026-08-11): a home-screen mic button records a voice ramble —
+      MediaRecorder with supported-mimeType detection (Safari records
+      AAC/mp4) and a recording UI; STT transcribes it — Whisper
+      (`/audio/transcriptions`) on the openai/custom presets, Gemini
+      inline audio on gemini; anthropic and relay have no STT path, so
+      the mic is greyed out there (the relay stays text-only: its body
+      cap and free quota are chat-sized). The transcript goes to the LLM
+      with a "build a decision from this ramble" ask. Global scope: the
+      parser gains a createDecision payload (decision name, dimensions,
+      options) and the Phase-6 editable approval card is the review
+      surface — approve creates the whole skeleton in one transactional
+      mutation-layer call and opens it, reject creates nothing; a ramble
+      with no decision in it gets a prose reply and writes nothing.
+      Ramble transcripts are ephemeral like chat. `getUserMedia` is
+      secure-contexts-only, so over plain HTTP the mic is unavailable and
+      the UI says so instead of failing silently (same bug class as the
+      `uid()` fallback); real-phone round-trips run over HTTPS per the
+      checklist. **Verify**: `checks/gate-phase7.sh` passes — tsc and
+      build clean; vitest green incl. the STT client tested hermetically
+      against recorded responses and the parser rejection suite covering
+      createDecision; Dexie still confined to db.ts; skeleton creation
+      transactional inside the mutation layer; checklist: ramble →
+      approve round-trip per STT provider, greyed mic on anthropic/relay,
+      insecure-context message, real-iPhone ramble round-trip, reject and
+      no-decision-in-ramble paths write nothing; doctor exits 0.
+- [ ] **Phase 8 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -315,14 +341,6 @@ choices/                         git repo
   cadence.
 - **Purchased AI credits** / payment for relay usage — the relay is
   free-quota only in v1; payment infra is out of scope for a local-first v1.
-- **Voice ramble input** (parked 2026-08-11): mic button records a ramble;
-  STT (Whisper on openai/custom, or Gemini inline audio — Anthropic has no
-  STT); the transcript feeds the existing chat proposal contract with a
-  "build the decision from this ramble" ask. Global scope: one ramble may
-  create a whole decision skeleton, so the parser gains a createDecision
-  payload type; the editable approval card is the review surface. Risks
-  are device quirks (iOS PWA mic permission, Safari records AAC/mp4), not
-  code size. Folds naturally into the UI redesign when that is scheduled.
 
 ## Decision log
 
@@ -348,3 +366,4 @@ choices/                         git repo
 | Phase 6 live testing | OpenAI is the live-test provider: user-supplied key entered through the app's AI settings (the production BYO path, never the repo); automated suite stays hermetic via recorded responses (user decision 2026-08-11) |
 | Phase 6 relay stack | zero-dep Node (node:http, ESM) OpenAI-compatible proxy: client-generated opaque bearer token, in-memory per-token UTC-day quota, upstream endpoint + operator key via env, node:test suite (amendment 2026-08-11) |
 | Phase 6 anchors | plan inconsistency resolved at implementation start: anchors are Deferred, so "propose anchors" cannot be a payload type — objective prefill only, scale guidance in prose (amendment 2026-08-11) |
+| Voice ramble phase | promoted from Deferred to its own Phase 7 rather than folded into the pending UI redesign (user decision 2026-08-11); Shared database renumbered Phase 7 → 8 so voice is not blocked behind the unscheduled shared-db precondition. STT only where a provider has one: Whisper on openai/custom, Gemini inline audio on gemini; mic greyed out on anthropic and relay (relay stays text-only — its body cap and quota are chat-sized). Real-phone mic needs HTTPS (getUserMedia is secure-contexts-only), documented in the checklist (amendment 2026-08-11) |
