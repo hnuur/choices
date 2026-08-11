@@ -88,7 +88,8 @@ Score     { optionId, dimensionId, value }   // row exists ⇒ cell scored
 - **Mutation contract**: all writes go through typed mutation functions
   (createDecision, addDimension, setScore, exportDecision, …) taking
   explicit edit payloads; UI never touches Dexie directly. A Phase 6 LLM
-  proposal is the same payload rendered as a confirm/reject card.
+  proposal is the same payload rendered as rows in an editable approval
+  card.
 - **Backup**: JSON export/import of a whole decision — mutation-layer
   functions in Phase 3, UI in Phase 5. Local-first plus iOS's aggressive
   storage eviction makes this v1 scope, not Deferred.
@@ -243,8 +244,12 @@ choices/                         git repo
       (refine/split, e.g. "portability" → weight + size), option (suggest
       options, prefill objective scores, propose anchors), result ("why did
       X win?", "argue me out of this choice"). LLM proposes typed mutation
-      payloads; user approves per-edit via a confirm/reject card (batched
-      diff is Deferred). Locked by the 2026-08-10 amendment (rule 2):
+      payloads; each proposal renders as an approval card of editable rows —
+      the user may edit, remove, or add rows before approving; approve
+      applies exactly what is on the card at that moment, reject applies
+      nothing (batched diff is Deferred). Chat transcripts are ephemeral
+      (in-memory only; the decision is the durable artifact, no Dexie
+      schema). Locked by the 2026-08-10 amendment (rule 2):
       provider is user-selectable — presets Anthropic / OpenAI / Gemini
       plus a custom OpenAI-compatible endpoint (base URL + model + key),
       which also covers proxies and local servers; keys are BYO, stored
@@ -252,15 +257,17 @@ choices/                         git repo
       **relay** in `relay/` for zero-setup use — a thin operator-key proxy
       with an opaque per-device token and a daily free quota, opt-in, and
       disclosed in the AI settings with one line per mode (who pays, where
-      data flows); dev keys live in `secrets/`, never bundled.
+      data flows) — settings is the disclosure surface; the chat screen
+      carries none; dev keys live in `secrets/`, never bundled.
       **Verify**: `checks/gate-phase6.sh` passes — tsc and build clean;
       vitest green incl. the proposal parser (only well-formed typed
       mutation payloads accepted; malformed/unknown rejected), Dexie writes
       still confined to the mutation layer, provider clients tested against
       recorded responses, relay quota enforced; checklist: key-validation
       round-trip per preset, custom endpoint, relay quota-exhausted message,
-      approve applies exactly the proposed edit, reject changes nothing,
-      malformed proposal errors visibly; doctor exits 0.
+      approve applies exactly the card's contents (as proposed or
+      user-edited), reject changes nothing, malformed proposal errors
+      visibly; doctor exits 0.
 - [ ] **Phase 7 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
@@ -285,8 +292,10 @@ choices/                         git repo
 - "Unknown" cells with weight redistribution — rejected at adoption: it
   reintroduces the silent bias the full-matrix rule locks out. Revisit only
   together with anchors.
-- **Batched diff** approval of several proposed edits at once — Phase 6
-  ships per-edit cards; revisit once real usage shows the cadence.
+- **Batched diff** review flow over several proposed edits — Phase 6's
+  editable multi-row approval cards already cover approving several edits
+  at once; revisit a dedicated diff/review UX once real usage shows the
+  cadence.
 - **Purchased AI credits** / payment for relay usage — the relay is
   free-quota only in v1; payment infra is out of scope for a local-first v1.
 
@@ -307,5 +316,6 @@ choices/                         git repo
 | Backup | JSON export/import of a decision is v1 scope (functions in Phase 3, UI in Phase 5) — local-first plus iOS's aggressive storage eviction |
 | Phase numbering | app milestones renumbered as repo Phases 3–7; ≥2 unticked boxes keep gate NT4–NT6 exercised (supersedes the Phase-2-placeholder device) |
 | Drift enforcement | deterministic hooks + doctor + per-phase gates; instructions only where mechanism is impossible |
-| Phase 6 access model | user-selectable provider: BYO-key presets (Anthropic/OpenAI/Gemini) + custom OpenAI-compatible endpoint; optional operator-run relay (free quota, opt-in, disclosed) for zero-setup use; per-edit approval cards (amendment 2026-08-10) |
+| Phase 6 access model | user-selectable provider: BYO-key presets (Anthropic/OpenAI/Gemini) + custom OpenAI-compatible endpoint; optional operator-run relay (free quota, opt-in, disclosed) for zero-setup use (amendment 2026-08-10) |
 | Phase 6 piggyback | rejected: iOS sandboxing exposes no way for a PWA to use an installed AI app's session or subscription, and providers offer no consumer OAuth for it; on-device web LLMs not viable in Safari today (amendment 2026-08-10) |
+| Phase 6 interaction | approval cards are editable multi-row: rows may be edited/added/removed before approve; approve applies exactly the card's contents, reject nothing; chat transcripts ephemeral (no Dexie schema); data-flow disclosure in AI settings only, never on the chat surface (user decision 2026-08-11) |
