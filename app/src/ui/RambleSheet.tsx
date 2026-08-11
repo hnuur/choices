@@ -52,9 +52,13 @@ const formatElapsed = (s: number) =>
 export default function RambleSheet({
   onClose,
   onCreated,
+  onTranscript,
 }: {
   onClose: () => void
-  onCreated: (decisionId: string) => void
+  /** Home mode: approving a skeleton opens the new decision. */
+  onCreated?: (decisionId: string) => void
+  /** Decision mode: hand the transcript to that decision's chat and stop. */
+  onTranscript?: (text: string) => void
 }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [phase, setPhase] = useState<Phase>('idle')
@@ -96,6 +100,10 @@ export default function RambleSheet({
     try {
       const text = await transcribe(audio, mimeType, loadSettings())
       pushEntry({ kind: 'transcript', text })
+      if (onTranscript) {
+        onTranscript(text)
+        return
+      }
       setPhase('thinking')
       const reply = await chat(
         [
@@ -184,7 +192,7 @@ export default function RambleSheet({
   const approve = async (cardId: number, skeleton: DecisionSkeletonInput) => {
     try {
       const decision = await applyDecisionSkeleton(skeleton)
-      onCreated(decision.id)
+      onCreated?.(decision.id)
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setEntries((prev) =>

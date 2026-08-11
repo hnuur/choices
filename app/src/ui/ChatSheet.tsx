@@ -30,6 +30,8 @@ export default function ChatSheet({
   onStateChange,
   onCycleTab,
   onApplied,
+  injection,
+  onInjectionConsumed,
 }: {
   bundle: DecisionBundle
   tab: Tab
@@ -37,6 +39,9 @@ export default function ChatSheet({
   onStateChange: (s: ChatState) => void
   onCycleTab: () => void
   onApplied?: () => void
+  /** Ramble-everywhere: a transcript to enter as if typed (nonce re-triggers). */
+  injection?: { text: string; nonce: number } | null
+  onInjectionConsumed: () => void
 }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
@@ -52,18 +57,28 @@ export default function ChatSheet({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
   }, [entries, busy, state])
 
+  // Ramble-everywhere: a transcript handed over from the decision view's mic
+  // enters the chat exactly as if typed (proposals, approval card, all of it).
+  useEffect(() => {
+    if (!injection || busy) return
+    onInjectionConsumed()
+    void send(injection.text)
+    // send reads entries/busy from the render scope; the deps cover the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [injection, busy])
+
   if (state !== 'full') return null
 
   const configured = isConfigured(loadSettings())
 
-  const send = async () => {
-    const text = input.trim()
+  const send = async (raw?: string) => {
+    const text = (raw ?? input).trim()
     if (!text || busy) return
     if (!configured) {
       setView('settings')
       return
     }
-    setInput('')
+    if (raw === undefined) setInput('')
     const history = entries.flatMap((e) =>
       e.kind === 'user' || e.kind === 'assistant' ? [{ role: e.kind, content: e.text }] : [],
     )

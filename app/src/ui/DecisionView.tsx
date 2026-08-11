@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
+import { isConfigured, loadSettings } from '../ai/settings'
+import { supportsStt } from '../ai/stt'
 import { exportDecision } from '../mutations'
 import { queryDecision } from '../queries'
 import { useLiveQuery } from '../useLiveQuery'
 import ChatSheet, { type ChatState } from './ChatSheet'
 import DimensionsTab from './DimensionsTab'
 import OptionsTab from './OptionsTab'
+import RambleSheet, { micUnavailable } from './RambleSheet'
 import ResultsTab from './ResultsTab'
 import ScoreTab from './ScoreTab'
 import { TABS, type Tab } from './tabs'
@@ -19,6 +22,14 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
   const [menuOpen, setMenuOpen] = useState(false)
   const [chatState, setChatState] = useState<ChatState>('closed')
   const [aiStatus, setAiStatus] = useState<string | null>(null)
+  const [rambleOpen, setRambleOpen] = useState(false)
+  const [injection, setInjection] = useState<{ text: string; nonce: number } | null>(null)
+
+  // Same mic guards as Home: greyed when the provider has no STT, dead when
+  // the page is not a secure context.
+  const settings = loadSettings()
+  const sttGreyed = isConfigured(settings) && !supportsStt(settings)
+  const noMic = micUnavailable()
 
   // The chip in the sheet header cycles the tab the AI is looking at.
   const cycleTab = () => {
@@ -160,15 +171,37 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
         >
           {aiStatus && <p className="pb-2 text-center text-xs text-ink-3">{aiStatus}</p>}
-          <button
-            type="button"
-            className="min-h-[52px] w-full rounded-2xl bg-gradient-to-b from-accent-ink to-accent text-[15.5px] font-semibold text-on-accent"
-            onClick={() => setChatState('full')}
-          >
-            Ask AI
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              aria-label="Ramble"
+              disabled={sttGreyed || noMic}
+              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl border border-hairline bg-hover text-xl enabled:hover:bg-white/9 disabled:opacity-40"
+              onClick={() => setRambleOpen(true)}
+            >
+              🎤
+            </button>
+            <button
+              type="button"
+              className="min-h-[52px] flex-1 rounded-2xl bg-gradient-to-b from-accent-ink to-accent text-[15.5px] font-semibold text-on-accent"
+              onClick={() => setChatState('full')}
+            >
+              Ask AI
+            </button>
+          </div>
         </div>
       </div>
+
+      {rambleOpen && (
+        <RambleSheet
+          onClose={() => setRambleOpen(false)}
+          onTranscript={(text) => {
+            setRambleOpen(false)
+            setChatState('full')
+            setInjection({ text, nonce: Date.now() })
+          }}
+        />
+      )}
 
       <ChatSheet
         bundle={bundle}
@@ -177,6 +210,8 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
         onStateChange={setChatState}
         onCycleTab={cycleTab}
         onApplied={() => setAiStatus(`Changes applied · ${stamp()}`)}
+        injection={injection}
+        onInjectionConsumed={() => setInjection(null)}
       />
     </main>
   )
