@@ -179,8 +179,12 @@ choices/                         git repo
 │   ├── doctor.sh                environment assertions, run at every phase gate
 │   └── gate-phaseN.sh           per-phase verify batteries (rule 6)
 ├── app/                         the product (Phase 3+): Vite/React/TS PWA
-└── relay/                       optional thin AI proxy (Phase 6): operator key,
-                                 per-device free quota; deploy target is the
+└── relay/                       optional thin AI proxy (Phase 6): zero-dep
+                                 Node (node:http, ESM) server speaking the
+                                 OpenAI-compatible API; client-generated opaque
+                                 bearer token, in-memory per-token UTC-day free
+                                 quota; upstream endpoint + operator key via
+                                 env; node:test suite; deploy target is the
                                  operator's choice, not part of the PWA build
 ```
 
@@ -242,9 +246,11 @@ choices/                         git repo
 - [ ] **Phase 6 — LLM integration**: chat surface attached to each level —
       type ("what dims should I consider for cameras?"), dimension
       (refine/split, e.g. "portability" → weight + size), option (suggest
-      options, prefill objective scores, propose anchors), result ("why did
-      X win?", "argue me out of this choice"). LLM proposes typed mutation
-      payloads; each proposal renders as an approval card of editable rows —
+      options, prefill objective scores — objective cells only, subjective
+      ratings stay human-owned; scale guidance is prose while anchors are
+      Deferred), result ("why did X win?", "argue me out of this choice").
+      LLM proposes typed mutation payloads; each proposal renders as an
+      approval card of editable rows —
       the user may edit, remove, or add rows before approving; approve
       applies exactly what is on the card at that moment, reject applies
       nothing (batched diff is Deferred). Chat transcripts are ephemeral
@@ -298,7 +304,8 @@ choices/                         git repo
 
 - User-set **anchors** (reference min/max per dimension) instead of
   set-relative min-max normalization — the escape hatch for the IIA
-  weakness in the Product spec; Phase 6's LLM could propose them.
+  weakness in the Product spec; until this lands the Phase 6 LLM has no
+  anchor payload type and can only suggest anchor values in prose.
 - "Unknown" cells with weight redistribution — rejected at adoption: it
   reintroduces the silent bias the full-matrix rule locks out. Revisit only
   together with anchors.
@@ -331,3 +338,5 @@ choices/                         git repo
 | Phase 6 interaction | approval cards are editable multi-row: rows may be edited/added/removed before approve; approve applies exactly the card's contents, reject nothing; chat transcripts ephemeral (no Dexie schema); data-flow disclosure in AI settings only, never on the chat surface (user decision 2026-08-11) |
 | Phase 6 chat UX | mobile-first: single entry point at the tab bar, full-screen bottom sheet, context implicit from the active tab as a tappable chip, auto-peek after approve so the tab update is visible; half-sheet rejected for card-editing space (user decision 2026-08-11) |
 | Phase 6 live testing | OpenAI is the live-test provider: user-supplied key entered through the app's AI settings (the production BYO path, never the repo); automated suite stays hermetic via recorded responses (user decision 2026-08-11) |
+| Phase 6 relay stack | zero-dep Node (node:http, ESM) OpenAI-compatible proxy: client-generated opaque bearer token, in-memory per-token UTC-day quota, upstream endpoint + operator key via env, node:test suite (amendment 2026-08-11) |
+| Phase 6 anchors | plan inconsistency resolved at implementation start: anchors are Deferred, so "propose anchors" cannot be a payload type — objective prefill only, scale guidance in prose (amendment 2026-08-11) |
