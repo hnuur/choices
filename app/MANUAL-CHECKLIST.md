@@ -51,3 +51,42 @@ for the human verifier.
       the same winner.
 - [ ] Import a file that is not a Choices backup; an error is shown and
       nothing is created.
+
+## Phase 6 — AI integration
+
+Serve the app, and for relay items start the relay (`cd relay &&
+RELAY_UPSTREAM=… RELAY_API_KEY=… RELAY_QUOTA=2 node server.js`). Work in a
+mobile-width viewport.
+
+- [ ] Tap Ask AI at the tab bar: the chat sheet opens full-screen with a
+      drag handle; the context chip shows the active tab, and tapping the
+      chip cycles the tab the AI looks at.
+- [ ] With AI unconfigured the sheet offers "Set up AI"; the settings
+      screen shows a disclosure line for the selected mode (who pays,
+      where data flows).
+- [ ] OpenAI preset: paste a key, Validate key reports "Connection OK"; a
+      deliberately wrong key shows the provider's error instead.
+- [ ] Anthropic and Gemini presets (keys permitting): Validate key
+      round-trip succeeds for each.
+- [ ] Custom endpoint: point at any OpenAI-compatible server (the relay or
+      a local one works); chat round-trip succeeds.
+- [ ] Ask "what dims should I consider for cameras?" — the reply arrives
+      with an approval card of editable rows.
+- [ ] Edit the card before approving: change a name, adjust an importance,
+      remove a row, add one via "+ dimension"; Approve applies exactly the
+      card's contents and the Dimensions tab shows the result.
+- [ ] After approve the sheet auto-drops to peek; the tab update is
+      visible behind it; tapping the peek bar returns to the chat.
+- [ ] Reject another proposal; nothing changes in the decision.
+- [ ] Ask for a subjective rating ("rate sexiness for me"): the AI answers
+      in prose and applies no score — subjective ratings stay human-owned.
+- [ ] Ask a results question ("why did X win?") on a fully scored
+      decision: prose answer grounded in the ranking, no proposal card.
+- [ ] Relay mode with RELAY_QUOTA=2: two chats succeed, the third shows
+      the quota-exhausted message suggesting your own key; Validate key
+      still works afterwards.
+- [ ] Break the setup (bad key or unreachable endpoint) and send a
+      message: the error is shown visibly in the chat; the app stays
+      usable and nothing is written.
+- [ ] Reload the page: chat transcripts are gone (ephemeral); the decision
+      itself persists.
