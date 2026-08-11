@@ -36,7 +36,7 @@ function rowInvalid(p: Proposal): boolean {
   }
 }
 
-function DimensionFields({
+export function DimensionFields({
   dimension,
   onChange,
 }: {

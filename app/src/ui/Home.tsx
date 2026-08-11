@@ -1,4 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { isConfigured, loadSettings } from '../ai/settings'
+import { supportsStt } from '../ai/stt'
 import { createDecision, deleteDecision, importDecision, ValidationError } from '../mutations'
 import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
@@ -7,6 +9,7 @@ import { useLiveQuery } from '../useLiveQuery'
 import { ConfirmButton, FieldError, inputClass } from './bits'
 import { timeAgo } from './format'
 import InstallHint from './InstallHint'
+import RambleSheet from './RambleSheet'
 
 function Preview({ decisionId, data }: { decisionId: string; data: HomeData }) {
   const dimensions = data.dimensions.filter((d) => d.decisionId === decisionId)
@@ -37,7 +40,13 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   const data = useLiveQuery(queryHome, [])
   const [name, setName] = useState('')
   const [importError, setImportError] = useState<string | null>(null)
+  const [rambleOpen, setRambleOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Greyed mic: the provider has no speech-to-text (anthropic/relay). An
+  // unconfigured provider keeps the button live — the sheet offers setup.
+  const settings = loadSettings()
+  const sttGreyed = isConfigured(settings) && !supportsStt(settings)
 
   const create = async () => {
     const trimmed = name.trim()
@@ -88,7 +97,15 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
         </button>
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={sttGreyed}
+          className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 enabled:hover:bg-slate-100 disabled:opacity-40"
+          onClick={() => setRambleOpen(true)}
+        >
+          🎤 Ramble it
+        </button>
         <button
           type="button"
           className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100"
@@ -103,8 +120,24 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           className="hidden"
           onChange={(e) => void onImportFile(e)}
         />
-        {importError && <FieldError message={importError} />}
       </div>
+      {sttGreyed && (
+        <p className="mt-1 text-xs text-slate-400">
+          Voice needs OpenAI, Gemini or a custom endpoint — the current provider has no
+          speech-to-text.
+        </p>
+      )}
+      {importError && <FieldError message={importError} />}
+
+      {rambleOpen && (
+        <RambleSheet
+          onClose={() => setRambleOpen(false)}
+          onCreated={(id) => {
+            setRambleOpen(false)
+            onOpen(id)
+          }}
+        />
+      )}
 
       <InstallHint />
 
