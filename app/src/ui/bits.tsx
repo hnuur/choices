@@ -88,4 +88,4 @@ export function FieldError({ message }: { message: string }) {
 }
 
 export const inputClass =
-  'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-sky-500 focus:outline-none'
+  'w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-sky-500 focus:outline-none'

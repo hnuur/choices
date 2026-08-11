@@ -237,7 +237,7 @@ export default function ChatSheet({
         }}
       >
         <input
-          className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-sky-500 focus:outline-none"
+          className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-base focus:border-sky-500 focus:outline-none"
           placeholder={configured ? 'Ask about this decision…' : 'Set up AI first…'}
           value={input}
           onChange={(e) => setInput(e.target.value)}
