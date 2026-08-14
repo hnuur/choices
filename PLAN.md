@@ -246,9 +246,10 @@ choices/                         git repo
 - [x] **Phase 6 — LLM integration**: chat surface attached to each level —
       type ("what dims should I consider for cameras?"), dimension
       (refine/split, e.g. "portability" → weight + size), option (suggest
-      options, prefill objective scores — objective cells only, subjective
-      ratings stay human-owned; scale guidance is prose while anchors are
-      Deferred), result ("why did X win?", "argue me out of this choice").
+      options, prefill scores — objective cells (raw values) and
+      subjective 1–5 ratings; the approval card is the human checkpoint;
+      anchors stay Deferred so scale guidance for those is prose only),
+      result ("why did X win?", "argue me out of this choice").
       LLM proposes typed mutation payloads; each proposal renders as an
       approval card of editable rows —
       the user may edit, remove, or add rows before approving; approve
@@ -477,3 +478,4 @@ choices/                         git repo
 | Voice replies phase | voice-out + fuller chat context scheduled as Phase 10 on user directive 2026-08-11 (OpenAI /audio/speech with on-device speechSynthesis fallback; card outcomes join the existing since-Phase-6 turn history), Shared database renumbered Phase 10 → 11; the guided "drunk mode" walk-through (voice-in, one question at a time, sleep-on-it approval) quarantined to Deferred with its STT menu (amendment 2026-08-11) |
 | Ramble voice parity | user directive 2026-08-11 after the Phase-10 close: the ramble sheet gets the same persisted voice toggle and speaks its prose replies (skeleton card never read aloud), scheduled as Phase 11, Shared database renumbered Phase 11 → 12 |
 | UI polish phase | user directive 2026-08-14 after a UI/UX review: three-pass polish scheduled as Phase 12 (rename + empty-create error + designed ramble control + drop fake sheet handle + export note outside the menu; entry tab follows home-row status; first-dimension teaching sentence); Shared database renumbered Phase 12 → 13 |
+| AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. | |
