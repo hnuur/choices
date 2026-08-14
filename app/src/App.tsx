@@ -1,15 +1,21 @@
 import { useState } from 'react'
 import DecisionView from './ui/DecisionView'
 import Home from './ui/Home'
+import type { Tab } from './ui/tabs'
 
 export default function App() {
-  const [decisionId, setDecisionId] = useState<string | null>(null)
+  const [open, setOpen] = useState<{ id: string; tab: Tab } | null>(null)
   return (
     <div className="app-bg min-h-dvh text-ink">
-      {decisionId === null ? (
-        <Home onOpen={setDecisionId} />
+      {open === null ? (
+        <Home onOpen={(id, tab) => setOpen({ id, tab })} />
       ) : (
-        <DecisionView key={decisionId} id={decisionId} onBack={() => setDecisionId(null)} />
+        <DecisionView
+          key={open.id}
+          id={open.id}
+          initialTab={open.tab}
+          onBack={() => setOpen(null)}
+        />
       )}
     </div>
   )

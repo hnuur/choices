@@ -84,9 +84,17 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
 const stamp = () =>
   new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-export default function DecisionView({ id, onBack }: { id: string; onBack: () => void }) {
+export default function DecisionView({
+  id,
+  initialTab,
+  onBack,
+}: {
+  id: string
+  initialTab: Tab
+  onBack: () => void
+}) {
   const bundle = useLiveQuery(() => queryDecision(id), [id])
-  const [tab, setTab] = useState<Tab>('dimensions')
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [exportNote, setExportNote] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [chatState, setChatState] = useState<ChatState>('closed')

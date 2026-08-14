@@ -10,6 +10,7 @@ import { ConfirmButton, FieldError } from './bits'
 import { pct, timeAgo } from './format'
 import InstallHint from './InstallHint'
 import RambleSheet from './RambleSheet'
+import { entryTab, type Tab } from './tabs'
 
 const STARTERS = ['Next camera', 'Where to live', 'Which offer']
 
@@ -27,7 +28,7 @@ function Row({
 }: {
   decision: Decision
   data: HomeData
-  onOpen: (id: string) => void
+  onOpen: (id: string, tab: Tab) => void
 }) {
   const dimensions = data.dimensions.filter((d) => d.decisionId === decision.id)
   const options = data.options.filter((o) => o.decisionId === decision.id)
@@ -58,7 +59,7 @@ function Row({
         type="button"
         aria-label={`Open ${decision.name}`}
         className="absolute inset-0 z-0 rounded-2xl"
-        onClick={() => onOpen(decision.id)}
+        onClick={() => onOpen(decision.id, entryTab(dimensions, options, scores))}
       />
       <div className="flex items-baseline justify-between gap-3">
         <div className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-[-0.3px]">
@@ -108,7 +109,7 @@ function Row({
   )
 }
 
-export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
+export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => void }) {
   const data = useLiveQuery(queryHome, [])
   const [name, setName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
@@ -132,7 +133,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
     const decision = await createDecision(trimmed)
     setName('')
     setCreateError(null)
-    onOpen(decision.id)
+    onOpen(decision.id, 'dimensions')
   }
 
   const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -140,9 +141,10 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
     e.target.value = '' // allow re-picking the same file after an error
     if (!file) return
     try {
-      const id = await importDecision(JSON.parse(await file.text()) as DecisionExport)
+      const exported = JSON.parse(await file.text()) as DecisionExport
+      const id = await importDecision(exported)
       setImportError(null)
-      onOpen(id)
+      onOpen(id, entryTab(exported.dimensions, exported.options, exported.scores))
     } catch (err) {
       setImportError(
         err instanceof ValidationError
@@ -233,7 +235,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           onClose={() => setRambleOpen(false)}
           onCreated={(id) => {
             setRambleOpen(false)
-            onOpen(id)
+            onOpen(id, 'dimensions')
           }}
         />
       )}
