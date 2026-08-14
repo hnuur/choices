@@ -384,7 +384,7 @@ choices/                         git repo
       `checks/gate-phase11.sh` passes — tsc and build clean; vitest
       green; ramble wiring asserted (shared toggle, speak-on-reply,
       stop-on-close); checklist carries the parity items; doctor exits 0.
-- [ ] **Phase 12 — UI polish (three passes)**: the 2026-08-14 review of
+- [x] **Phase 12 — UI polish (three passes)**: the 2026-08-14 review of
       the live screens, scheduled as one phase in a three-commit series
       so mechanical wiring, entry, and teaching stay separable. Pass 1
       wires what's already there: the decision title calls
