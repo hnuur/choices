@@ -299,6 +299,15 @@ choices/                         git repo
       surface — approve creates the whole skeleton in one transactional
       mutation-layer call and opens it, reject creates nothing; a ramble
       with no decision in it gets a prose reply and writes nothing.
+      Follow-up (2026-08-14): the home composer also has a Ramble
+      button that sends typed content down this same path (voice
+      Ramble it is unchanged). The createDecision payload may include
+      best-effort scores keyed by option and dimension name; unmatched
+      or invalid cells are skipped. The skeleton card asks Fill in
+      what you can vs Keep chatting — chatting continues in the sheet
+      and can replace the proposal; closing without filling in writes
+      nothing. Decision-view ramble-everywhere is unchanged. Partial
+      scores do not unlock Results (full matrix still required).
       Ramble transcripts are ephemeral like chat. `getUserMedia` is
       secure-contexts-only, so over plain HTTP the mic is unavailable and
       the UI says so instead of failing silently (same bug class as the
@@ -397,7 +406,8 @@ choices/                         git repo
       survives closing the ••• menu. Pass 2: opening a decision
       lands on the tab that matches the home-row status (Results if
       there's a winner, Score if scoring, Dimensions if draft);
-      create / ramble-from-home stay on Dimensions. Pass 3: one
+      Create stays on Dimensions; ramble-from-home uses that same
+      entryTab rule once filled in. Pass 3: one
       sentence on the first dimension form explaining objective vs
       subjective and importance 1–5. Reorder, expandable runner-ups,
       and search stay out. **Verify**: `checks/gate-phase12.sh`
@@ -478,4 +488,5 @@ choices/                         git repo
 | Voice replies phase | voice-out + fuller chat context scheduled as Phase 10 on user directive 2026-08-11 (OpenAI /audio/speech with on-device speechSynthesis fallback; card outcomes join the existing since-Phase-6 turn history), Shared database renumbered Phase 10 → 11; the guided "drunk mode" walk-through (voice-in, one question at a time, sleep-on-it approval) quarantined to Deferred with its STT menu (amendment 2026-08-11) |
 | Ramble voice parity | user directive 2026-08-11 after the Phase-10 close: the ramble sheet gets the same persisted voice toggle and speaks its prose replies (skeleton card never read aloud), scheduled as Phase 11, Shared database renumbered Phase 11 → 12 |
 | UI polish phase | user directive 2026-08-14 after a UI/UX review: three-pass polish scheduled as Phase 12 (rename + empty-create error + designed ramble control + drop fake sheet handle + export note outside the menu; entry tab follows home-row status; first-dimension teaching sentence); Shared database renumbered Phase 12 → 13 |
-| AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. | |
+| AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. |
+| Home ramble fill-all | user 2026-08-14: home composer Ramble sends typed content to AI (voice Ramble it unchanged). The model proposes a whole decision including best-effort scores keyed by name; the card offers Fill in what you can vs Keep chatting. Partial scores are allowed; Results still need a full matrix. Closing the sheet without filling in writes nothing. | |
