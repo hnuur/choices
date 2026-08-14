@@ -266,26 +266,27 @@ Chat with a configured provider, in a mobile-width viewport.
 Mobile-width viewport, against the 2026-08-14 review.
 
 - [ ] Tapping a decision title enters an inline rename field; Enter or
-      blur saves via renameDecision; empty name shows "Name the decision
-      first." and stays in edit; Escape cancels.
-- [ ] Tapping Create with an empty composer shows "Name the decision
-      first." instead of doing nothing; typing clears the error.
+      blur saves via renameDecision; empty name shows
+      "Name the decision first." and stays in edit; Escape cancels.
+- [ ] Tapping Create with an empty composer shows
+      "Name the decision first." instead of doing nothing; typing clears
+      the error.
 - [ ] Chat and ramble sheets have no drag handle (full-screen, not a
       half-sheet).
 - [ ] The decision-view bottom bar ramble control is a cyan-dot quiet
       button labeled Ramble (same mark as Home), not an emoji; it still
       greys out without STT / on an insecure page.
-- [ ] Export backup still lives in the ••• menu; after export, "Backup
-      saved · HH:MM" shows under the title row and remains after the
-      menu closes.
+- [ ] Export backup still lives in the ••• menu; after export,
+      "Backup saved · HH:MM" shows under the title row and remains after
+      the menu closes.
 - [ ] Opening a WINNER row lands on Results; a SCORING row on Score; a
       DRAFT row (and Create / Home ramble) on Dimensions. Switching tabs
       after that stays where you put it.
 - [ ] Importing a backup opens the same tab the home row would: Results
       if the matrix is complete, Score if any cells are scored,
       Dimensions otherwise.
-- [ ] The first dimension form (empty decision) shows: "Objective
-      dimensions are facts with a unit (price, weight); subjective ones
-      are 1–5 ratings. Importance 1–5 is how much the ranking should
-      care." The sentence is gone once a dimension exists.
+- [ ] The first dimension form (empty decision) shows: "Objective dimensions
+      are facts with a unit (price, weight); subjective ones are 1–5
+      ratings. Importance 1–5 is how much the ranking should care." The
+      sentence is gone once a dimension exists.
 
