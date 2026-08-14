@@ -111,6 +111,7 @@ function Row({
 export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
   const data = useLiveQuery(queryHome, [])
   const [name, setName] = useState('')
+  const [createError, setCreateError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
   const [sort, setSort] = useState<(typeof SORTS)[number]['id']>('recent')
@@ -124,9 +125,13 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
 
   const create = async () => {
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed) {
+      setCreateError('Name the decision first.')
+      return
+    }
     const decision = await createDecision(trimmed)
     setName('')
+    setCreateError(null)
     onOpen(decision.id)
   }
 
@@ -159,7 +164,10 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-4 focus:outline-none"
           placeholder="What are you deciding?"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            if (createError) setCreateError(null)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void create()
           }}
@@ -172,6 +180,7 @@ export default function Home({ onOpen }: { onOpen: (id: string) => void }) {
           Create
         </button>
       </div>
+      {createError && <FieldError message={createError} />}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {STARTERS.map((starter) => (

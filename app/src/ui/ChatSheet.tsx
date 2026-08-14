@@ -206,7 +206,6 @@ export default function ChatSheet({
         className="relative flex items-center gap-2 border-b border-hairline px-4 pb-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
-        <div className="absolute left-1/2 top-1 h-1 w-10 -translate-x-1/2 rounded-full bg-hover" />
         <button
           type="button"
           className="min-h-11 rounded-full bg-hover px-3 text-xs font-medium text-ink-2"

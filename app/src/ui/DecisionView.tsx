@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { isConfigured, loadSettings } from '../ai/settings'
 import { supportsStt } from '../ai/stt'
-import { exportDecision } from '../mutations'
+import { ValidationError, exportDecision, renameDecision } from '../mutations'
 import { queryDecision } from '../queries'
 import { useLiveQuery } from '../useLiveQuery'
 import ChatSheet, { type ChatState } from './ChatSheet'
@@ -10,7 +10,76 @@ import OptionsTab from './OptionsTab'
 import RambleSheet, { micUnavailable } from './RambleSheet'
 import ResultsTab from './ResultsTab'
 import ScoreTab from './ScoreTab'
+import { FieldError } from './bits'
 import { TABS, type Tab } from './tabs'
+
+function DecisionTitle({ id, name }: { id: string; name: string }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(name)
+  const [error, setError] = useState('')
+
+  const save = async () => {
+    const trimmed = draft.trim()
+    if (trimmed === name) {
+      setEditing(false)
+      setError('')
+      return
+    }
+    if (!trimmed) {
+      setError('Name the decision first.')
+      return
+    }
+    try {
+      await renameDecision(id, trimmed)
+      setEditing(false)
+      setError('')
+    } catch (e) {
+      setError(e instanceof ValidationError ? e.message : String(e))
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        aria-label={`Rename ${name}`}
+        className="min-h-11 min-w-0 flex-1 truncate text-left text-[34px] font-bold leading-[1.15] tracking-[-1.2px]"
+        onClick={() => {
+          setDraft(name)
+          setError('')
+          setEditing(true)
+        }}
+      >
+        {name}
+      </button>
+    )
+  }
+
+  return (
+    <div className="min-w-0 flex-1">
+      <input
+        aria-label="Decision name"
+        className="w-full min-h-11 border-b border-accent bg-transparent text-[34px] font-bold leading-[1.15] tracking-[-1.2px] text-ink focus:outline-none"
+        value={draft}
+        autoFocus
+        onChange={(e) => {
+          setDraft(e.target.value)
+          if (error) setError('')
+        }}
+        onBlur={() => void save()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Escape') {
+            setDraft(name)
+            setError('')
+            setEditing(false)
+          }
+        }}
+      />
+      {error && <FieldError message={error} />}
+    </div>
+  )
+}
 
 const stamp = () =>
   new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -79,9 +148,7 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
       </button>
 
       <div className="flex items-center justify-between gap-3">
-        <h1 className="min-w-0 flex-1 truncate text-[34px] font-bold leading-[1.15] tracking-[-1.2px]">
-          {bundle.decision.name}
-        </h1>
+        <DecisionTitle id={id} name={bundle.decision.name} />
         <div className="relative shrink-0">
           {/* 38×38 visual inside a 44×44 hit area */}
           <button
@@ -124,11 +191,6 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
                 >
                   Export backup (.json)
                 </button>
-                {exportNote && (
-                  <p className="mt-1 border-t border-hairline px-3 pb-1 pt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-4">
-                    {exportNote}
-                  </p>
-                )}
               </div>
             </>
           )}
@@ -138,6 +200,11 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
       <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
         {bundle.dimensions.length} dimensions · {bundle.options.length} options
       </p>
+      {exportNote && (
+        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-4">
+          {exportNote}
+        </p>
+      )}
 
       <div className="mt-4 flex gap-5 border-b border-divider">
         {TABS.map((t) => (
@@ -176,10 +243,11 @@ export default function DecisionView({ id, onBack }: { id: string; onBack: () =>
               type="button"
               aria-label="Ramble"
               disabled={sttGreyed || noMic}
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl border border-hairline bg-hover text-xl enabled:hover:bg-white/9 disabled:opacity-40"
+              className="flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
               onClick={() => setRambleOpen(true)}
             >
-              🎤
+              <span className="size-1.5 rounded-full bg-accent" />
+              Ramble
             </button>
             <button
               type="button"
