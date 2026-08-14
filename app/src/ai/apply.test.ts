@@ -50,13 +50,23 @@ describe('applyProposals', () => {
     expect(bundle!.dimensions.find((d) => d.id === weight.id)!.importance).toBe(5)
   })
 
-  it('refuses subjective scores — ratings stay human-owned', async () => {
+  it('applies subjective 1–5 scores through the mutation layer', async () => {
     const { decision, feel, sony } = await buildDecision()
     const outcomes = await applyProposals(decision.id, [
       { type: 'setScore', optionId: sony.id, dimensionId: feel.id, value: 4 },
     ])
+    expect(outcomes[0].ok).toBe(true)
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.scores).toEqual([{ optionId: sony.id, dimensionId: feel.id, value: 4 }])
+  })
+
+  it('rejects subjective scores outside integers 1–5', async () => {
+    const { decision, feel, sony } = await buildDecision()
+    const outcomes = await applyProposals(decision.id, [
+      { type: 'setScore', optionId: sony.id, dimensionId: feel.id, value: 6 },
+    ])
     expect(outcomes[0].ok).toBe(false)
-    expect(outcomes[0].error).toMatch(/human-owned/)
+    expect(outcomes[0].error).toMatch(/1\.\.5/)
     const bundle = await queryDecision(decision.id)
     expect(bundle!.scores).toHaveLength(0)
   })

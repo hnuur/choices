@@ -78,8 +78,8 @@ mobile-width viewport.
 - [ ] After approve the sheet auto-drops to peek; the tab update is
       visible behind it; tapping the peek bar returns to the chat.
 - [ ] Reject another proposal; nothing changes in the decision.
-- [ ] Ask for a subjective rating ("rate sexiness for me"): the AI answers
-      in prose and applies no score — subjective ratings stay human-owned.
+- [ ] Ask to score a decision that has a subjective dimension: the approval
+      card includes a 1–5 setScore row; Approve writes the rating.
 - [ ] Ask a results question ("why did X win?") on a fully scored
       decision: prose answer grounded in the ranking, no proposal card.
 - [ ] Relay mode with RELAY_QUOTA=2: two chats succeed, the third shows

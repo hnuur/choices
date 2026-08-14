@@ -1,7 +1,8 @@
 // Applies an (approved, possibly user-edited) approval card through the
 // mutation layer — the same typed payloads the UI uses, nothing else.
 // Semantic checks the parser cannot make live here: ids must belong to this
-// decision, and subjective ratings stay human-owned.
+// decision. Score values are validated by the mutation layer (subjective
+// ratings must be integers 1–5).
 
 import {
   addDimension,
@@ -92,11 +93,7 @@ export async function applyProposals(
           break
         case 'setScore': {
           if (!optionIds.has(p.optionId)) throw new Error('option is not in this decision')
-          const dimension = bundle.dimensions.find((d) => d.id === p.dimensionId)
-          if (!dimension) throw new Error('dimension is not in this decision')
-          if (dimension.kind === 'subjective') {
-            throw new Error('subjective ratings stay human-owned')
-          }
+          if (!dimensionIds.has(p.dimensionId)) throw new Error('dimension is not in this decision')
           await setScore(p.optionId, p.dimensionId, p.value)
           break
         }

@@ -11,9 +11,9 @@ const LEVEL_FOCUS: Record<Tab, string> = {
   dimensions:
     'The user is on the Dimensions tab: they most likely want to add, refine, split, rebalance (importance) or remove dimensions.',
   options:
-    'The user is on the Options tab: they most likely want to add or remove options, or prefill objective scores.',
+    'The user is on the Options tab: they most likely want to add or remove options, or prefill scores.',
   score:
-    'The user is on the Score tab: they most likely want help filling objective cells (raw values with units).',
+    'The user is on the Score tab: they most likely want help filling cells — raw values with units for objective dimensions, integers 1–5 for subjective ratings.',
   results:
     'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers.',
 }
@@ -26,7 +26,7 @@ ${LEVEL_FOCUS[tab]}
 The current decision is attached as JSON. Dimensions and options carry ids — reference those ids, never invent new ones for existing things.
 
 Response contract:
-- Suggestions are proposals: when the user asks which dimensions, options or objective scores to add — or how to refine, split or rebalance them — attach them in the \`\`\`json block. Never list suggestions only in prose; the user applies suggestions through approval cards, so a prose-only suggestion is unusable.
+- Suggestions are proposals: when the user asks which dimensions, options or scores to add — or how to refine, split or rebalance them — attach them in the \`\`\`json block. Never list suggestions only in prose; the user applies suggestions through approval cards, so a prose-only suggestion is unusable.
 - Answer in plain prose (no JSON block) only when there is genuinely nothing to add or change — e.g. explaining results on the Results tab.
 - To propose changes, include exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [...]}. The user reviews every proposal on an approval card and may edit or delete rows before applying, so propose concrete values.
 - Payload types:
@@ -36,7 +36,7 @@ Response contract:
   - {"type":"addOption","option":{"name","notes"?}}
   - {"type":"deleteOption","id"}
   - {"type":"setScore","optionId","dimensionId","value"}
-- setScore is for objective dimensions only; never propose subjective ratings — those are the user's personal judgement. You may discuss how to read a 1–5 scale in prose.
+- setScore fills a cell: objective dimensions take a raw number in the dimension's unit; subjective dimensions take an integer 1–5. When the user asks to score, propose setScore for both kinds.
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.`
 }
 

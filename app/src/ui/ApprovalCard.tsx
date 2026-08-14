@@ -23,17 +23,89 @@ const TYPE_LABEL: Record<Proposal['type'], string> = {
 const smallSelect =
   'w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-sm text-ink focus:border-accent focus:outline-none'
 
-function rowInvalid(p: Proposal): boolean {
+function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
   switch (p.type) {
     case 'addDimension':
       return p.dimension.name.trim() === ''
     case 'addOption':
       return p.option.name.trim() === ''
-    case 'setScore':
-      return p.optionId === '' || p.dimensionId === ''
+    case 'setScore': {
+      if (p.optionId === '' || p.dimensionId === '') return true
+      const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+      if (!dim) return true
+      if (dim.kind === 'subjective') return !Number.isInteger(p.value) || p.value < 1 || p.value > 5
+      return !Number.isFinite(p.value)
+    }
     default:
       return false
   }
+}
+
+function scoreValueForKind(kind: 'objective' | 'subjective' | undefined, value: number): number {
+  if (kind === 'subjective') {
+    return Number.isInteger(value) && value >= 1 && value <= 5 ? value : 3
+  }
+  return value
+}
+
+function SetScoreFields({
+  p,
+  bundle,
+  onChange,
+}: {
+  p: Extract<Proposal, { type: 'setScore' }>
+  bundle: DecisionBundle
+  onChange: (next: Extract<Proposal, { type: 'setScore' }>) => void
+}) {
+  const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+  return (
+    <div className="space-y-2">
+      <select
+        className={smallSelect}
+        value={p.optionId}
+        onChange={(e) => onChange({ ...p, optionId: e.target.value })}
+      >
+        {bundle.options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+      <select
+        className={smallSelect}
+        value={p.dimensionId}
+        onChange={(e) => {
+          const dimensionId = e.target.value
+          const next = bundle.dimensions.find((d) => d.id === dimensionId)
+          onChange({ ...p, dimensionId, value: scoreValueForKind(next?.kind, p.value) })
+        }}
+      >
+        {bundle.dimensions.map((d) => (
+          <option key={d.id} value={d.id}>
+            {d.name}
+            {d.kind === 'subjective' ? ' (1–5)' : d.unit ? ` (${d.unit})` : ''}
+          </option>
+        ))}
+      </select>
+      {dim?.kind === 'subjective' ? (
+        <ImportancePicker
+          value={scoreValueForKind('subjective', p.value)}
+          onChange={(value) => onChange({ ...p, value })}
+        />
+      ) : (
+        <div className="flex items-center gap-2">
+          <input
+            className={inputClass}
+            type="number"
+            step="any"
+            value={p.value}
+            onChange={(e) => onChange({ ...p, value: Number(e.target.value) })}
+          />
+          {dim?.unit && <span className="shrink-0 text-sm text-ink-3">{dim.unit}</span>}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function DimensionFields({
@@ -159,8 +231,7 @@ export default function ApprovalCard({
     )
   }
 
-  const objectiveDims = bundle.dimensions.filter((d) => d.kind === 'objective')
-  const invalid = proposals.some(rowInvalid)
+  const invalid = proposals.some((p) => rowInvalid(p, bundle))
 
   return (
     <div className="rounded-xl border border-hairline bg-surface p-3">
@@ -300,38 +371,7 @@ export default function ApprovalCard({
               <p className="text-sm text-ink-2">“{nameOf.option(p.id)}” and its scores</p>
             )}
             {p.type === 'setScore' && (
-              <div className="space-y-2">
-                <select
-                  className={smallSelect}
-                  value={p.optionId}
-                  onChange={(e) => update(i, { ...p, optionId: e.target.value })}
-                >
-                  {bundle.options.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className={smallSelect}
-                  value={p.dimensionId}
-                  onChange={(e) => update(i, { ...p, dimensionId: e.target.value })}
-                >
-                  {objectiveDims.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                      {d.unit ? ` (${d.unit})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={inputClass}
-                  type="number"
-                  step="any"
-                  value={p.value}
-                  onChange={(e) => update(i, { ...p, value: Number(e.target.value) })}
-                />
-              </div>
+              <SetScoreFields p={p} bundle={bundle} onChange={(next) => update(i, next)} />
             )}
           </div>
         ))}
@@ -357,7 +397,7 @@ export default function ApprovalCard({
         >
           + option
         </button>
-        {objectiveDims.length > 0 && bundle.options.length > 0 && (
+        {bundle.dimensions.length > 0 && bundle.options.length > 0 && (
           <button
             type="button"
             className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
@@ -365,8 +405,8 @@ export default function ApprovalCard({
               add({
                 type: 'setScore',
                 optionId: bundle.options[0].id,
-                dimensionId: objectiveDims[0].id,
-                value: 0,
+                dimensionId: bundle.dimensions[0].id,
+                value: scoreValueForKind(bundle.dimensions[0].kind, 0),
               })
             }
           >
