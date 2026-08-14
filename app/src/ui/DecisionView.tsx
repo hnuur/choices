@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { isConfigured, loadSettings } from '../ai/settings'
 import { supportsStt } from '../ai/stt'
 import { ValidationError, exportDecision, renameDecision } from '../mutations'
@@ -17,8 +17,13 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const [error, setError] = useState('')
+  const skipSave = useRef(false)
 
   const save = async () => {
+    if (skipSave.current) {
+      skipSave.current = false
+      return
+    }
     const trimmed = draft.trim()
     if (trimmed === name) {
       setEditing(false)
@@ -70,6 +75,7 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
         onKeyDown={(e) => {
           if (e.key === 'Enter') e.currentTarget.blur()
           if (e.key === 'Escape') {
+            skipSave.current = true
             setDraft(name)
             setError('')
             setEditing(false)

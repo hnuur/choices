@@ -281,6 +281,9 @@ Mobile-width viewport, against the 2026-08-14 review.
 - [ ] Opening a WINNER row lands on Results; a SCORING row on Score; a
       DRAFT row (and Create / Home ramble) on Dimensions. Switching tabs
       after that stays where you put it.
+- [ ] Importing a backup opens the same tab the home row would: Results
+      if the matrix is complete, Score if any cells are scored,
+      Dimensions otherwise.
 - [ ] The first dimension form (empty decision) shows: "Objective
       dimensions are facts with a unit (price, weight); subjective ones
       are 1–5 ratings. Importance 1–5 is how much the ranking should

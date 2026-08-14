@@ -46,6 +46,7 @@ DIM="$APP/src/ui/DimensionsTab.tsx"
 # NT4: pass 1 — title calls renameDecision
 grep -q 'renameDecision' "$D" || fail "decision title does not call renameDecision"
 grep -q 'aria-label={`Rename ${name}`}' "$D" || fail "rename control missing an accessible name"
+grep -q 'skipSave' "$D" || fail "Escape-to-cancel can still save on blur"
 ok "decision title wires renameDecision"
 
 # NT5: pass 1 — empty Create surfaces an error
