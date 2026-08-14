@@ -384,7 +384,28 @@ choices/                         git repo
       `checks/gate-phase11.sh` passes — tsc and build clean; vitest
       green; ramble wiring asserted (shared toggle, speak-on-reply,
       stop-on-close); checklist carries the parity items; doctor exits 0.
-- [ ] **Phase 12 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 12 — UI polish (three passes)**: the 2026-08-14 review of
+      the live screens, scheduled as one phase in a three-commit series
+      so mechanical wiring, entry, and teaching stay separable. Pass 1
+      wires what's already there: the decision title calls
+      `renameDecision`; empty Create surfaces an error instead of a
+      silent no-op; the chat/ramble sheet drag handle is removed (it
+      was visual only — the sheet is full-screen); the decision-bar
+      mic matches Home's cyan-dot quiet button, not an emoji; the
+      export "Backup saved" note lives under the title row so it
+      survives closing the ••• menu. Pass 2: opening a decision
+      lands on the tab that matches the home-row status (Results if
+      there's a winner, Score if scoring, Dimensions if draft);
+      create / ramble-from-home stay on Dimensions. Pass 3: one
+      sentence on the first dimension form explaining objective vs
+      subjective and importance 1–5. Reorder, expandable runner-ups,
+      and search stay out. **Verify**: `checks/gate-phase12.sh`
+      passes — tsc and build clean; vitest green; wiring asserted
+      (rename, empty-create error, no fake handle, designed ramble
+      control, export note outside the menu, entry tab from status,
+      teaching sentence); checklist carries the polish items;
+      doctor exits 0.
+- [ ] **Phase 13 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -455,3 +476,4 @@ choices/                         git repo
 | Ramble everywhere | decision view's bottom bar gains a mic button beside Ask AI (user decision 2026-08-11): on a decision screen the transcript is injected into that decision's chat as a message (proposals + approval card through the existing Phase-6 machinery), while Home's ramble still creates a whole new decision skeleton; same guards (greyed without provider STT, insecure-context explanation). Lands as a Phase-7 follow-up series (user chose build-now over Deferred) |
 | Voice replies phase | voice-out + fuller chat context scheduled as Phase 10 on user directive 2026-08-11 (OpenAI /audio/speech with on-device speechSynthesis fallback; card outcomes join the existing since-Phase-6 turn history), Shared database renumbered Phase 10 → 11; the guided "drunk mode" walk-through (voice-in, one question at a time, sleep-on-it approval) quarantined to Deferred with its STT menu (amendment 2026-08-11) |
 | Ramble voice parity | user directive 2026-08-11 after the Phase-10 close: the ramble sheet gets the same persisted voice toggle and speaks its prose replies (skeleton card never read aloud), scheduled as Phase 11, Shared database renumbered Phase 11 → 12 |
+| UI polish phase | user directive 2026-08-14 after a UI/UX review: three-pass polish scheduled as Phase 12 (rename + empty-create error + designed ramble control + drop fake sheet handle + export note outside the menu; entry tab follows home-row status; first-dimension teaching sentence); Shared database renumbered Phase 12 → 13 |
