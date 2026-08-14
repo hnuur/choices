@@ -38,11 +38,13 @@ function DimensionForm({
   submitLabel,
   onSubmit,
   onCancel,
+  hint,
 }: {
   initial: FormState
   submitLabel: string
   onSubmit: (input: DimensionInput) => Promise<void>
   onCancel?: () => void
+  hint?: boolean
 }) {
   const [form, setForm] = useState(initial)
   const [error, setError] = useState('')
@@ -59,6 +61,12 @@ function DimensionForm({
 
   return (
     <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
+      {hint && (
+        <p className="text-xs leading-relaxed text-ink-3">
+          Objective dimensions are facts with a unit (price, weight); subjective ones are 1–5
+          ratings. Importance 1–5 is how much the ranking should care.
+        </p>
+      )}
       <input
         className={inputClass}
         placeholder="Dimension name — e.g. weight, sexiness"
@@ -186,6 +194,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
           key={formKey}
           initial={emptyForm}
           submitLabel="Add dimension"
+          hint={bundle.dimensions.length === 0}
           onSubmit={async (input) => {
             await addDimension(bundle.decision.id, input)
             setFormKey((k) => k + 1)
