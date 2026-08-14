@@ -59,9 +59,18 @@ export interface OptionInput {
   notes?: string
 }
 
+/** Best-effort cell on a ramble skeleton, keyed by name (ids don't exist yet). */
+export interface SkeletonScoreInput {
+  option: string
+  dimension: string
+  value: number
+}
+
 /** Whole-decision skeleton (Phase-7 ramble payload → one transactional write). */
 export interface DecisionSkeletonInput {
   name: string
   dimensions: DimensionInput[]
   options: OptionInput[]
+  /** Optional; unmatched or invalid cells are skipped on write. */
+  scores?: SkeletonScoreInput[]
 }

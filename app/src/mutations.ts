@@ -12,6 +12,7 @@ import type {
   Option,
   OptionInput,
   Score,
+  SkeletonScoreInput,
 } from './types'
 
 export class ValidationError extends Error {}
@@ -91,15 +92,52 @@ export async function renameDecision(id: string, name: string): Promise<void> {
   await db.decisions.update(id, { name: requireName(name), updatedAt: now() })
 }
 
+function findUniqueByName<T extends { name: string }>(items: T[], name: string): T | undefined {
+  const needle = name.trim().toLowerCase()
+  const hits = items.filter((item) => item.name.trim().toLowerCase() === needle)
+  return hits.length === 1 ? hits[0] : undefined
+}
+
+function scoreValueOk(kind: Dimension['kind'], value: number): boolean {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return false
+  if (kind === 'subjective' && (!Number.isInteger(value) || value < 1 || value > 5)) return false
+  return true
+}
+
+/** Best-effort: skip unmatched names, duplicates, and invalid values. */
+export function resolveSkeletonScores(
+  dimensions: Dimension[],
+  options: Option[],
+  scores: SkeletonScoreInput[] | undefined,
+): Score[] {
+  if (!scores || scores.length === 0) return []
+  const out: Score[] = []
+  const seen = new Set<string>()
+  for (const cell of scores) {
+    const option = findUniqueByName(options, cell.option)
+    const dimension = findUniqueByName(dimensions, cell.dimension)
+    if (!option || !dimension || !scoreValueOk(dimension.kind, cell.value)) continue
+    const key = `${option.id}\0${dimension.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push({ optionId: option.id, dimensionId: dimension.id, value: cell.value })
+  }
+  return out
+}
+
 /**
  * Phase-7 ramble path: a whole decision skeleton (name + dimensions +
- * options) validated up front and written in one transaction — a malformed
- * row never creates a half-built decision.
+ * options, optional best-effort scores) validated up front and written in
+ * one transaction — a malformed row never creates a half-built decision.
+ * Unmatched or invalid score cells are skipped.
  */
 export async function createDecisionSkeleton(input: DecisionSkeletonInput): Promise<Decision> {
   const name = requireName(input.name)
   if (!Array.isArray(input.dimensions)) throw new ValidationError('dimensions must be an array')
   if (!Array.isArray(input.options)) throw new ValidationError('options must be an array')
+  if (input.scores !== undefined && !Array.isArray(input.scores)) {
+    throw new ValidationError('scores must be an array')
+  }
   for (const dimension of input.dimensions) validateDimensionFields(dimension)
   for (const option of input.options) {
     requireName(option.name)
@@ -123,10 +161,12 @@ export async function createDecisionSkeleton(input: DecisionSkeletonInput): Prom
     name: requireName(o.name),
     notes: o.notes,
   }))
-  await db.transaction('rw', db.decisions, db.dimensions, db.options, async () => {
+  const scores = resolveSkeletonScores(dimensions, options, input.scores)
+  await db.transaction('rw', db.decisions, db.dimensions, db.options, db.scores, async () => {
     await db.decisions.put(decision)
     if (dimensions.length) await db.dimensions.bulkPut(dimensions)
     if (options.length) await db.options.bulkPut(options)
+    if (scores.length) await db.scores.bulkPut(scores)
   })
   return decision
 }

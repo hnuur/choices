@@ -115,6 +115,7 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   const [createError, setCreateError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
+  const [rambleSeed, setRambleSeed] = useState<string | undefined>()
   const [sort, setSort] = useState<(typeof SORTS)[number]['id']>('recent')
   const [sortOpen, setSortOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -176,6 +177,23 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
         />
         <button
           type="button"
+          aria-label="Ramble"
+          disabled={name.trim() === ''}
+          className="flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-ink-2 enabled:hover:bg-hover disabled:opacity-40"
+          onClick={() => {
+            const text = name.trim()
+            if (!text) return
+            setRambleSeed(text)
+            setName('')
+            setCreateError(null)
+            setRambleOpen(true)
+          }}
+        >
+          <span className="size-1.5 rounded-full bg-accent" />
+          Ramble
+        </button>
+        <button
+          type="button"
           className="min-h-[46px] shrink-0 rounded-xl bg-gradient-to-b from-accent-ink to-accent px-5 text-[15px] font-semibold text-on-accent shadow-[0_0_24px_rgb(90_208_240/0.35)]"
           onClick={() => void create()}
         >
@@ -202,7 +220,10 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
           type="button"
           disabled={sttGreyed}
           className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-hairline bg-surface-2 text-sm font-medium text-ink-2 enabled:hover:bg-hover disabled:opacity-40"
-          onClick={() => setRambleOpen(true)}
+          onClick={() => {
+            setRambleSeed(undefined)
+            setRambleOpen(true)
+          }}
         >
           <span className="size-1.5 rounded-full bg-accent" />
           Ramble it
@@ -232,10 +253,15 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
 
       {rambleOpen && (
         <RambleSheet
-          onClose={() => setRambleOpen(false)}
-          onCreated={(id) => {
+          initialText={rambleSeed}
+          onClose={() => {
             setRambleOpen(false)
-            onOpen(id, 'dimensions')
+            setRambleSeed(undefined)
+          }}
+          onCreated={(id, tab) => {
+            setRambleOpen(false)
+            setRambleSeed(undefined)
+            onOpen(id, tab)
           }}
         />
       )}

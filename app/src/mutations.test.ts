@@ -284,6 +284,36 @@ describe('createDecisionSkeleton (Phase-7 ramble path)', () => {
     expect(options.map((o) => o.name).sort()).toEqual(['Fuji X-T5', 'Sony A7C II'])
   })
 
+  it('writes best-effort scores and skips unmatched or invalid cells', async () => {
+    const decision = await createDecisionSkeleton({
+      name: 'Next camera',
+      dimensions: [
+        { name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' },
+        { name: 'Feel', kind: 'subjective', importance: 2 },
+      ],
+      options: [{ name: 'Sony A7C II' }, { name: 'Fuji X-T5' }],
+      scores: [
+        { option: 'Sony A7C II', dimension: 'Weight', value: 514 },
+        { option: 'Sony A7C II', dimension: 'Feel', value: 4 },
+        { option: 'ghost', dimension: 'Weight', value: 1 },
+        { option: 'Fuji X-T5', dimension: 'Feel', value: 9 },
+      ],
+    })
+    const scores = await db.scores.toArray()
+    expect(scores).toHaveLength(2)
+    const dims = await db.dimensions.where('decisionId').equals(decision.id).toArray()
+    const opts = await db.options.where('decisionId').equals(decision.id).toArray()
+    const sony = opts.find((o) => o.name === 'Sony A7C II')!
+    const weight = dims.find((d) => d.name === 'Weight')!
+    const feel = dims.find((d) => d.name === 'Feel')!
+    expect(scores).toEqual(
+      expect.arrayContaining([
+        { optionId: sony.id, dimensionId: weight.id, value: 514 },
+        { optionId: sony.id, dimensionId: feel.id, value: 4 },
+      ]),
+    )
+  })
+
   it('accepts a name-only skeleton', async () => {
     const decision = await createDecisionSkeleton({ name: 'Bare', dimensions: [], options: [] })
     expect(await db.dimensions.where('decisionId').equals(decision.id).count()).toBe(0)

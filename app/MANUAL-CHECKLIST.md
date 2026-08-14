@@ -114,12 +114,12 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       X-T5"), then Stop: the transcript appears as a "You said" bubble,
       Transcribing… → Thinking…, and the reply arrives with an editable
       proposed-decision card.
-- [ ] Edit the card before approving: rename the decision, change an
+- [ ] Edit the card before filling in: rename the decision, change an
       importance, remove a dimension, add an option via "+ option";
-      Approve creates exactly the card's contents and opens the new
-      decision — Dimensions and Options tabs show it.
-- [ ] Ramble again and Reject the card: nothing is created ("Rejected —
-      nothing created") and the home list is unchanged.
+      Fill in what you can creates exactly the card's contents and opens
+      the new decision (Score or Results if scores were filled).
+- [ ] Keep chatting instead: the sheet shows a text field; a follow-up can
+      replace the card; closing without filling in writes nothing.
 - [ ] Ramble something with no decision in it ("what's the weather like"):
       prose reply, no card, nothing written.
 - [ ] Malformed or non-skeleton proposals error visibly and write nothing:
@@ -147,8 +147,12 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       decision's chat as a user bubble and the AI answers there with
       proposals/approval card; approve applies to the current decision
       and the bar shows "Changes applied · HH:MM".
-- [ ] Home ramble unchanged: still creates a whole new decision skeleton
-      (createDecision card), never touching an existing decision's chat.
+- [ ] Home composer Ramble: type a decision into "What are you deciding?"
+      and tap Ramble (cyan-dot, next to Create) — the text is sent to AI
+      without the mic; the card can include best-effort scores; Fill in
+      what you can creates it. Voice Ramble it is unchanged.
+- [ ] Home ramble still creates a whole new decision (createDecision card),
+      never touching an existing decision's chat.
 
 ## Phase 8 — dark redesign
 
@@ -280,8 +284,8 @@ Mobile-width viewport, against the 2026-08-14 review.
       "Backup saved · HH:MM" shows under the title row and remains after
       the menu closes.
 - [ ] Opening a WINNER row lands on Results; a SCORING row on Score; a
-      DRAFT row (and Create / Home ramble) on Dimensions. Switching tabs
-      after that stays where you put it.
+      DRAFT row (and Create) on Dimensions. Home ramble opens via that
+      same rule once filled in. Switching tabs after that stays where you put it.
 - [ ] Importing a backup opens the same tab the home row would: Results
       if the matrix is complete, Score if any cells are scored,
       Dimensions otherwise.

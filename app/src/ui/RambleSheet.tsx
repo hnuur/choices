@@ -6,20 +6,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyDecisionSkeleton } from '../ai/apply'
 import { rambleSystemPrompt } from '../ai/context'
-import { chat, ProviderError } from '../ai/providers'
+import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
 import { speak, stopSpeaking } from '../ai/tts'
+import { queryDecision } from '../queries'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
 import SkeletonCard, { type SkeletonOutcome } from './SkeletonCard'
+import { entryTab, type Tab } from './tabs'
 
 type Phase = 'idle' | 'recording' | 'transcribing' | 'thinking'
 
 type Entry =
-  | { id: number; kind: 'transcript' | 'assistant' | 'error'; text: string }
-  | { id: number; kind: 'card'; skeleton: DecisionSkeletonInput; outcome?: SkeletonOutcome }
+  | { id: number; kind: 'transcript' | 'user' | 'assistant' | 'error'; text: string }
+  | { id: number; kind: 'card'; skeleton: DecisionSkeletonInput; rev: number; outcome?: SkeletonOutcome }
 
 let entrySeq = 0
 
@@ -54,16 +56,21 @@ export default function RambleSheet({
   onClose,
   onCreated,
   onTranscript,
+  initialText,
 }: {
   onClose: () => void
-  /** Home mode: approving a skeleton opens the new decision. */
-  onCreated?: (decisionId: string) => void
+  /** Home mode: filling in a skeleton opens the new decision. */
+  onCreated?: (decisionId: string, tab: Tab) => void
   /** Decision mode: hand the transcript to that decision's chat and stop. */
   onTranscript?: (text: string) => void
+  /** Home composer: typed content sent as the first message. */
+  initialText?: string
 }) {
   const [entries, setEntries] = useState<Entry[]>([])
   const [phase, setPhase] = useState<Phase>('idle')
   const [elapsed, setElapsed] = useState(0)
+  const [chatting, setChatting] = useState(false)
+  const [input, setInput] = useState('')
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
   // Mirror so a reply finishing mid-toggle re-checks the setting.
   const voiceRef = useRef(voice)
@@ -74,6 +81,9 @@ export default function RambleSheet({
   const chunksRef = useRef<Blob[]>([])
   const cancelledRef = useRef(false)
   const timerRef = useRef<number | null>(null)
+  const entriesRef = useRef(entries)
+  entriesRef.current = entries
+  const seededRef = useRef(false)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -109,26 +119,34 @@ export default function RambleSheet({
   const hasStt = configured && supportsStt(settings)
   const noMic = micUnavailable()
 
-  const handleRamble = async (audio: Blob, mimeType: string) => {
-    setPhase('transcribing')
-    try {
-      const text = await transcribe(audio, mimeType, loadSettings())
+  const ask = async (text: string, kind: 'transcript' | 'user') => {
+    if (onTranscript) {
       pushEntry({ kind: 'transcript', text })
-      if (onTranscript) {
-        onTranscript(text)
-        return
-      }
-      setPhase('thinking')
+      onTranscript(text)
+      setPhase('idle')
+      return
+    }
+    pushEntry({ kind, text })
+    setPhase('thinking')
+    const draft = [...entriesRef.current].reverse().find((e) => e.kind === 'card')
+    const content =
+      draft && draft.kind === 'card'
+        ? `Current proposed decision (JSON):\n${JSON.stringify(draft.skeleton)}\n\n${text}`
+        : kind === 'transcript'
+          ? `Voice ramble transcript:\n${text}`
+          : text
+    const history: ChatMessage[] = []
+    for (const e of entriesRef.current) {
+      if (e.kind === 'user' || e.kind === 'transcript') history.push({ role: 'user', content: e.text })
+      else if (e.kind === 'assistant') history.push({ role: 'assistant', content: e.text })
+    }
+    try {
       const reply = await chat(
-        [
-          { role: 'system', content: rambleSystemPrompt() },
-          { role: 'user', content: `Voice ramble transcript:\n${text}` },
-        ],
+        [{ role: 'system', content: rambleSystemPrompt() }, ...history, { role: 'user', content }],
         loadSettings(),
       )
       const parsed = parseReply(reply)
       const only = parsed.proposals.length === 1 ? parsed.proposals[0] : null
-      // Prose only — the skeleton card is reviewed with the eyes, not ears.
       const spokenText =
         parsed.proposals.length === 0
           ? parsed.message || reply.trim()
@@ -136,8 +154,21 @@ export default function RambleSheet({
             ? (parsed.message ?? '')
             : ''
       if (only && only.type === 'createDecision') {
-        if (parsed.message) pushEntry({ kind: 'assistant', text: parsed.message })
-        pushEntry({ kind: 'card', skeleton: only.decision })
+        setChatting(true)
+        setEntries((prev) => {
+          const next = [...prev]
+          if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: parsed.message })
+          const existing = next.findIndex((e) => e.kind === 'card' && !e.outcome)
+          if (existing >= 0) {
+            const card = next[existing]
+            if (card.kind === 'card') {
+              next[existing] = { ...card, skeleton: only.decision, rev: card.rev + 1 }
+            }
+          } else {
+            next.push({ id: ++entrySeq, kind: 'card', skeleton: only.decision, rev: 0 })
+          }
+          return next
+        })
       } else if (parsed.proposals.length === 0) {
         pushEntry({ kind: 'assistant', text: parsed.message || reply.trim() })
       } else {
@@ -156,6 +187,33 @@ export default function RambleSheet({
             : String(e)
       pushEntry({ kind: 'error', text: message })
     } finally {
+      setPhase('idle')
+      setElapsed(0)
+    }
+  }
+
+  useEffect(() => {
+    if (onTranscript || !initialText?.trim() || seededRef.current) return
+    if (!isConfigured(loadSettings())) return
+    seededRef.current = true
+    void ask(initialText.trim(), 'user')
+    // Seed once when AI is ready (including after returning from settings).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialText, onTranscript, view, configured])
+
+  const handleRamble = async (audio: Blob, mimeType: string) => {
+    setPhase('transcribing')
+    try {
+      const text = await transcribe(audio, mimeType, loadSettings())
+      await ask(text, 'transcript')
+    } catch (e) {
+      const message =
+        e instanceof ProposalParseError
+          ? `Couldn't read the suggested decision: ${e.message}`
+          : e instanceof ProviderError
+            ? e.message
+            : String(e)
+      pushEntry({ kind: 'error', text: message })
       setPhase('idle')
       setElapsed(0)
     }
@@ -214,7 +272,11 @@ export default function RambleSheet({
   const approve = async (cardId: number, skeleton: DecisionSkeletonInput) => {
     try {
       const decision = await applyDecisionSkeleton(skeleton)
-      onCreated?.(decision.id)
+      const bundle = await queryDecision(decision.id)
+      onCreated?.(
+        decision.id,
+        bundle ? entryTab(bundle.dimensions, bundle.options, bundle.scores) : 'dimensions',
+      )
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       setEntries((prev) =>
@@ -225,12 +287,11 @@ export default function RambleSheet({
     }
   }
 
-  const reject = (cardId: number) => {
-    setEntries((prev) =>
-      prev.map((entry) =>
-        entry.kind === 'card' && entry.id === cardId ? { ...entry, outcome: 'rejected' as const } : entry,
-      ),
-    )
+  const sendTyped = () => {
+    const text = input.trim()
+    if (!text || phase !== 'idle') return
+    setInput('')
+    void ask(text, 'user')
   }
 
   if (view === 'settings') {
@@ -287,8 +348,8 @@ export default function RambleSheet({
         {!configured && entries.length === 0 && (
           <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
             <p className="text-sm text-ink-2">
-              Ramble what you're choosing out loud — the AI builds the decision skeleton. Set up
-              AI first.
+              Ramble what you're choosing — typed or out loud — and the AI fills in what it can. Set
+              up AI first.
             </p>
             <button
               type="button"
@@ -325,17 +386,24 @@ export default function RambleSheet({
         {entries.map((entry) =>
           entry.kind === 'card' ? (
             <SkeletonCard
-              key={entry.id}
+              key={`${entry.id}-${entry.rev}`}
               initial={entry.skeleton}
               outcome={entry.outcome}
               onApply={(skeleton) => void approve(entry.id, skeleton)}
-              onReject={() => reject(entry.id)}
+              onKeepChatting={() => setChatting(true)}
+              onChange={(skeleton) =>
+                setEntries((prev) =>
+                  prev.map((e) =>
+                    e.kind === 'card' && e.id === entry.id ? { ...e, skeleton } : e,
+                  ),
+                )
+              }
             />
           ) : (
             <div
               key={entry.id}
               className={
-                entry.kind === 'transcript'
+                entry.kind === 'transcript' || entry.kind === 'user'
                   ? 'ml-8 rounded-xl bg-accent px-3 py-2 text-sm text-on-accent'
                   : entry.kind === 'error'
                     ? 'rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300'
@@ -345,6 +413,11 @@ export default function RambleSheet({
               {entry.kind === 'transcript' && (
                 <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.1em] opacity-70">
                   You said
+                </span>
+              )}
+              {entry.kind === 'user' && (
+                <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.1em] opacity-70">
+                  You
                 </span>
               )}
               {entry.text}
@@ -388,6 +461,37 @@ export default function RambleSheet({
               Stop
             </button>
           </div>
+        ) : chatting ? (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              sendTyped()
+            }}
+          >
+            <button
+              type="button"
+              disabled={!hasStt || noMic || phase !== 'idle'}
+              aria-label="Record a ramble"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
+              onClick={() => void startRecording()}
+            >
+              <span className="size-1.5 rounded-full bg-accent" />
+            </button>
+            <input
+              className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
+              placeholder="Keep chatting about this decision…"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <button
+              type="submit"
+              disabled={phase !== 'idle' || input.trim() === ''}
+              className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40"
+            >
+              Send
+            </button>
+          </form>
         ) : (
           <div className="flex flex-col items-center gap-1.5">
             <button

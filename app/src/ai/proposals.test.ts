@@ -151,6 +151,21 @@ describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
     expect(p.decision.options[1]).toEqual({ name: 'Fuji X-T5', notes: 'aps-c' })
   })
 
+  it('parses best-effort scores keyed by option and dimension name', () => {
+    const parsed = parseReply(
+      skeleton({
+        name: 'Next camera',
+        dimensions: [{ name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' }],
+        options: [{ name: 'Sony A7C II' }],
+        scores: [{ option: 'Sony A7C II', dimension: 'Weight', value: 514 }],
+      }),
+    )
+    const p = parsed.proposals[0]
+    expect(p.type === 'createDecision' && p.decision.scores).toEqual([
+      { option: 'Sony A7C II', dimension: 'Weight', value: 514 },
+    ])
+  })
+
   it('defaults omitted dimensions/options to empty', () => {
     const parsed = parseReply(skeleton({ name: 'Bare' }))
     const p = parsed.proposals[0]
@@ -166,8 +181,10 @@ describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
     expect(() => parseReply(skeleton({ dimensions: [] }))).toThrowError(/name/)
   })
 
-  it('rejects unknown fields in the skeleton (no scores at creation)', () => {
-    expect(() => parseReply(skeleton({ name: 'X', scores: [] }))).toThrowError(/unknown field/)
+  it('rejects unknown fields on a skeleton score', () => {
+    expect(() =>
+      parseReply(skeleton({ name: 'X', scores: [{ option: 'A', dimension: 'B', value: 1, extra: true }] })),
+    ).toThrowError(/unknown field/)
   })
 
   it('rejects non-array dimensions in the skeleton', () => {

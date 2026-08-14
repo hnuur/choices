@@ -138,6 +138,18 @@ describe('applyDecisionSkeleton (Phase-7 ramble path)', () => {
     expect(bundle!.scores).toHaveLength(0)
   })
 
+  it('writes skeleton scores through the mutation layer', async () => {
+    const decision = await applyDecisionSkeleton({
+      name: 'Next camera',
+      dimensions: [{ name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' }],
+      options: [{ name: 'Sony A7C II' }],
+      scores: [{ option: 'Sony A7C II', dimension: 'Weight', value: 514 }],
+    })
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.scores).toHaveLength(1)
+    expect(bundle!.scores[0].value).toBe(514)
+  })
+
   it('rejects invalid skeletons and writes nothing', async () => {
     await expect(
       applyDecisionSkeleton({

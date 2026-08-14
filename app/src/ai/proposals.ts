@@ -3,7 +3,7 @@
 // ProposalParseError the chat surface renders visibly.
 
 import type { DimensionPatch } from '../mutations'
-import type { DecisionSkeletonInput, DimensionInput, OptionInput } from '../types'
+import type { DecisionSkeletonInput, DimensionInput, OptionInput, SkeletonScoreInput } from '../types'
 
 export type Proposal =
   | { type: 'addDimension'; dimension: DimensionInput }
@@ -111,9 +111,19 @@ function parseOptionInput(v: unknown, label: string): OptionInput {
   return option
 }
 
+function parseSkeletonScore(v: unknown, label: string): SkeletonScoreInput {
+  const obj = requireRecord(v, label)
+  rejectUnknownKeys(obj, ['option', 'dimension', 'value'], label)
+  return {
+    option: requireString(obj.option, `${label}.option`),
+    dimension: requireString(obj.dimension, `${label}.dimension`),
+    value: requireFiniteNumber(obj.value, `${label}.value`),
+  }
+}
+
 function parseDecisionSkeleton(v: unknown, label: string): DecisionSkeletonInput {
   const dec = requireRecord(v, label)
-  rejectUnknownKeys(dec, ['name', 'dimensions', 'options'], label)
+  rejectUnknownKeys(dec, ['name', 'dimensions', 'options', 'scores'], label)
   const name = requireString(dec.name, `${label}.name`)
   const dimensions: DimensionInput[] =
     dec.dimensions === undefined
@@ -127,7 +137,13 @@ function parseDecisionSkeleton(v: unknown, label: string): DecisionSkeletonInput
       : Array.isArray(dec.options)
         ? dec.options.map((o, i) => parseOptionInput(o, `${label}.options[${i + 1}]`))
         : fail(`${label}.options must be an array`)
-  return { name, dimensions, options }
+  const scores: SkeletonScoreInput[] | undefined =
+    dec.scores === undefined
+      ? undefined
+      : Array.isArray(dec.scores)
+        ? dec.scores.map((s, i) => parseSkeletonScore(s, `${label}.scores[${i + 1}]`))
+        : fail(`${label}.scores must be an array`)
+  return scores ? { name, dimensions, options, scores } : { name, dimensions, options }
 }
 
 function parseProposal(raw: unknown, index: number): Proposal {
