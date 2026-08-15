@@ -419,7 +419,37 @@ choices/                         git repo
       control, export note outside the menu, entry tab from status,
       teaching sentence); checklist carries the polish items;
       doctor exits 0.
-- [ ] **Phase 13 — Shared database**: opt-in per-decision anonymous publish,
+- [ ] **Phase 13 — Web lookup**: Ask AI and ramble can look up
+      objective facts on the web when the user asks (prices, weights,
+      specs) instead of inventing them. Locked (user 2026-08-15):
+      **provider-native search**, not an app-side search API (CORS plus
+      a second key would force a proxy and turn the relay into a paid
+      pipe). Opt-in in AI settings, default off. When on, `chat()`
+      stays a `Promise<string>` to ChatSheet/RambleSheet but internally
+      loops: send the turn, if the provider ran a search, continue
+      until final text. Per-preset wiring — OpenAI web search,
+      Anthropic web search, Gemini grounding — not one shared tool
+      schema. Custom and relay only search if that upstream already
+      does; otherwise the UI says it cannot look up (no silent
+      no-op). System prompts: look up objective facts; omit a cell
+      rather than invent a number you did not find; subjective 1–5
+      ratings stay judgement, not a web result; proposals still go
+      through the existing approval card (`setScore` /
+      `createDecision` — no new payload type). Citations live in the
+      assistant prose, not a new card row. Disclosure in AI settings
+      gains one line: a lookup may leave the device via that
+      provider. UI: a "Looking up…" state; sources in the reply;
+      off reproduces today's one-shot text path. No new Dexie
+      schema; transcripts stay ephemeral. App-side search APIs and
+      always-on lookup are rejected. **Verify**:
+      `checks/gate-phase13.sh` passes — tsc and build clean; vitest
+      green incl. recorded search-then-final and text-only
+      (lookup-off) provider fixtures, unsupported custom/relay
+      surfaces an error, disclosure asserted; checklist: toggle,
+      one live lookup per preset that has search, citations in
+      prose, proposed scores still need approve, off sends no
+      search; doctor exits 0.
+- [ ] **Phase 14 — Shared database**: opt-in per-decision anonymous publish,
       never blanket consent; community templates (type + dimension sets +
       objective facts); subjective scores stay personal; `schemaVersion`
       added before first publish. **Precondition (rule 2)**: server stack,
@@ -493,4 +523,6 @@ choices/                         git repo
 | UI polish phase | user directive 2026-08-14 after a UI/UX review: three-pass polish scheduled as Phase 12 (rename + empty-create error + designed ramble control + drop fake sheet handle + export note outside the menu; entry tab follows home-row status; first-dimension teaching sentence); Shared database renumbered Phase 12 → 13 |
 | AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. |
 | Home ramble fill-all | user 2026-08-14: home composer Ramble sends typed content to AI (voice Ramble it unchanged). The model proposes a whole decision including best-effort scores keyed by name; the card offers Fill in what you can vs Keep chatting. Partial scores are allowed; Results still need a full matrix. Closing the sheet without filling in writes nothing. |
-| Write or speak | user 2026-08-15: every ramble and Ask AI sheet has a compose bar with both a text field and a mic; typed decision-view ramble injects into chat like a transcript. | |
+| Write or speak | user 2026-08-15: every ramble and Ask AI sheet has a compose bar with both a text field and a mic; typed decision-view ramble injects into chat like a transcript. |
+| Decision-view bar | user 2026-08-14 after live phone review: Ask AI is no longer a full-width bar control — Ramble and AI are equal-width buttons (AI remains the accent); Add/Cancel on dimension and option forms match that pair; titles wrap two lines; importance 1–5 fills the card |
+| Web lookup phase | user 2026-08-15: Ask AI and ramble may look up objective facts via provider-native search (OpenAI / Anthropic / Gemini), opt-in default off, citations in prose, approval card still the checkpoint; custom/relay only if the upstream already searches. App-side search APIs and always-on lookup rejected. Scheduled as Phase 13; Shared database renumbered Phase 13 → 14. |
