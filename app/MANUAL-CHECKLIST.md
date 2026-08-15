@@ -118,8 +118,10 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       importance, remove a dimension, add an option via "+ option";
       Fill in what you can creates exactly the card's contents and opens
       the new decision (Score or Results if scores were filled).
-- [ ] Keep chatting instead: the sheet shows a text field; a follow-up can
-      replace the card; closing without filling in writes nothing.
+- [ ] Ramble and Ask AI sheets always show a text field and a mic (mic
+      greyed without STT or on an insecure page). Keep chatting focuses
+      the field; a follow-up can replace the card; closing without filling
+      in writes nothing.
 - [ ] Ramble something with no decision in it ("what's the weather like"):
       prose reply, no card, nothing written.
 - [ ] Malformed or non-skeleton proposals error visibly and write nothing:

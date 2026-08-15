@@ -69,7 +69,6 @@ export default function RambleSheet({
   const [entries, setEntries] = useState<Entry[]>([])
   const [phase, setPhase] = useState<Phase>('idle')
   const [elapsed, setElapsed] = useState(0)
-  const [chatting, setChatting] = useState(false)
   const [input, setInput] = useState('')
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
   // Mirror so a reply finishing mid-toggle re-checks the setting.
@@ -84,6 +83,7 @@ export default function RambleSheet({
   const entriesRef = useRef(entries)
   entriesRef.current = entries
   const seededRef = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -154,7 +154,6 @@ export default function RambleSheet({
             ? (parsed.message ?? '')
             : ''
       if (only && only.type === 'createDecision') {
-        setChatting(true)
         setEntries((prev) => {
           const next = [...prev]
           if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: parsed.message })
@@ -390,7 +389,7 @@ export default function RambleSheet({
               initial={entry.skeleton}
               outcome={entry.outcome}
               onApply={(skeleton) => void approve(entry.id, skeleton)}
-              onKeepChatting={() => setChatting(true)}
+              onKeepChatting={() => inputRef.current?.focus()}
               onChange={(skeleton) =>
                 setEntries((prev) =>
                   prev.map((e) =>
@@ -461,7 +460,7 @@ export default function RambleSheet({
               Stop
             </button>
           </div>
-        ) : chatting ? (
+        ) : (
           <form
             className="flex items-center gap-2"
             onSubmit={(e) => {
@@ -479,8 +478,13 @@ export default function RambleSheet({
               <span className="size-1.5 rounded-full bg-accent" />
             </button>
             <input
+              ref={inputRef}
               className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
-              placeholder="Keep chatting about this decision…"
+              placeholder={
+                onTranscript
+                  ? 'Write or speak about this decision…'
+                  : 'Write or speak what you are choosing…'
+              }
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
@@ -492,25 +496,6 @@ export default function RambleSheet({
               Send
             </button>
           </form>
-        ) : (
-          <div className="flex flex-col items-center gap-1.5">
-            <button
-              type="button"
-              disabled={!hasStt || noMic || phase !== 'idle'}
-              aria-label="Record a ramble"
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-2xl text-on-accent disabled:opacity-40"
-              onClick={() => void startRecording()}
-            >
-              🎤
-            </button>
-            <p className="text-xs text-ink-3">
-              {hasStt && !noMic
-                ? 'Tap, ramble what you are choosing, tap Stop.'
-                : noMic
-                  ? 'Mic unavailable on this page.'
-                  : 'Mic greyed out — no speech-to-text here.'}
-            </p>
-          </div>
         )}
       </div>
     </div>
