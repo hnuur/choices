@@ -364,10 +364,14 @@ choices/                         git repo
       to a muted tertiary that only reddens on hover (two-step confirm
       kept); a dashed footer note explains local-only storage instead of
       leaving the screen empty. Tagline becomes "Weigh what matters,
-      then decide with the numbers in front of you." **Verify**:
+      then decide with the numbers in front of you." Follow-up
+      (2026-08-15): Home Ramble lives only in the composer (empty opens
+      the write-or-speak sheet; typed text seeds it). The Ramble it /
+      Import backup pair is gone; Import backup is a small footer
+      control. **Verify**:
       `checks/gate-phase9.sh` passes — tsc and build clean; vitest
       green; the landing wiring asserted (composer unit, starter seeds,
-      equal-width secondaries, row states, muted delete, sort, footer);
+      composer Ramble, footer import, row states, muted delete, sort, footer);
       checklist carries the landing criteria; doctor exits 0.
 - [x] **Phase 10 — Voice replies & conversational context**: chat replies
       are spoken — OpenAI `/audio/speech` (same BYO key, tts-1) on the
@@ -524,5 +528,6 @@ choices/                         git repo
 | AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. |
 | Home ramble fill-all | user 2026-08-14: home composer Ramble sends typed content to AI (voice Ramble it unchanged). The model proposes a whole decision including best-effort scores keyed by name; the card offers Fill in what you can vs Keep chatting. Partial scores are allowed; Results still need a full matrix. Closing the sheet without filling in writes nothing. |
 | Write or speak | user 2026-08-15: every ramble and Ask AI sheet has a compose bar with both a text field and a mic; typed decision-view ramble injects into chat like a transcript. |
+| Home ramble in composer | user 2026-08-15: the only Home ramble entry is the composer Ramble control (empty or seeded); Ramble it is removed; Import backup moves to a small footer control. |
 | Decision-view bar | user 2026-08-14 after live phone review: Ask AI is no longer a full-width bar control — Ramble and AI are equal-width buttons (AI remains the accent); Add/Cancel on dimension and option forms match that pair; titles wrap two lines; importance 1–5 fills the card |
 | Web lookup phase | user 2026-08-15: Ask AI and ramble may look up objective facts via provider-native search (OpenAI / Anthropic / Gemini), opt-in default off, citations in prose, approval card still the checkpoint; custom/relay only if the upstream already searches. App-side search APIs and always-on lookup rejected. Scheduled as Phase 13; Shared database renumbered Phase 13 → 14. |
