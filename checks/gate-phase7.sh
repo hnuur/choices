@@ -85,7 +85,7 @@ grep -q 'MediaRecorder' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lack
 grep -q 'isTypeSupported' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks mimeType probing (Safari AAC/mp4)"
 grep -q 'getUserMedia' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks getUserMedia"
 grep -qi 'https' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the insecure-context message"
-grep -q 'supportsStt' "$APP/src/ui/Home.tsx" || fail "home lacks the greyed-mic guard"
+grep -q 'aria-label="Ramble"' "$APP/src/ui/Home.tsx" || fail "home lacks the composer ramble entry"
 grep -q 'RambleSheet' "$APP/src/ui/Home.tsx" || fail "home lacks the ramble entry point"
 ok "recorder + sheet wiring (mimeType probe, insecure message, greyed mic) present"
 

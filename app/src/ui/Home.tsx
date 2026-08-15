@@ -1,6 +1,4 @@
 import { useRef, useState, type ChangeEvent } from 'react'
-import { isConfigured, loadSettings } from '../ai/settings'
-import { supportsStt } from '../ai/stt'
 import { createDecision, deleteDecision, importDecision, ValidationError } from '../mutations'
 import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
@@ -120,10 +118,13 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   const [sortOpen, setSortOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  // Greyed mic: the provider has no speech-to-text (anthropic/relay). An
-  // unconfigured provider keeps the button live — the sheet offers setup.
-  const settings = loadSettings()
-  const sttGreyed = isConfigured(settings) && !supportsStt(settings)
+  const openRamble = () => {
+    const text = name.trim()
+    setRambleSeed(text || undefined)
+    if (text) setName('')
+    setCreateError(null)
+    setRambleOpen(true)
+  }
 
   const create = async () => {
     const trimmed = name.trim()
@@ -178,16 +179,8 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
         <button
           type="button"
           aria-label="Ramble"
-          disabled={name.trim() === ''}
-          className="flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-ink-2 enabled:hover:bg-hover disabled:opacity-40"
-          onClick={() => {
-            const text = name.trim()
-            if (!text) return
-            setRambleSeed(text)
-            setName('')
-            setCreateError(null)
-            setRambleOpen(true)
-          }}
+          className="flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-ink-2 hover:bg-hover"
+          onClick={openRamble}
         >
           <span className="size-1.5 rounded-full bg-accent" />
           Ramble
@@ -215,27 +208,6 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          disabled={sttGreyed}
-          className="flex min-h-[52px] items-center justify-center gap-2 rounded-xl border border-hairline bg-surface-2 text-sm font-medium text-ink-2 enabled:hover:bg-hover disabled:opacity-40"
-          onClick={() => {
-            setRambleSeed(undefined)
-            setRambleOpen(true)
-          }}
-        >
-          <span className="size-1.5 rounded-full bg-accent" />
-          Ramble it
-        </button>
-        <button
-          type="button"
-          className="min-h-[52px] rounded-xl border border-hairline bg-surface-2 text-sm font-medium text-ink-2 hover:bg-hover"
-          onClick={() => fileRef.current?.click()}
-        >
-          Import backup
-        </button>
-      </div>
       <input
         ref={fileRef}
         type="file"
@@ -243,12 +215,6 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
         className="hidden"
         onChange={(e) => void onImportFile(e)}
       />
-      {sttGreyed && (
-        <p className="mt-1 text-xs text-ink-4">
-          Voice needs OpenAI, Gemini or a custom endpoint — the current provider has no
-          speech-to-text.
-        </p>
-      )}
       {importError && <FieldError message={importError} />}
 
       {rambleOpen && (
@@ -328,9 +294,18 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
             </ul>
           )}
 
-          <p className="mt-6 rounded-2xl border border-dashed border-divider px-6 py-5 text-center text-sm leading-relaxed text-ink-3">
-            Decisions stay on this device. Export a backup to keep them.
-          </p>
+          <div className="mt-6 rounded-2xl border border-dashed border-divider px-6 py-5 text-center">
+            <p className="text-sm leading-relaxed text-ink-3">
+              Decisions stay on this device. Export a backup to keep them.
+            </p>
+            <button
+              type="button"
+              className="mt-1 min-h-11 text-xs text-ink-4 hover:text-ink-3"
+              onClick={() => fileRef.current?.click()}
+            >
+              Import backup
+            </button>
+          </div>
         </>
       )}
     </main>

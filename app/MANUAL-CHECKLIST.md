@@ -105,8 +105,8 @@ front of preview (e.g. `cloudflared tunnel --url http://localhost:4173`).
 Configure an STT-capable provider (OpenAI, Gemini or a custom
 Whisper-compatible endpoint) in AI settings for the round-trip items.
 
-- [ ] On a secure-context page (localhost or https) tap Ramble it on the
-      home screen; tap the mic — the browser asks for microphone permission
+- [ ] On a secure-context page (localhost or https) tap Ramble in the
+      home composer; tap the mic — the browser asks for microphone permission
       (iOS asks once per site/PWA); recording shows a pulsing dot and an
       elapsed timer, Stop ends it, Cancel discards it.
 - [ ] Ramble a decision ("I want to pick a new camera, I care about weight
@@ -128,12 +128,12 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       point the custom endpoint at a stub whose reply carries an
       addDimension proposal (or a broken ```json block) and ramble; the
       sheet shows the error and no decision is created.
-- [ ] Greyed mic: switch AI settings to Anthropic (or relay) — the home
-      Ramble it button is disabled with a note and the sheet offers
+- [ ] Greyed mic: switch AI settings to Anthropic (or relay) — composer
+      Ramble still opens (typed works) and the sheet mic is greyed with
       "Change provider"; switch back to OpenAI/Gemini/custom and it
       re-enables.
 - [ ] Insecure context: open the app over plain http://<lan-ip>:4173 on the
-      phone; Ramble it opens but the mic explains the HTTPS requirement
+      phone; composer Ramble opens but the mic explains the HTTPS requirement
       instead of failing silently.
 - [ ] Real-iPhone ramble round-trip (https): with preview behind the HTTPS
       tunnel, record a ramble on the phone (permission prompt appears),
@@ -152,7 +152,8 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
 - [ ] Home composer Ramble: type a decision into "What are you deciding?"
       and tap Ramble (cyan-dot, next to Create) — the text is sent to AI
       without the mic; the card can include best-effort scores; Fill in
-      what you can creates it. Voice Ramble it is unchanged.
+      what you can creates it. Empty composer Ramble opens the same sheet
+      for write-or-speak.
 - [ ] Home ramble still creates a whole new decision (createDecision card),
       never touching an existing decision's chat.
 
@@ -211,9 +212,9 @@ Landing pass in a mobile-width viewport, against the 2026-08-11 mock.
       glow); Enter and Create both create and open the decision.
 - [ ] Tapping a starter prompt (Next camera / Where to live / Which
       offer) seeds the input without creating; chips are dashed pills.
-- [ ] Ramble it and Import backup are equal-width quiet buttons; Ramble
-      it carries the cyan dot, still greys out with its note on
-      anthropic/relay, and import errors still surface below.
+- [ ] Composer Ramble (cyan-dot, next to Create) is the only Home ramble
+      entry; Import backup is a small footer control; import errors still
+      surface.
 - [ ] Mono section header reads "YOUR DECISIONS · N"; the RECENT ▾ menu
       offers Recent and A–Z and re-sorts the list live; tapping outside
       closes it.
@@ -295,4 +296,3 @@ Mobile-width viewport, against the 2026-08-14 review.
       are facts with a unit (price, weight); subjective ones are 1–5
       ratings. Importance 1–5 is how much the ranking should care." The
       sentence is gone once a dimension exists.
-

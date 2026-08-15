@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Phase-9 verify gate (PLAN.md): tsc and build clean; vitest green; the
 # landing wiring is present — composer as one rounded unit whose starter
-# prompts seed the input, equal-width quiet secondaries, mono section
+# prompts seed the input, composer Ramble, footer import, mono section
 # header with a Recent/A–Z sort, stateful rows (status chip, progress,
 # mono counts, mono timestamp), muted delete with the two-step confirm
 # kept, dashed local-only footer; checklist carries the landing criteria;
@@ -49,13 +49,14 @@ grep -q 'const STARTERS' "$H" || fail "starter prompts missing"
 grep -q 'setName(starter)' "$H" || fail "starter taps do not seed the input"
 ok "composer unit + tappable starter seeds"
 
-# NT5: secondaries are equal-width quiet buttons, not competing with Create
-grep -q 'grid grid-cols-2 gap-3' "$H" || fail "secondary actions are not equal-width"
-grep -q 'Ramble it' "$H" || fail "Ramble it missing"
+# NT5: Ramble lives in the composer; Import backup is a footer control
+grep -q 'aria-label="Ramble"' "$H" || fail "composer lacks Ramble"
+if grep -q 'Ramble it' "$H"; then fail "Ramble it secondary is still on Home"; fi
 grep -q 'Import backup' "$H" || fail "Import backup missing"
 grep -q 'bg-gradient-to-b from-accent-ink to-accent' "$H" \
   || fail "Create is not the single accent pill"
-ok "equal-width quiet secondaries with a single accent CTA"
+if grep -q 'grid grid-cols-2 gap-3' "$H"; then fail "equal-width secondaries row is still on Home"; fi
+ok "composer Ramble + footer import with a single accent CTA"
 
 # NT6: list structure — mono section header, sort menu, dashed footer
 grep -q 'Your decisions · ' "$H" || fail "mono section header missing"
