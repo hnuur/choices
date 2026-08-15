@@ -48,7 +48,7 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
       <button
         type="button"
         aria-label={`Rename ${name}`}
-        className="min-h-11 min-w-0 flex-1 truncate text-left text-[34px] font-bold leading-[1.15] tracking-[-1.2px]"
+        className="min-h-11 min-w-0 flex-1 line-clamp-2 text-left text-[34px] font-bold leading-[1.15] tracking-[-1.2px]"
         onClick={() => {
           setDraft(name)
           setError('')
@@ -161,7 +161,7 @@ export default function DecisionView({
         ← All decisions
       </button>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-start justify-between gap-3">
         <DecisionTitle id={id} name={bundle.decision.name} />
         <div className="relative shrink-0">
           {/* 38×38 visual inside a 44×44 hit area */}
@@ -257,7 +257,7 @@ export default function DecisionView({
               type="button"
               aria-label="Ramble"
               disabled={sttGreyed || noMic}
-              className="flex h-[52px] shrink-0 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
+              className="flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
               onClick={() => setRambleOpen(true)}
             >
               <span className="size-1.5 rounded-full bg-accent" />
@@ -265,10 +265,11 @@ export default function DecisionView({
             </button>
             <button
               type="button"
-              className="min-h-[52px] flex-1 rounded-2xl bg-gradient-to-b from-accent-ink to-accent text-[15.5px] font-semibold text-on-accent"
+              aria-label="Ask AI"
+              className="flex h-[52px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-gradient-to-b from-accent-ink to-accent text-[15.5px] font-semibold text-on-accent"
               onClick={() => setChatState('full')}
             >
-              Ask AI
+              AI
             </button>
           </div>
         </div>

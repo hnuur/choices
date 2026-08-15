@@ -126,7 +126,7 @@ function DimensionForm({
       <div className="flex gap-2">
         <button
           type="button"
-          className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+          className="min-h-11 min-w-0 flex-1 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
           onClick={() => void submit()}
         >
           {submitLabel}
@@ -134,7 +134,7 @@ function DimensionForm({
         {onCancel && (
           <button
             type="button"
-            className="min-h-11 rounded-xl px-3 text-sm text-ink-3 hover:bg-hover"
+            className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline text-sm font-medium text-ink-3 hover:bg-hover"
             onClick={onCancel}
           >
             Cancel

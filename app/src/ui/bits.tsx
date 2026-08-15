@@ -74,7 +74,7 @@ export function ImportancePicker({
           key={n}
           type="button"
           onClick={() => onChange(n)}
-          className={`h-11 w-11 rounded-lg text-sm font-medium ${
+          className={`h-11 min-w-0 flex-1 rounded-lg text-sm font-medium ${
             n === value ? 'bg-accent font-semibold text-on-accent' : 'bg-hover text-ink-2 hover:bg-white/9'
           }`}
         >
