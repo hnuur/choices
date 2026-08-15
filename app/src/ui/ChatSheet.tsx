@@ -156,16 +156,17 @@ export default function ChatSheet({
     setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'user', text }])
     setBusy(true)
     try {
+      const ai = loadSettings()
       const reply = await chat(
         [
-          { role: 'system', content: systemPrompt(tabRef.current) },
+          { role: 'system', content: systemPrompt(tabRef.current, ai.webLookup) },
           ...history,
           {
             role: 'user',
             content: `Decision snapshot (JSON):\n${decisionSnapshot(bundle)}\n\n${text}`,
           },
         ],
-        loadSettings(),
+        ai,
       )
       const parsed = parseReply(reply)
       const spokenText =
@@ -379,7 +380,7 @@ export default function ChatSheet({
         )}
         {busy && (
           <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
-            Thinking…
+            {loadSettings().webLookup ? 'Looking up…' : 'Thinking…'}
           </div>
         )}
       </div>

@@ -1,0 +1,20 @@
+{
+  "id": "msg_recorded_phase13_pause",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-3-5-haiku-latest",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "tu_1",
+      "name": "web_search",
+      "input": { "query": "Sony A7C II weight" }
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "tu_1",
+      "content": []
+    }
+  ],
+  "stop_reason": "pause_turn"
+}

@@ -198,6 +198,27 @@ export default function AiSettingsPanel({
       )}
 
       {settings.mode && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={() => patch({ webLookup: !settings.webLookup })}
+            className={`min-h-11 rounded-xl px-4 text-sm font-medium ${
+              settings.webLookup
+                ? 'bg-accent font-semibold text-on-accent'
+                : 'border border-hairline bg-surface text-ink-2'
+            }`}
+          >
+            Web lookup {settings.webLookup ? 'on' : 'off'}
+          </button>
+          <p className="mt-1 text-xs text-ink-3">
+            {settings.mode === 'custom' || settings.mode === 'relay'
+              ? 'Off by default. Only works if this endpoint already supports web search.'
+              : 'Off by default. Ask AI and ramble may look up objective facts.'}
+          </p>
+        </div>
+      )}
+
+      {settings.mode && (
         <div className="mt-4 flex gap-2">
           <button
             type="button"

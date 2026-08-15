@@ -1,0 +1,13 @@
+{
+  "id": "resp_recorded_phase13_incomplete",
+  "object": "response",
+  "status": "incomplete",
+  "output": [
+    {
+      "type": "web_search_call",
+      "id": "ws_1",
+      "status": "completed",
+      "action": { "type": "search", "query": "Sony A7C II weight" }
+    }
+  ]
+}

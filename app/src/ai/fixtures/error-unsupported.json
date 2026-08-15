@@ -1,0 +1,6 @@
+{
+  "error": {
+    "message": "Unknown tool type: web_search",
+    "type": "invalid_request_error"
+  }
+}

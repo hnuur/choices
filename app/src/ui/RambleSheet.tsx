@@ -141,9 +141,10 @@ export default function RambleSheet({
       else if (e.kind === 'assistant') history.push({ role: 'assistant', content: e.text })
     }
     try {
+      const ai = loadSettings()
       const reply = await chat(
-        [{ role: 'system', content: rambleSystemPrompt() }, ...history, { role: 'user', content }],
-        loadSettings(),
+        [{ role: 'system', content: rambleSystemPrompt(ai.webLookup) }, ...history, { role: 'user', content }],
+        ai,
       )
       const parsed = parseReply(reply)
       const only = parsed.proposals.length === 1 ? parsed.proposals[0] : null
@@ -430,7 +431,7 @@ export default function RambleSheet({
         )}
         {phase === 'thinking' && (
           <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
-            Thinking…
+            {loadSettings().webLookup ? 'Looking up…' : 'Thinking…'}
           </div>
         )}
       </div>

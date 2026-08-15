@@ -296,3 +296,25 @@ Mobile-width viewport, against the 2026-08-14 review.
       are facts with a unit (price, weight); subjective ones are 1–5
       ratings. Importance 1–5 is how much the ranking should care." The
       sentence is gone once a dimension exists.
+
+## Phase 13 — web lookup
+
+Configure a BYO-key preset in AI settings. Web lookup is off until you
+turn it on. Live lookup items need a model that can search.
+
+- [ ] AI settings has a Web lookup on/off toggle, default off; turning it
+      on adds the disclosure line "a search may leave the device via that
+      provider."
+- [ ] With lookup off, Ask AI still shows Thinking… and behaves as today
+      (no search tool on the request).
+- [ ] With lookup on, Ask AI shows Looking up…; ask for an objective fact
+      (a camera body weight); the reply cites sources in the prose and any
+      setScore still needs Approve.
+- [ ] Same lookup on ramble: Looking up…, sources in the prose, Fill in
+      what you can is still the checkpoint.
+- [ ] OpenAI, Anthropic, and Gemini each complete one live lookup (prices
+      or weights) with citations.
+- [ ] Custom or relay with lookup on and an endpoint that cannot search
+      shows "This endpoint cannot look up the web."
+- [ ] Proposed scores still need approve — Reject writes nothing.
+

@@ -1,0 +1,20 @@
+{
+  "id": "msg_recorded_phase13_final",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-3-5-haiku-latest",
+  "content": [
+    {
+      "type": "text",
+      "text": "About 429 g.\n```json\n{\"message\":\"Looked up the weight.\",\"proposals\":[{\"type\":\"setScore\",\"optionId\":\"o1\",\"dimensionId\":\"d1\",\"value\":429}]}\n```",
+      "citations": [
+        {
+          "type": "web_search_result_location",
+          "url": "https://www.sony.com/a7c-ii",
+          "title": "Sony A7C II"
+        }
+      ]
+    }
+  ],
+  "stop_reason": "end_turn"
+}

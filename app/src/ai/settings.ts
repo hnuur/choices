@@ -27,6 +27,8 @@ export interface AiSettings {
   relayToken: string
   /** Phase 10: speak chat replies aloud. */
   voiceReplies: boolean
+  /** Phase 13: provider-native web lookup. Default off. */
+  webLookup: boolean
 }
 
 const STORAGE_KEY = 'choices.ai-settings'
@@ -42,6 +44,7 @@ export function defaultSettings(): AiSettings {
     relayUrl: '',
     relayToken: newRelayToken(),
     voiceReplies: true,
+    webLookup: false,
   }
 }
 
@@ -85,16 +88,24 @@ export function effectiveModel(settings: AiSettings): string {
   return settings.model.trim()
 }
 
+const LOOKUP_DISCLOSURE = 'Web lookup is on: a search may leave the device via that provider.'
+
 /** Disclosure lines for the AI settings screen (the only disclosure surface). */
 export function disclosureFor(settings: AiSettings): string {
+  let line: string
   switch (settings.mode) {
     case null:
       return 'AI is off until you pick a provider.'
     case 'relay':
-      return 'Relay: the operator pays; your messages and this decision go through the relay to its upstream provider.'
+      line =
+        'Relay: the operator pays; your messages and this decision go through the relay to its upstream provider.'
+      break
     case 'custom':
-      return 'Custom endpoint: you pay your provider; your messages and this decision go straight from this device to your endpoint.'
+      line =
+        'Custom endpoint: you pay your provider; your messages and this decision go straight from this device to your endpoint.'
+      break
     default:
-      return `${settings.mode}: you pay the provider; your messages and this decision go straight from this device to ${settings.mode}.`
+      line = `${settings.mode}: you pay the provider; your messages and this decision go straight from this device to ${settings.mode}.`
   }
+  return settings.webLookup ? `${line} ${LOOKUP_DISCLOSURE}` : line
 }

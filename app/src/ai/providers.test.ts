@@ -3,11 +3,17 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import anthropicChat from './fixtures/anthropic-chat.json'
+import anthropicSearchFinal from './fixtures/anthropic-search-final.json'
+import anthropicSearchPause from './fixtures/anthropic-search-pause.json'
 import errorBody from './fixtures/error.json'
+import errorUnsupported from './fixtures/error-unsupported.json'
 import geminiChat from './fixtures/gemini-chat.json'
+import geminiSearch from './fixtures/gemini-search.json'
 import modelsList from './fixtures/models.json'
 import openaiChat from './fixtures/openai-chat.json'
-import { chat, ProviderError, validateKey } from './providers'
+import openaiResponsesIncomplete from './fixtures/openai-responses-incomplete.json'
+import openaiResponsesSearch from './fixtures/openai-responses-search.json'
+import { chat, LOOKUP_UNSUPPORTED, ProviderError, validateKey } from './providers'
 import { defaultSettings, type AiSettings } from './settings'
 
 const fixture = {
@@ -16,6 +22,12 @@ const fixture = {
   'gemini-chat.json': geminiChat,
   'models.json': modelsList,
   'error.json': errorBody,
+  'openai-responses-incomplete.json': openaiResponsesIncomplete,
+  'openai-responses-search.json': openaiResponsesSearch,
+  'anthropic-search-pause.json': anthropicSearchPause,
+  'anthropic-search-final.json': anthropicSearchFinal,
+  'gemini-search.json': geminiSearch,
+  'error-unsupported.json': errorUnsupported,
 } as const
 
 const jsonResponse = (body: unknown, status = 200) =>
@@ -89,6 +101,7 @@ describe('chat', () => {
     const body = JSON.parse(calls[0].init.body as string) as Record<string, unknown>
     expect(body.system).toBe('sys')
     expect(body.messages).toEqual([{ role: 'user', content: 'hi' }])
+    expect(body.tools).toBeUndefined()
   })
 
   it('gemini puts the key in the url, maps roles, joins parts', async () => {
@@ -107,9 +120,11 @@ describe('chat', () => {
     const body = JSON.parse(calls[0].init.body as string) as {
       systemInstruction: { parts: { text: string }[] }
       contents: { role: string }[]
+      tools?: unknown
     }
     expect(body.systemInstruction.parts[0].text).toBe('sys')
     expect(body.contents.map((c) => c.role)).toEqual(['user', 'model'])
+    expect(body.tools).toBeUndefined()
   })
 
   it('forwards prior turns untouched so the assistant keeps context', async () => {
@@ -152,6 +167,100 @@ describe('chat', () => {
     await expect(chat([{ role: 'user', content: 'hi' }], defaultSettings())).rejects.toThrowError(
       ProviderError,
     )
+  })
+
+  it('lookup-off openai stays on chat/completions and sends no search tool', async () => {
+    stubFetch(() => jsonResponse(fixture['openai-chat.json']))
+    await chat([{ role: 'user', content: 'hi' }], settings({ mode: 'openai', apiKey: 'sk-test' }))
+    expect(calls[0].url).toBe('https://api.openai.com/v1/chat/completions')
+    const body = JSON.parse(calls[0].init.body as string) as Record<string, unknown>
+    expect(body.tools).toBeUndefined()
+  })
+
+  it('openai lookup posts to /v1/responses, loops search-then-final, cites sources', async () => {
+    stubFetch(() => {
+      if (calls.length === 1) return jsonResponse(fixture['openai-responses-incomplete.json'])
+      return jsonResponse(fixture['openai-responses-search.json'])
+    })
+    const text = await chat(
+      [{ role: 'user', content: 'weight of the A7C II?' }],
+      settings({ mode: 'openai', apiKey: 'sk-test', webLookup: true }),
+    )
+    expect(calls).toHaveLength(2)
+    expect(calls[0].url).toBe('https://api.openai.com/v1/responses')
+    expect(calls[1].url).toBe('https://api.openai.com/v1/responses')
+    const first = JSON.parse(calls[0].init.body as string) as { tools: { type: string }[]; input: unknown }
+    expect(first.tools).toEqual([{ type: 'web_search' }])
+    expect(first.input).toHaveLength(1)
+    const second = JSON.parse(calls[1].init.body as string) as { previous_response_id: string }
+    expect(second.previous_response_id).toBe('resp_recorded_phase13_incomplete')
+    expect(text).toContain('429 g')
+    expect(text).toContain('Sources:')
+    expect(text).toContain('https://www.sony.com/a7c-ii')
+  })
+
+  it('anthropic lookup sends the web_search tool and continues after pause_turn', async () => {
+    stubFetch(() =>
+      jsonResponse(
+        calls.length === 1 ? fixture['anthropic-search-pause.json'] : fixture['anthropic-search-final.json'],
+      ),
+    )
+    const text = await chat(
+      [{ role: 'system', content: 'sys' }, { role: 'user', content: 'weight?' }],
+      settings({ mode: 'anthropic', apiKey: 'sk-ant', webLookup: true }),
+    )
+    expect(calls).toHaveLength(2)
+    const first = JSON.parse(calls[0].init.body as string) as {
+      tools: { type: string; name: string }[]
+    }
+    expect(first.tools[0]).toMatchObject({ type: 'web_search_20250305', name: 'web_search' })
+    expect((calls[0].init.headers as Record<string, string>)['anthropic-beta']).toBe(
+      'web-search-2025-03-05',
+    )
+    const second = JSON.parse(calls[1].init.body as string) as { messages: { role: string }[] }
+    expect(second.messages.map((m) => m.role)).toEqual(['user', 'assistant'])
+    expect(text).toContain('429 g')
+    expect(text).toContain('https://www.sony.com/a7c-ii')
+  })
+
+  it('gemini lookup sends google_search and appends grounding sources', async () => {
+    stubFetch(() => jsonResponse(fixture['gemini-search.json']))
+    const text = await chat(
+      [{ role: 'user', content: 'weight?' }],
+      settings({ mode: 'gemini', apiKey: 'g-key', webLookup: true }),
+    )
+    const body = JSON.parse(calls[0].init.body as string) as { tools: { google_search: object }[] }
+    expect(body.tools).toEqual([{ google_search: {} }])
+    expect(text).toContain('429 g')
+    expect(text).toContain('https://www.sony.com/a7c-ii')
+  })
+
+  it('unsupported custom lookup surfaces a visible error (no silent fallback)', async () => {
+    stubFetch(() => jsonResponse(fixture['error-unsupported.json'], 400))
+    await expect(
+      chat(
+        [{ role: 'user', content: 'hi' }],
+        settings({
+          mode: 'custom',
+          baseUrl: 'https://llm.example.com/v1',
+          apiKey: 'k',
+          model: 'mixtral',
+          webLookup: true,
+        }),
+      ),
+    ).rejects.toThrowError(LOOKUP_UNSUPPORTED)
+    const body = JSON.parse(calls[0].init.body as string) as { tools: unknown }
+    expect(body.tools).toEqual([{ type: 'web_search' }])
+  })
+
+  it('unsupported relay lookup surfaces the same visible error', async () => {
+    stubFetch(() => jsonResponse(fixture['error-unsupported.json'], 400))
+    await expect(
+      chat(
+        [{ role: 'user', content: 'hi' }],
+        settings({ mode: 'relay', relayUrl: 'https://relay.example.com', relayToken: 'tok', webLookup: true }),
+      ),
+    ).rejects.toThrowError(LOOKUP_UNSUPPORTED)
   })
 })
 

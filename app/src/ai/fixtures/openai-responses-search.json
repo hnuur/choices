@@ -1,0 +1,33 @@
+{
+  "id": "resp_recorded_phase13",
+  "object": "response",
+  "status": "completed",
+  "output_text": "The Sony A7C II body is about 429 g.\n```json\n{\"message\":\"Weight from the web.\",\"proposals\":[{\"type\":\"setScore\",\"optionId\":\"o1\",\"dimensionId\":\"d1\",\"value\":429}]}\n```",
+  "output": [
+    {
+      "type": "web_search_call",
+      "id": "ws_1",
+      "status": "completed",
+      "action": { "type": "search", "query": "Sony A7C II weight" }
+    },
+    {
+      "id": "msg_recorded_phase13",
+      "type": "message",
+      "status": "completed",
+      "role": "assistant",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "The Sony A7C II body is about 429 g.\n```json\n{\"message\":\"Weight from the web.\",\"proposals\":[{\"type\":\"setScore\",\"optionId\":\"o1\",\"dimensionId\":\"d1\",\"value\":429}]}\n```",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "url": "https://www.sony.com/a7c-ii",
+              "title": "Sony A7C II"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

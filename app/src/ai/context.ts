@@ -18,7 +18,10 @@ const LEVEL_FOCUS: Record<Tab, string> = {
     'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers.',
 }
 
-export function systemPrompt(tab: Tab): string {
+const LOOKUP_GUIDANCE = `
+Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Cite each source in the prose by name and URL. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. Proposals still use the same JSON contract.`
+
+export function systemPrompt(tab: Tab, webLookup = false): string {
   return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
 
 ${LEVEL_FOCUS[tab]}
@@ -37,11 +40,11 @@ Response contract:
   - {"type":"deleteOption","id"}
   - {"type":"setScore","optionId","dimensionId","value"}
 - setScore fills a cell: objective dimensions take a raw number in the dimension's unit; subjective dimensions take an integer 1–5. When the user asks to score, propose setScore for both kinds.
-- Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.`
+- Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
 
 /** Phase-7 ramble scope: no decision exists yet — the reply may propose one. */
-export function rambleSystemPrompt(): string {
+export function rambleSystemPrompt(webLookup = false): string {
   return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
 
 The user is describing a decision they want to make (typed or a voice ramble). Listen for the type of thing, the dimensions they care about, candidate options, and any facts or judgements that can become scores.
@@ -55,7 +58,7 @@ Response contract:
   - The message should briefly say what you filled and what you guessed. Do not tell them to copy JSON; they will choose Fill in what you can or Keep chatting in the app.
 - If they are refining a proposal already on the card, emit a full replacement createDecision (not a patch) that incorporates their follow-up.
 - If the input contains no decision (small talk, a question, an unrelated topic), answer in plain prose with no JSON block — never invent a decision.
-- Importance weights are integers 1–5; default unspecified importance to 3.`
+- Importance weights are integers 1–5; default unspecified importance to 3.${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
 
 interface Snapshot {

@@ -1,0 +1,20 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "About 429 g.\n```json\n{\"message\":\"Looked up the weight.\",\"proposals\":[{\"type\":\"setScore\",\"optionId\":\"o1\",\"dimensionId\":\"d1\",\"value\":429}]}\n```"
+          }
+        ],
+        "role": "model"
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "groundingChunks": [
+          { "web": { "uri": "https://www.sony.com/a7c-ii", "title": "Sony A7C II" } }
+        ]
+      }
+    }
+  ]
+}
