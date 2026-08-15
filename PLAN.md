@@ -306,8 +306,11 @@ choices/                         git repo
       or invalid cells are skipped. The skeleton card asks Fill in
       what you can vs Keep chatting — chatting continues in the sheet
       and can replace the proposal; closing without filling in writes
-      nothing. Decision-view ramble-everywhere is unchanged. Partial
-      scores do not unlock Results (full matrix still required).
+      nothing. Follow-up (2026-08-15): ramble and Ask AI sheets always
+      offer write and speak in the same compose bar (mic greyed without
+      STT or on an insecure page). Typed input on a decision-view ramble
+      injects into that decision's chat the same as a transcript.
+      Partial scores do not unlock Results (full matrix still required).
       Ramble transcripts are ephemeral like chat. `getUserMedia` is
       secure-contexts-only, so over plain HTTP the mic is unavailable and
       the UI says so instead of failing silently (same bug class as the
@@ -489,4 +492,5 @@ choices/                         git repo
 | Ramble voice parity | user directive 2026-08-11 after the Phase-10 close: the ramble sheet gets the same persisted voice toggle and speaks its prose replies (skeleton card never read aloud), scheduled as Phase 11, Shared database renumbered Phase 11 → 12 |
 | UI polish phase | user directive 2026-08-14 after a UI/UX review: three-pass polish scheduled as Phase 12 (rename + empty-create error + designed ramble control + drop fake sheet handle + export note outside the menu; entry tab follows home-row status; first-dimension teaching sentence); Shared database renumbered Phase 12 → 13 |
 | AI subjective scores | user 2026-08-14: Ask AI may propose setScore on subjective dimensions (integers 1–5) the same as objective cells; the approval card remains the human checkpoint. Shared-database "subjective stays personal" is unchanged — those ratings still do not publish. |
-| Home ramble fill-all | user 2026-08-14: home composer Ramble sends typed content to AI (voice Ramble it unchanged). The model proposes a whole decision including best-effort scores keyed by name; the card offers Fill in what you can vs Keep chatting. Partial scores are allowed; Results still need a full matrix. Closing the sheet without filling in writes nothing. | |
+| Home ramble fill-all | user 2026-08-14: home composer Ramble sends typed content to AI (voice Ramble it unchanged). The model proposes a whole decision including best-effort scores keyed by name; the card offers Fill in what you can vs Keep chatting. Partial scores are allowed; Results still need a full matrix. Closing the sheet without filling in writes nothing. |
+| Write or speak | user 2026-08-15: every ramble and Ask AI sheet has a compose bar with both a text field and a mic; typed decision-view ramble injects into chat like a transcript. | |
