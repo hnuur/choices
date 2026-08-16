@@ -13,3 +13,19 @@ describe('lookup guidance', () => {
     expect(rambleSystemPrompt(true)).toMatch(/Subjective 1–5 ratings are judgement/)
   })
 })
+
+describe('place option blurbs', () => {
+  it('asks for name + rating + short blurb, not address clutter, in both prompts', () => {
+    for (const prompt of [systemPrompt('options'), rambleSystemPrompt()]) {
+      expect(prompt).toMatch(/place name only/)
+      expect(prompt).toMatch(/star\/rating/)
+      expect(prompt).toMatch(/one-sentence blurb/)
+      expect(prompt).toMatch(/postal\/ZIP/)
+      expect(prompt).not.toMatch(/include the full street address/)
+    }
+  })
+
+  it('repeats the restraint in lookup guidance when web lookup is on', () => {
+    expect(rambleSystemPrompt(true)).toMatch(/Never put street address/)
+  })
+})
