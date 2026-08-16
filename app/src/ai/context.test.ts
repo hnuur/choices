@@ -15,18 +15,21 @@ describe('lookup guidance', () => {
 })
 
 describe('place option blurbs', () => {
-  it('asks for name + why-good blurb only — no address, site, or rating', () => {
+  it('hard-rules name + why-good line for prose and options in both prompts', () => {
     for (const prompt of [systemPrompt('options'), rambleSystemPrompt()]) {
-      expect(prompt).toMatch(/place name only/)
-      expect(prompt).toMatch(/one-sentence blurb of why it is good/)
+      expect(prompt).toMatch(/HARD RULE for places/)
+      expect(prompt).toMatch(/Name — one sentence why it is good/)
       expect(prompt).toMatch(/postal\/ZIP/)
       expect(prompt).toMatch(/website\/URL/)
-      expect(prompt).toMatch(/star rating/)
-      expect(prompt).not.toMatch(/star\/rating \(if found\)/)
+      expect(prompt).toMatch(/star ratings/)
+      expect(prompt).toMatch(/Do not paste search-result cards/)
+      expect(prompt).toMatch(/no \*\*/)
     }
   })
 
-  it('repeats the restraint in lookup guidance when web lookup is on', () => {
-    expect(rambleSystemPrompt(true)).toMatch(/Do not include street address/)
+  it('lookup guidance forbids per-place website citations', () => {
+    const prompt = rambleSystemPrompt(true)
+    expect(prompt).toMatch(/never cite per-place websites/)
+    expect(prompt).not.toMatch(/Cite each source in the prose by name and URL/)
   })
 })

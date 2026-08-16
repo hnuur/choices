@@ -18,11 +18,14 @@ const LEVEL_FOCUS: Record<Tab, string> = {
     'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers.',
 }
 
-const PLACE_OPTION_GUIDANCE =
-  'For places (restaurants, shops, venues): option.name is the place name only; option.notes is a one-sentence blurb of why it is good or distinctive — nothing else. Do not include street address, neighborhood, city, postal/ZIP code, phone, website/URL, star rating, or map coordinates in name, notes, or the prose about that place.'
+// Hard rule for place recommendations — always on (not only under
+// web lookup). Web search returns rich place cards; without an
+// explicit format the model pastes them into prose, and "cite by
+// URL" made that worse.
+const PLACE_LIST_RULE = `HARD RULE for places (restaurants, shops, venues) — in prose AND in option name/notes: each place is exactly "Name — one sentence why it is good." Nothing else on that line. Forbidden: street address, neighborhood, city, postal/ZIP, phone, website/URL (including Maps links and utm tracking), star ratings, review counts, open/closed status, price ranges, and markdown (no **, _, or [text](url)). Do not paste search-result cards. Prefer a short bullet list over paragraphs.`
 
 const LOOKUP_GUIDANCE = `
-Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Cite each source in the prose by name and URL. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. ${PLACE_OPTION_GUIDANCE} Proposals still use the same JSON contract.`
+Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. ${PLACE_LIST_RULE} For place recommendations, never cite per-place websites or Maps links. Other factual sources (articles, specs sheets) may be named once at the end by publication title only — no URLs next to place names. Proposals still use the same JSON contract.`
 
 export function systemPrompt(tab: Tab, webLookup = false): string {
   return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
@@ -39,11 +42,12 @@ Response contract:
   - {"type":"addDimension","dimension":{"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}}
   - {"type":"updateDimension","id","patch":{any of name/kind/direction/importance/unit}}
   - {"type":"deleteDimension","id"}
-  - {"type":"addOption","option":{"name","notes"?}}. ${PLACE_OPTION_GUIDANCE}
+  - {"type":"addOption","option":{"name","notes"?}}. For places, name is the place name; notes are the one-sentence blurb only.
   - {"type":"deleteOption","id"}
   - {"type":"setScore","optionId","dimensionId","value"}
 - setScore fills a cell: objective dimensions take a raw number in the dimension's unit; subjective dimensions take an integer 1–5. When the user asks to score, propose setScore for both kinds.
-- Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.${webLookup ? LOOKUP_GUIDANCE : ''}`
+- Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.
+- ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
 
 /** Phase-7 ramble scope: no decision exists yet — the reply may propose one. */
@@ -55,13 +59,14 @@ The user is describing a decision they want to make (typed or a voice ramble). L
 Response contract:
 - If the input contains a decision, propose building it: exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [{"type":"createDecision","decision":{"name": string,"dimensions": [...],"options": [...],"scores": [...]}}]}.
   - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg).
-  - "options" entries: {"name","notes"?}. ${PLACE_OPTION_GUIDANCE}
+  - "options" entries: {"name","notes"?}. For places, name is the place name; notes are the one-sentence blurb only.
   - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number}. Use the same names as above. Objective values are raw numbers in the dimension's unit; subjective values are integers 1–5. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
   - Keep the skeleton faithful to what they said — name the decision after the thing being chosen, and include only dimensions and options they mentioned or clearly implied.
   - The message should briefly say what you filled and what you guessed. Do not tell them to copy JSON; they will choose Fill in what you can or Keep chatting in the app.
 - If they are refining a proposal already on the card, emit a full replacement createDecision (not a patch) that incorporates their follow-up.
 - If the input contains no decision (small talk, a question, an unrelated topic), answer in plain prose with no JSON block — never invent a decision.
-- Importance weights are integers 1–5; default unspecified importance to 3.${webLookup ? LOOKUP_GUIDANCE : ''}`
+- Importance weights are integers 1–5; default unspecified importance to 3.
+- ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
 
 interface Snapshot {
