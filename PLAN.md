@@ -435,14 +435,19 @@ choices/                         git repo
       Anthropic web search, Gemini grounding — not one shared tool
       schema. Custom and relay only search if that upstream already
       does; otherwise the UI says it cannot look up (no silent
-      no-op). System prompts: look up objective facts; omit a cell
+      no-op).       System prompts: look up objective facts; omit a cell
       rather than invent a number you did not find; subjective 1–5
-      ratings stay judgement, not a web result; proposals still go
-      through the existing approval card (`setScore` /
-      `createDecision` — no new payload type). Citations live in the
-      assistant prose, not a new card row. Disclosure in AI settings
-      gains one line: a lookup may leave the device via that
-      provider. UI: a "Looking up…" state; sources in the reply;
+      ratings stay judgement, not a web result; when proposing
+      places (restaurants, shops, venues) as options, use the
+      place name only — put a public star/rating (if found) and a
+      one-sentence blurb of what makes it special in `notes`, and
+      omit street address, postal/ZIP, phone, and coordinates from
+      option fields and keep that clutter out of the prose too;
+      proposals still go through the existing approval card
+      (`setScore` / `createDecision` — no new payload type).
+      Citations live in the assistant prose, not a new card row.
+      Disclosure in AI settings gains one line: a lookup may leave
+      the device via that provider. UI: a "Looking up…" state; sources in the reply;
       off reproduces today's one-shot text path. No new Dexie
       schema; transcripts stay ephemeral. App-side search APIs and
       always-on lookup are rejected. **Verify**:
@@ -531,3 +536,4 @@ choices/                         git repo
 | Home ramble in composer | user 2026-08-15: the only Home ramble entry is the composer Ramble control (empty or seeded); Ramble it is removed; Import backup moves to a small footer control. |
 | Decision-view bar | user 2026-08-14 after live phone review: Ask AI is no longer a full-width bar control — Ramble and AI are equal-width buttons (AI remains the accent); Add/Cancel on dimension and option forms match that pair; titles wrap two lines; importance 1–5 fills the card |
 | Web lookup phase | user 2026-08-15: Ask AI and ramble may look up objective facts via provider-native search (OpenAI / Anthropic / Gemini), opt-in default off, citations in prose, approval card still the checkpoint; custom/relay only if the upstream already searches. App-side search APIs and always-on lookup rejected. Scheduled as Phase 13; Shared database renumbered Phase 13 → 14. |
+| Place option blurbs | user 2026-08-16: when ramble/Ask AI propose places from a lookup (e.g. restaurants), option.name is the place name; notes carry star rating + a short distinctive blurb — not street number, postal code, phone, or coordinates (amendment after Montreal borscht ramble dumped full addresses). |
