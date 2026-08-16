@@ -4,11 +4,14 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { defaultSettings, type AiSettings } from './settings'
-import { cleanForSpeech, speak, voiceEngineFor } from './tts'
+import { cleanForSpeech, speak, stopSpeaking, unlockSpeech, voiceEngineFor } from './tts'
 
 const settings = (patch: Partial<AiSettings>): AiSettings => ({ ...defaultSettings(), ...patch })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  stopSpeaking()
+  vi.unstubAllGlobals()
+})
 
 describe('voiceEngineFor', () => {
   it('openai preset with a key uses OpenAI TTS', () => {
@@ -75,5 +78,39 @@ describe('speak', () => {
     vi.stubGlobal('fetch', fetchMock)
     await speak(' ```json\n{}\n``` ', settings({ mode: 'openai', apiKey: 'k' }))
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('plays remote audio on the reused element after unlock', async () => {
+    const play = vi.fn(async () => {})
+    class FakeAudio {
+      src = ''
+      volume = 1
+      loop = false
+      onended: (() => void) | null = null
+      play = play
+      pause = vi.fn()
+      setAttribute = vi.fn()
+    }
+    vi.stubGlobal('Audio', FakeAudio)
+    vi.stubGlobal(
+      'URL',
+      Object.assign(URL, {
+        createObjectURL: () => 'blob:tts',
+        revokeObjectURL: vi.fn(),
+      }),
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(new Uint8Array([1, 2, 3]), { status: 200 })),
+    )
+    unlockSpeech()
+    await speak('hello', settings({ mode: 'openai', apiKey: 'k' }))
+    expect(play).toHaveBeenCalled()
+  })
+})
+
+describe('unlockSpeech', () => {
+  it('is a no-op without Audio or speechSynthesis', () => {
+    expect(() => unlockSpeech()).not.toThrow()
   })
 })

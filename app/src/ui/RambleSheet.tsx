@@ -10,7 +10,7 @@ import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
-import { speak, stopSpeaking } from '../ai/tts'
+import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
 import { queryDecision } from '../queries'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
@@ -109,6 +109,7 @@ export default function RambleSheet({
     setVoice(next)
     saveSettings({ ...loadSettings(), voiceReplies: next })
     if (!next) stopSpeaking()
+    else unlockSpeech()
   }
 
   const pushEntry = (entry: NewEntry) =>
@@ -263,7 +264,10 @@ export default function RambleSheet({
     }
   }
 
-  const stopRecording = () => recorderRef.current?.stop()
+  const stopRecording = () => {
+    if (voiceRef.current) unlockSpeech()
+    recorderRef.current?.stop()
+  }
   const cancelRecording = () => {
     cancelledRef.current = true
     recorderRef.current?.stop()
@@ -290,6 +294,7 @@ export default function RambleSheet({
   const sendTyped = () => {
     const text = input.trim()
     if (!text || phase !== 'idle') return
+    if (voiceRef.current) unlockSpeech()
     setInput('')
     void ask(text, 'user')
   }

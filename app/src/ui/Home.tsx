@@ -1,4 +1,6 @@
 import { useRef, useState, type ChangeEvent } from 'react'
+import { loadSettings } from '../ai/settings'
+import { unlockSpeech } from '../ai/tts'
 import { createDecision, deleteDecision, importDecision, ValidationError } from '../mutations'
 import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
@@ -123,6 +125,7 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
     setRambleSeed(text || undefined)
     if (text) setName('')
     setCreateError(null)
+    if (loadSettings().voiceReplies) unlockSpeech()
     setRambleOpen(true)
   }
 

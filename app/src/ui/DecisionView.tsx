@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isConfigured, loadSettings } from '../ai/settings'
 import { supportsStt } from '../ai/stt'
+import { unlockSpeech } from '../ai/tts'
 import { ValidationError, exportDecision, renameDecision } from '../mutations'
 import { queryDecision } from '../queries'
 import { useLiveQuery } from '../useLiveQuery'
@@ -258,7 +259,10 @@ export default function DecisionView({
               aria-label="Ramble"
               disabled={sttGreyed || noMic}
               className="flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
-              onClick={() => setRambleOpen(true)}
+              onClick={() => {
+                if (loadSettings().voiceReplies) unlockSpeech()
+                setRambleOpen(true)
+              }}
             >
               <span className="size-1.5 rounded-full bg-accent" />
               Ramble

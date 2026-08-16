@@ -11,7 +11,7 @@ import { chat, ProviderError } from '../ai/providers'
 import { parseReply, ProposalParseError, type Proposal } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
-import { speak, stopSpeaking } from '../ai/tts'
+import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
 import type { DecisionBundle } from '../queries'
 import AiSettingsPanel from './AiSettingsPanel'
 import ApprovalCard from './ApprovalCard'
@@ -129,6 +129,7 @@ export default function ChatSheet({
     setVoice(next)
     saveSettings({ ...loadSettings(), voiceReplies: next })
     if (!next) stopSpeaking()
+    else unlockSpeech()
   }
 
   const send = async (raw?: string) => {
@@ -138,6 +139,7 @@ export default function ChatSheet({
       setView('settings')
       return
     }
+    if (voiceRef.current) unlockSpeech()
     if (raw === undefined) setInput('')
     // Prior turns are forwarded so the assistant keeps context; resolved
     // approval cards join as an assistant turn so it knows what landed.
@@ -407,7 +409,10 @@ export default function ChatSheet({
           <button
             type="button"
             className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
-            onClick={() => recorderRef.current?.stop()}
+            onClick={() => {
+              if (voiceRef.current) unlockSpeech()
+              recorderRef.current?.stop()
+            }}
           >
             Stop
           </button>
