@@ -19,7 +19,7 @@ const LEVEL_FOCUS: Record<Tab, string> = {
 }
 
 const PLACE_OPTION_GUIDANCE =
-  'For places (restaurants, shops, venues): option.name is the place name only; option.notes hold a public star/rating (if found) and a one-sentence blurb of what makes it special. Never put street address, unit/suite, postal/ZIP code, phone, or map coordinates in name or notes — neighborhood or city alone is enough if location matters. Keep the same restraint in prose.'
+  'For places (restaurants, shops, venues): option.name is the place name only; option.notes is a one-sentence blurb of why it is good or distinctive — nothing else. Do not include street address, neighborhood, city, postal/ZIP code, phone, website/URL, star rating, or map coordinates in name, notes, or the prose about that place.'
 
 const LOOKUP_GUIDANCE = `
 Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Cite each source in the prose by name and URL. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. ${PLACE_OPTION_GUIDANCE} Proposals still use the same JSON contract.`

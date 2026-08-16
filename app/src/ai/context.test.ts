@@ -15,17 +15,18 @@ describe('lookup guidance', () => {
 })
 
 describe('place option blurbs', () => {
-  it('asks for name + rating + short blurb, not address clutter, in both prompts', () => {
+  it('asks for name + why-good blurb only — no address, site, or rating', () => {
     for (const prompt of [systemPrompt('options'), rambleSystemPrompt()]) {
       expect(prompt).toMatch(/place name only/)
-      expect(prompt).toMatch(/star\/rating/)
-      expect(prompt).toMatch(/one-sentence blurb/)
+      expect(prompt).toMatch(/one-sentence blurb of why it is good/)
       expect(prompt).toMatch(/postal\/ZIP/)
-      expect(prompt).not.toMatch(/include the full street address/)
+      expect(prompt).toMatch(/website\/URL/)
+      expect(prompt).toMatch(/star rating/)
+      expect(prompt).not.toMatch(/star\/rating \(if found\)/)
     }
   })
 
   it('repeats the restraint in lookup guidance when web lookup is on', () => {
-    expect(rambleSystemPrompt(true)).toMatch(/Never put street address/)
+    expect(rambleSystemPrompt(true)).toMatch(/Do not include street address/)
   })
 })
