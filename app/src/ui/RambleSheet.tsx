@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyDecisionSkeleton } from '../ai/apply'
 import { rambleSystemPrompt } from '../ai/context'
+import { formatPlaceReply } from '../ai/formatPlaceReply'
 import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
@@ -148,17 +149,18 @@ export default function RambleSheet({
         ai,
       )
       const parsed = parseReply(reply)
+      const displayMessage = (raw: string) => formatPlaceReply(raw.trim())
       const only = parsed.proposals.length === 1 ? parsed.proposals[0] : null
       const spokenText =
         parsed.proposals.length === 0
-          ? parsed.message || reply.trim()
+          ? displayMessage(parsed.message || reply)
           : only && only.type === 'createDecision'
-            ? (parsed.message ?? '')
+            ? displayMessage(parsed.message ?? '')
             : ''
       if (only && only.type === 'createDecision') {
         setEntries((prev) => {
           const next = [...prev]
-          if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: parsed.message })
+          if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(parsed.message) })
           const existing = next.findIndex((e) => e.kind === 'card' && !e.outcome)
           if (existing >= 0) {
             const card = next[existing]
@@ -171,7 +173,7 @@ export default function RambleSheet({
           return next
         })
       } else if (parsed.proposals.length === 0) {
-        pushEntry({ kind: 'assistant', text: parsed.message || reply.trim() })
+        pushEntry({ kind: 'assistant', text: displayMessage(parsed.message || reply) })
       } else {
         pushEntry({
           kind: 'error',

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { applyProposals, type ApplyOutcome } from '../ai/apply'
 import { decisionSnapshot, systemPrompt } from '../ai/context'
+import { formatPlaceReply } from '../ai/formatPlaceReply'
 import { chat, ProviderError } from '../ai/providers'
 import { parseReply, ProposalParseError, type Proposal } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
@@ -171,19 +172,20 @@ export default function ChatSheet({
         ai,
       )
       const parsed = parseReply(reply)
+      const displayMessage = (raw: string) => formatPlaceReply(raw.trim())
       const spokenText =
-        parsed.message || (parsed.proposals.length === 0 ? reply.trim() : '')
+        parsed.message || (parsed.proposals.length === 0 ? displayMessage(reply) : '')
       setEntries((prev) => {
         const next = [...prev]
-        if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: parsed.message })
+        if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(parsed.message) })
         if (parsed.proposals.length > 0) {
           next.push({ id: ++entrySeq, kind: 'card', proposals: parsed.proposals })
         } else if (!parsed.message && reply.trim()) {
-          next.push({ id: ++entrySeq, kind: 'assistant', text: reply.trim() })
+          next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(reply) })
         }
         return next
       })
-      if (voiceRef.current && spokenText) void speak(spokenText, loadSettings())
+      if (voiceRef.current && spokenText) void speak(displayMessage(spokenText), loadSettings())
     } catch (e) {
       const message =
         e instanceof ProposalParseError
