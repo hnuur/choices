@@ -14,6 +14,7 @@ import type {
   Score,
   SkeletonScoreInput,
 } from './types'
+import { dimensionScale, normalizeLabels } from './units'
 
 export class ValidationError extends Error {}
 
@@ -39,6 +40,38 @@ function requireImportance(importance: unknown): number {
   return importance
 }
 
+function dimensionFromFields(fields: {
+  name: unknown
+  kind: unknown
+  direction?: unknown
+  importance: unknown
+  unit?: unknown
+}): Pick<Dimension, 'name' | 'kind' | 'direction' | 'importance' | 'unit'> {
+  const name = requireName(fields.name)
+  const importance = requireImportance(fields.importance)
+  if (fields.unit !== undefined && typeof fields.unit !== 'string') {
+    throw new ValidationError('unit must be a string')
+  }
+  const unit = typeof fields.unit === 'string' ? fields.unit : undefined
+  if (fields.kind === 'subjective') {
+    if (fields.direction !== undefined) {
+      throw new ValidationError('subjective dimensions have no direction')
+    }
+    return { name, kind: 'subjective', direction: undefined, importance }
+  }
+  if (fields.kind !== 'objective') {
+    throw new ValidationError("kind must be 'objective' or 'subjective'")
+  }
+  const scale = dimensionScale({ kind: 'objective', name, unit })
+  if (scale === 'nominal') {
+    return { name, kind: 'objective', direction: undefined, importance, unit }
+  }
+  if (fields.direction !== 'higher' && fields.direction !== 'lower') {
+    throw new ValidationError('objective dimensions need a direction (higher|lower)')
+  }
+  return { name, kind: 'objective', direction: fields.direction, importance, unit }
+}
+
 function validateDimensionFields(fields: {
   name: unknown
   kind: unknown
@@ -46,22 +79,20 @@ function validateDimensionFields(fields: {
   importance: unknown
   unit?: unknown
 }): void {
-  requireName(fields.name)
-  requireImportance(fields.importance)
-  if (fields.kind === 'objective') {
-    if (fields.direction !== 'higher' && fields.direction !== 'lower') {
-      throw new ValidationError('objective dimensions need a direction (higher|lower)')
-    }
-  } else if (fields.kind === 'subjective') {
-    if (fields.direction !== undefined) {
-      throw new ValidationError('subjective dimensions have no direction')
-    }
-  } else {
-    throw new ValidationError("kind must be 'objective' or 'subjective'")
+  dimensionFromFields(fields)
+}
+
+function persistDimension(d: Dimension): Dimension {
+  const out: Dimension = {
+    id: d.id,
+    decisionId: d.decisionId,
+    name: d.name,
+    kind: d.kind,
+    importance: d.importance,
   }
-  if (fields.unit !== undefined && typeof fields.unit !== 'string') {
-    throw new ValidationError('unit must be a string')
-  }
+  if (d.direction) out.direction = d.direction
+  if (d.unit) out.unit = d.unit
+  return out
 }
 
 async function touch(decisionId: string): Promise<void> {
@@ -98,9 +129,16 @@ function findUniqueByName<T extends { name: string }>(items: T[], name: string):
   return hits.length === 1 ? hits[0] : undefined
 }
 
-function scoreValueOk(kind: Dimension['kind'], value: number): boolean {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return false
-  if (kind === 'subjective' && (!Number.isInteger(value) || value < 1 || value > 5)) return false
+function scorePayloadOk(dimension: Dimension, cell: { value?: unknown; labels?: unknown }): boolean {
+  const scale = dimensionScale(dimension)
+  if (scale === 'nominal') {
+    return Array.isArray(cell.labels) &&
+      normalizeLabels(cell.labels.filter((x): x is string => typeof x === 'string')).length > 0
+  }
+  if (typeof cell.value !== 'number' || !Number.isFinite(cell.value)) return false
+  if (scale === 'rating' && (!Number.isInteger(cell.value) || cell.value < 1 || cell.value > 5)) {
+    return false
+  }
   return true
 }
 
@@ -116,11 +154,15 @@ export function resolveSkeletonScores(
   for (const cell of scores) {
     const option = findUniqueByName(options, cell.option)
     const dimension = findUniqueByName(dimensions, cell.dimension)
-    if (!option || !dimension || !scoreValueOk(dimension.kind, cell.value)) continue
+    if (!option || !dimension || !scorePayloadOk(dimension, cell)) continue
     const key = `${option.id}\0${dimension.id}`
     if (seen.has(key)) continue
     seen.add(key)
-    out.push({ optionId: option.id, dimensionId: dimension.id, value: cell.value })
+    out.push(
+      dimensionScale(dimension) === 'nominal'
+        ? { optionId: option.id, dimensionId: dimension.id, labels: normalizeLabels(cell.labels ?? []) }
+        : { optionId: option.id, dimensionId: dimension.id, value: cell.value },
+    )
   }
   return out
 }
@@ -149,11 +191,7 @@ export async function createDecisionSkeleton(input: DecisionSkeletonInput): Prom
   const dimensions: Dimension[] = input.dimensions.map((d) => ({
     id: newId(),
     decisionId: decision.id,
-    name: requireName(d.name),
-    kind: d.kind,
-    direction: d.kind === 'objective' ? d.direction : undefined,
-    importance: requireImportance(d.importance),
-    unit: d.unit,
+    ...dimensionFromFields(d),
   }))
   const options: Option[] = input.options.map((o) => ({
     id: newId(),
@@ -164,7 +202,7 @@ export async function createDecisionSkeleton(input: DecisionSkeletonInput): Prom
   const scores = resolveSkeletonScores(dimensions, options, input.scores)
   await db.transaction('rw', db.decisions, db.dimensions, db.options, db.scores, async () => {
     await db.decisions.put(decision)
-    if (dimensions.length) await db.dimensions.bulkPut(dimensions)
+    if (dimensions.length) await db.dimensions.bulkPut(dimensions.map(persistDimension))
     if (options.length) await db.options.bulkPut(options)
     if (scores.length) await db.scores.bulkPut(scores)
   })
@@ -194,17 +232,13 @@ export async function addDimension(
   input: DimensionInput,
 ): Promise<Dimension> {
   await requireDecision(decisionId)
-  validateDimensionFields(input)
+  const fields = dimensionFromFields(input)
   const dimension: Dimension = {
     id: newId(),
     decisionId,
-    name: requireName(input.name),
-    kind: input.kind,
-    direction: input.kind === 'objective' ? input.direction : undefined,
-    importance: requireImportance(input.importance),
-    unit: input.unit,
+    ...fields,
   }
-  await db.dimensions.put(dimension)
+  await db.dimensions.put(persistDimension(dimension))
   await touch(decisionId)
   return dimension
 }
@@ -220,8 +254,8 @@ export interface DimensionPatch {
 }
 
 /**
- * Changing a dimension's kind makes existing scores meaningless (a weight in
- * kg is not a 1–5 rating), so a kind change wipes that dimension's scores in
+ * Changing a dimension's kind or scale (numeric ↔ nominal, or to/from
+ * 1–5) makes existing scores meaningless, so those scores are wiped in
  * the same transaction.
  */
 export async function updateDimension(id: string, patch: DimensionPatch): Promise<void> {
@@ -238,18 +272,14 @@ export async function updateDimension(id: string, patch: DimensionPatch): Promis
     direction: clearsDirection ? undefined : patch.direction ?? dimension.direction,
     unit: clearsUnit ? undefined : patch.unit ?? dimension.unit,
   }
-  validateDimensionFields(merged)
+  const fields = dimensionFromFields(merged)
+  const next: Dimension = { ...dimension, ...fields }
+  const scaleChanged = dimensionScale(dimension) !== dimensionScale(next)
   await db.transaction('rw', db.dimensions, db.scores, async () => {
-    if (patch.kind !== undefined && patch.kind !== dimension.kind) {
+    if (scaleChanged) {
       await db.scores.where('dimensionId').equals(id).delete()
     }
-    await db.dimensions.update(id, {
-      name: merged.name,
-      kind: merged.kind,
-      direction: merged.kind === 'objective' ? merged.direction : undefined,
-      importance: merged.importance,
-      unit: merged.unit,
-    })
+    await db.dimensions.put(persistDimension(next))
   })
   await touch(dimension.decisionId)
 }
@@ -309,7 +339,7 @@ export async function deleteOption(id: string): Promise<void> {
 export async function setScore(
   optionId: string,
   dimensionId: string,
-  value: number,
+  valueOrLabels: number | string[],
 ): Promise<void> {
   const [option, dimension] = await Promise.all([
     db.options.get(optionId),
@@ -320,13 +350,26 @@ export async function setScore(
   if (option.decisionId !== dimension.decisionId) {
     throw new ValidationError('option and dimension belong to different decisions')
   }
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    throw new ValidationError('score value must be a finite number')
+  const scale = dimensionScale(dimension)
+  let score: Score
+  if (scale === 'nominal') {
+    if (!Array.isArray(valueOrLabels)) {
+      throw new ValidationError('categorical scores take one or more labels')
+    }
+    const labels = normalizeLabels(valueOrLabels)
+    if (labels.length === 0) {
+      throw new ValidationError('categorical scores need at least one label')
+    }
+    score = { optionId, dimensionId, labels }
+  } else {
+    if (typeof valueOrLabels !== 'number' || !Number.isFinite(valueOrLabels)) {
+      throw new ValidationError('score value must be a finite number')
+    }
+    if (scale === 'rating' && (!Number.isInteger(valueOrLabels) || valueOrLabels < 1 || valueOrLabels > 5)) {
+      throw new ValidationError('subjective scores must be integers 1..5')
+    }
+    score = { optionId, dimensionId, value: valueOrLabels }
   }
-  if (dimension.kind === 'subjective' && (!Number.isInteger(value) || value < 1 || value > 5)) {
-    throw new ValidationError('subjective scores must be integers 1..5')
-  }
-  const score: Score = { optionId, dimensionId, value }
   await db.scores.put(score)
   await touch(option.decisionId)
 }
@@ -386,11 +429,7 @@ export async function importDecision(exported: DecisionExport): Promise<string> 
     return {
       id,
       decisionId: '', // set after the new decision id exists
-      name: d.name.trim(),
-      kind: d.kind,
-      direction: d.kind === 'objective' ? d.direction : undefined,
-      importance: d.importance,
-      unit: d.unit,
+      ...dimensionFromFields(d),
     }
   })
   const options: Option[] = exported.options.map((o) => {
@@ -399,23 +438,26 @@ export async function importDecision(exported: DecisionExport): Promise<string> 
     optIdMap.set(o.id, id)
     return { id, decisionId: '', name: requireName(o.name), notes: o.notes }
   })
-  const dimKind = new Map(dimensions.map((d) => [d.id, d.kind]))
+  const dimByNewId = new Map(dimensions.map((d) => [d.id, d]))
   const scores: Score[] = exported.scores.map((s) => {
     const optionId = optIdMap.get(s.optionId)
     const dimensionId = dimIdMap.get(s.dimensionId)
     if (!optionId || !dimensionId) {
       throw new ValidationError('score references an option or dimension missing from the export')
     }
-    if (typeof s.value !== 'number' || !Number.isFinite(s.value)) {
-      throw new ValidationError('score value must be a finite number')
+    const dimension = dimByNewId.get(dimensionId)!
+    if (!scorePayloadOk(dimension, s)) {
+      throw new ValidationError(
+        dimensionScale(dimension) === 'nominal'
+          ? 'categorical scores need at least one label'
+          : dimensionScale(dimension) === 'rating'
+            ? 'subjective scores must be integers 1..5'
+            : 'score value must be a finite number',
+      )
     }
-    if (
-      dimKind.get(dimensionId) === 'subjective' &&
-      (!Number.isInteger(s.value) || s.value < 1 || s.value > 5)
-    ) {
-      throw new ValidationError('subjective scores must be integers 1..5')
-    }
-    return { optionId, dimensionId, value: s.value }
+    return dimensionScale(dimension) === 'nominal'
+      ? { optionId, dimensionId, labels: normalizeLabels(s.labels ?? []) }
+      : { optionId, dimensionId, value: s.value }
   })
 
   const decisionId = newId()
@@ -430,7 +472,7 @@ export async function importDecision(exported: DecisionExport): Promise<string> 
 
   await db.transaction('rw', db.decisions, db.dimensions, db.options, db.scores, async () => {
     await db.decisions.put(decision)
-    await db.dimensions.bulkPut(dimensions)
+    await db.dimensions.bulkPut(dimensions.map(persistDimension))
     await db.options.bulkPut(options)
     await db.scores.bulkPut(scores)
   })

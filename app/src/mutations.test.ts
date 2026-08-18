@@ -72,7 +72,7 @@ describe('dimension validation', () => {
     }
   })
 
-  it('requires direction for objective, forbids it for subjective', async () => {
+  it('requires direction for numeric objective, forbids it for subjective, skips it for Genre', async () => {
     const d = await createDecision('X')
     await expect(
       addDimension(d.id, { name: 'w', kind: 'objective', importance: 1 }),
@@ -80,6 +80,9 @@ describe('dimension validation', () => {
     await expect(
       addDimension(d.id, { name: 's', kind: 'subjective', direction: 'higher', importance: 1 }),
     ).rejects.toThrow(/direction/)
+    const genre = await addDimension(d.id, { name: 'Genre', kind: 'objective', importance: 3 })
+    expect(genre.direction).toBeUndefined()
+    expect((await db.dimensions.get(genre.id))!.direction).toBeUndefined()
   })
 })
 
@@ -112,6 +115,17 @@ describe('scores', () => {
     const other = await createDecision('Other')
     const dim2 = await addDimension(other.id, { name: 'x', kind: 'subjective', importance: 1 })
     await expect(setScore(sony.id, dim2.id, 3)).rejects.toThrow(/different decisions/)
+  })
+
+  it('stores one or more labels on a categorical dimension', async () => {
+    const d = await createDecision('TV')
+    const genre = await addDimension(d.id, { name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' })
+    const show = await addOption(d.id, { name: 'The Bear' })
+    await expect(setScore(show.id, genre.id, 4)).rejects.toThrow(/labels/)
+    await setScore(show.id, genre.id, ['Drama', 'Comedy', 'Drama'])
+    expect(await db.scores.get([show.id, genre.id])).toMatchObject({
+      labels: ['Drama', 'Comedy'],
+    })
   })
 
   it('clearScore removes the cell', async () => {
@@ -174,6 +188,14 @@ describe('updateDimension', () => {
     await updateDimension(weight.id, { kind: 'subjective', direction: undefined })
     expect(await db.scores.count()).toBe(0)
     expect((await db.dimensions.get(weight.id))!.kind).toBe('subjective')
+  })
+
+  it('changing numeric unit to a category wipes scores', async () => {
+    const { weight, sony } = await buildDecision()
+    await setScore(sony.id, weight.id, 500)
+    await updateDimension(weight.id, { name: 'Genre', unit: 'genre', direction: null })
+    expect(await db.scores.count()).toBe(0)
+    expect((await db.dimensions.get(weight.id))!.direction).toBeUndefined()
   })
 
   it('patch null clears direction/unit (JSON-safe form used by AI patches)', async () => {
@@ -312,6 +334,20 @@ describe('createDecisionSkeleton (Phase-7 ramble path)', () => {
         { optionId: sony.id, dimensionId: feel.id, value: 4 },
       ]),
     )
+  })
+
+  it('writes categorical skeleton scores as labels', async () => {
+    const decision = await createDecisionSkeleton({
+      name: 'TV night',
+      dimensions: [{ name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' }],
+      options: [{ name: 'The Bear' }],
+      scores: [{ option: 'The Bear', dimension: 'Genre', labels: ['Comedy', 'Drama'] }],
+    })
+    const dim = (await db.dimensions.where('decisionId').equals(decision.id).toArray())[0]
+    const opt = (await db.options.where('decisionId').equals(decision.id).toArray())[0]
+    expect(await db.scores.toArray()).toEqual([
+      { optionId: opt.id, dimensionId: dim.id, labels: ['Comedy', 'Drama'] },
+    ])
   })
 
   it('accepts a name-only skeleton', async () => {

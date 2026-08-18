@@ -47,6 +47,12 @@ Locked product decisions (adopted 2026-08-07 with the Phase-2 amendment):
   raw value + unit + direction (higher/lower better); subjective dimensions
   are 1–5 ratings. This split decides what Phase 7 shares (objective facts)
   vs keeps personal (subjective scores), so it exists from day one.
+  Follow-up (user 2026-08-18): an objective unit that is not a numeric
+  measure (genre, cuisine, brand — or a dimension *named* that way with
+  no unit) is **nominal**: the cell is one or more labels picked or typed,
+  not a number and not 1–5. Nominal cells still fill the matrix; they do
+  not enter the weighted total (a genre is not higher/lower). Preferred-
+  label ranking is Deferred.
 
 This repository is the project and, by construction, its own control: the
 drift-control kit (hooks, doctor, gates, ritual) landed first as Phase 1, so
@@ -56,16 +62,19 @@ header, Deferred section, decision log — are part of the artifact.
 
 ## Product spec
 
-Scoring math: objective normalizes across the option set,
+Scoring math: objective **numeric** cells normalize across the option set,
 `(x − min) / (max − min)`, inverted for lower-better, all-equal → 1;
-subjective maps a 1–5 rating via `(r − 1) / 4`; total is
-`Σ(importance × score) / Σ(importance)` (weights explicitly renormalized).
-Known weakness, accepted for v1 and mitigated in the Results UI: set-relative
-min-max exaggerates tiny differences, and rankings depend on which options
-are in the set (independence-of-irrelevant-alternatives violation).
-Mitigations: raw values shown alongside normalized scores; winner margin
-with near-tie flag (≤ 0.02 = "effectively tied"); non-discriminating
-dimensions called out; sensitivity probes surface fragile winners.
+subjective maps a 1–5 rating via `(r − 1) / 4`; objective **nominal**
+cells (categorical unit or category name: genre, cuisine, …) are labels
+and are excluded from the weighted total; total is
+`Σ(importance × score) / Σ(importance)` over rating/numeric dimensions
+only (weights explicitly renormalized). Known weakness, accepted for v1
+and mitigated in the Results UI: set-relative min-max exaggerates tiny
+differences, and rankings depend on which options are in the set
+(independence-of-irrelevant-alternatives violation). Mitigations: raw
+values shown alongside normalized scores; winner margin with near-tie
+flag (≤ 0.02 = "effectively tied"); non-discriminating dimensions called
+out; sensitivity probes surface fragile winners.
 
 Data model — Dexie, versioned from day one (`db.version(1)`) so migrations
 stay routine; IDs client-generated (uuid) for eventual publish/sync:
@@ -73,10 +82,12 @@ stay routine; IDs client-generated (uuid) for eventual publish/sync:
 ```
 Decision  { id, name, createdAt, updatedAt }
 Dimension { id, decisionId, name, kind: 'objective' | 'subjective',
-            direction: 'higher' | 'lower',   // objective only
+            direction: 'higher' | 'lower',   // numeric objective only
             importance: 1..5, unit?: string }
 Option    { id, decisionId, name, notes? }
-Score     { optionId, dimensionId, value }   // row exists ⇒ cell scored
+Score     { optionId, dimensionId, value?: number, labels?: string[] }
+          // row exists ⇒ cell scored; numeric/subjective use value;
+          // nominal objective use one or more labels
 ```
 
 - Scores live in their own table: cell-level rows make Phase 6's "LLM
@@ -503,6 +514,11 @@ choices/                         git repo
   no-setup default, relay transcription passthrough by amendment,
   on-device Whisper (transformers.js) as a stretch. Promote via
   amendment when scheduled.
+- **Preferred-label ranking** for nominal dimensions (user 2026-08-18):
+  Genre and similar units record labels and fill the matrix but do not
+  move the weighted total. Ranking by overlap with a preferred set, or
+  a user-declared order of labels, stays out until that scoring rule is
+  chosen.
 
 ## Decision log
 
@@ -542,3 +558,4 @@ choices/                         git repo
 | Decision-view bar | user 2026-08-14 after live phone review: Ask AI is no longer a full-width bar control — Ramble and AI are equal-width buttons (AI remains the accent); Add/Cancel on dimension and option forms match that pair; titles wrap two lines; importance 1–5 fills the card |
 | Web lookup phase | user 2026-08-15: Ask AI and ramble may look up objective facts via provider-native search (OpenAI / Anthropic / Gemini), opt-in default off, citations in prose, approval card still the checkpoint; custom/relay only if the upstream already searches. App-side search APIs and always-on lookup rejected. Scheduled as Phase 13; Shared database renumbered Phase 13 → 14. |
 | Place option blurbs | user 2026-08-16: place recommendations (prose or options) are Name + one-sentence why-it’s-good only — never search-result cards with address/postal/phone/website/Maps/stars/hours/price/markdown. Per-place website citations forbidden (they conflicted with “cite by URL” and kept dumping OpenAI place cards); other facts may cite publication name only at the end. Follow-up (user liked #1): RambleSheet and ChatSheet also run `formatPlaceReply` client-side so place cards render as plain “Name — blurb” even when the model ignores prompts. |
+| Nominal dimension units | user 2026-08-18: when a dimension’s unit is not a 1–5/numeric measure (e.g. Genre), scoring is enter-or-pick one or more labels from a dropdown, not a rating scale. Same for a dimension *named* a category (genre, cuisine, …) with no unit. Labels fill the matrix; they do not enter the weighted total. Preferred-label ranking is Deferred. |

@@ -13,7 +13,9 @@ for the human verifier.
 - [ ] Add two options with notes; rows sort alphabetically.
 - [ ] Score tab shows the matrix progress (0/N cells) and option-by-option
       cards: objective cells take a raw value with unit suffix, subjective
-      cells take 1–5.
+      cells take 1–5, and a unit like genre (or a dimension named Genre)
+      is one or more labels typed or picked from a dropdown — not a 1–5
+      rating.
 - [ ] Results before the matrix is complete shows the progress state and a
       link to scoring — never a stale or partial ranking.
 - [ ] Score every cell; unscored ○ markers turn ● and progress reaches N/N.
@@ -293,9 +295,10 @@ Mobile-width viewport, against the 2026-08-14 review.
       if the matrix is complete, Score if any cells are scored,
       Dimensions otherwise.
 - [ ] The first dimension form (empty decision) shows: "Objective dimensions
-      are facts with a unit (price, weight); subjective ones are 1–5
-      ratings. Importance 1–5 is how much the ranking should care." The
-      sentence is gone once a dimension exists.
+      are facts with a unit (price, weight); a unit like genre is picked
+      from a list, not typed as a number. Subjective ones are 1–5 ratings.
+      Importance 1–5 is how much the ranking should care." The sentence is
+      gone once a dimension exists.
 
 ## Phase 13 — web lookup
 

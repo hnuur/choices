@@ -4,6 +4,7 @@
 
 import type { DimensionPatch } from '../mutations'
 import type { DecisionSkeletonInput, DimensionInput, OptionInput, SkeletonScoreInput } from '../types'
+import { dimensionScale, normalizeLabels } from '../units'
 
 export type Proposal =
   | { type: 'addDimension'; dimension: DimensionInput }
@@ -11,7 +12,7 @@ export type Proposal =
   | { type: 'deleteDimension'; id: string }
   | { type: 'addOption'; option: OptionInput }
   | { type: 'deleteOption'; id: string }
-  | { type: 'setScore'; optionId: string; dimensionId: string; value: number }
+  | { type: 'setScore'; optionId: string; dimensionId: string; value?: number; labels?: string[] }
   /** Phase-7 ramble scope: a whole decision skeleton, created in one go. */
   | { type: 'createDecision'; decision: DecisionSkeletonInput }
 
@@ -64,10 +65,21 @@ function parseDimensionInput(v: unknown, label: string): DimensionInput {
   const name = requireString(obj.name, `${label}.name`)
   const importance = requireImportance(obj.importance, `${label}.importance`)
   if (obj.kind === 'objective') {
+    const unit = obj.unit === undefined ? undefined : requireString(obj.unit, `${label}.unit`)
+    const scale = dimensionScale({ kind: 'objective', name, unit })
+    if (scale === 'nominal') {
+      if (
+        obj.direction !== undefined &&
+        obj.direction !== 'higher' &&
+        obj.direction !== 'lower'
+      ) {
+        fail(`${label}.direction must be "higher", "lower" or omitted`)
+      }
+      return { name, kind: 'objective', importance, unit }
+    }
     if (obj.direction !== 'higher' && obj.direction !== 'lower') {
       fail(`${label}: objective dimensions need direction "higher" or "lower"`)
     }
-    const unit = obj.unit === undefined ? undefined : requireString(obj.unit, `${label}.unit`)
     return { name, kind: 'objective', direction: obj.direction, importance, unit }
   }
   if (obj.kind === 'subjective') {
@@ -113,12 +125,21 @@ function parseOptionInput(v: unknown, label: string): OptionInput {
 
 function parseSkeletonScore(v: unknown, label: string): SkeletonScoreInput {
   const obj = requireRecord(v, label)
-  rejectUnknownKeys(obj, ['option', 'dimension', 'value'], label)
-  return {
-    option: requireString(obj.option, `${label}.option`),
-    dimension: requireString(obj.dimension, `${label}.dimension`),
-    value: requireFiniteNumber(obj.value, `${label}.value`),
+  rejectUnknownKeys(obj, ['option', 'dimension', 'value', 'labels'], label)
+  const option = requireString(obj.option, `${label}.option`)
+  const dimension = requireString(obj.dimension, `${label}.dimension`)
+  const hasValue = obj.value !== undefined
+  const hasLabels = obj.labels !== undefined
+  if (hasValue === hasLabels) fail(`${label} needs exactly one of value or labels`)
+  if (hasLabels) {
+    if (!Array.isArray(obj.labels) || obj.labels.some((x) => typeof x !== 'string')) {
+      fail(`${label}.labels must be an array of strings`)
+    }
+    const labels = normalizeLabels(obj.labels as string[])
+    if (labels.length === 0) fail(`${label}.labels must contain at least one value`)
+    return { option, dimension, labels }
   }
+  return { option, dimension, value: requireFiniteNumber(obj.value, `${label}.value`) }
 }
 
 function parseDecisionSkeleton(v: unknown, label: string): DecisionSkeletonInput {
@@ -175,11 +196,24 @@ function parseProposal(raw: unknown, index: number): Proposal {
       return { type: 'deleteOption', id: requireString(obj.id, `${label}.id`) }
     }
     case 'setScore': {
-      rejectUnknownKeys(obj, ['type', 'optionId', 'dimensionId', 'value'], label)
+      rejectUnknownKeys(obj, ['type', 'optionId', 'dimensionId', 'value', 'labels'], label)
+      const optionId = requireString(obj.optionId, `${label}.optionId`)
+      const dimensionId = requireString(obj.dimensionId, `${label}.dimensionId`)
+      const hasValue = obj.value !== undefined
+      const hasLabels = obj.labels !== undefined
+      if (hasValue === hasLabels) fail(`${label} needs exactly one of value or labels`)
+      if (hasLabels) {
+        if (!Array.isArray(obj.labels) || obj.labels.some((x) => typeof x !== 'string')) {
+          fail(`${label}.labels must be an array of strings`)
+        }
+        const labels = normalizeLabels(obj.labels as string[])
+        if (labels.length === 0) fail(`${label}.labels must contain at least one value`)
+        return { type: 'setScore', optionId, dimensionId, labels }
+      }
       return {
         type: 'setScore',
-        optionId: requireString(obj.optionId, `${label}.optionId`),
-        dimensionId: requireString(obj.dimensionId, `${label}.dimensionId`),
+        optionId,
+        dimensionId,
         value: requireFiniteNumber(obj.value, `${label}.value`),
       }
     }

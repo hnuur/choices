@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react'
 import { clearScore, setScore } from '../mutations'
 import type { DecisionBundle } from '../queries'
-import { rankOptions } from '../scoring'
+import { cellIsScored, rankOptions } from '../scoring'
 import type { Dimension, Score } from '../types'
-import { Progress, inputClass } from './bits'
+import { dimensionScale, unitPresets } from '../units'
+import { LabelPicker, Progress, inputClass } from './bits'
 
 function ObjectiveCell({
   optionId,
@@ -49,6 +50,31 @@ function ObjectiveCell({
       />
       {dimension.unit && <span className="shrink-0 text-sm text-ink-3">{dimension.unit}</span>}
     </div>
+  )
+}
+
+function NominalCell({
+  optionId,
+  dimension,
+  score,
+  suggestions,
+}: {
+  optionId: string
+  dimension: Dimension
+  score: Score | undefined
+  suggestions: string[]
+}) {
+  const labels = score?.labels ?? []
+  return (
+    <LabelPicker
+      value={labels}
+      suggestions={suggestions}
+      placeholder={`Add ${dimension.unit || dimension.name.toLowerCase()}`}
+      onChange={(next) => {
+        if (next.length === 0) void clearScore(optionId, dimension.id)
+        else void setScore(optionId, dimension.id, next)
+      }}
+    />
   )
 }
 
@@ -96,6 +122,19 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
   const scoreFor = (optionId: string, dimensionId: string) =>
     scores.find((s) => s.optionId === optionId && s.dimensionId === dimensionId)
 
+  const suggestionsFor = (d: Dimension) => {
+    const used = scores.flatMap((s) => (s.dimensionId === d.id ? (s.labels ?? []) : []))
+    const seen = new Set<string>()
+    const out: string[] = []
+    for (const label of [...unitPresets(d), ...used]) {
+      const key = label.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push(label)
+    }
+    return out
+  }
+
   if (dimensions.length === 0 || options.length === 0) {
     return (
       <p className="rounded-xl border border-hairline bg-surface p-4 text-sm text-ink-3">
@@ -128,20 +167,29 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
           <ul className="mt-2 space-y-3">
             {dimensions.map((d) => {
               const score = scoreFor(option.id, d.id)
+              const scale = dimensionScale(d)
+              const filled = cellIsScored(d, score)
               return (
                 <li key={d.id}>
                   <div className="mb-1 flex items-center justify-between text-xs">
                     <span className="text-ink-2">
                       {d.name}
-                      {d.kind === 'objective' && d.direction === 'lower' && (
+                      {scale === 'numeric' && d.direction === 'lower' && (
                         <span className="text-ink-4"> (lower is better)</span>
                       )}
                     </span>
-                    <span className={score ? 'text-accent-ink' : 'text-ink-4'}>
-                      {score ? '●' : '○'}
+                    <span className={filled ? 'text-accent-ink' : 'text-ink-4'}>
+                      {filled ? '●' : '○'}
                     </span>
                   </div>
-                  {d.kind === 'objective' ? (
+                  {scale === 'nominal' ? (
+                    <NominalCell
+                      optionId={option.id}
+                      dimension={d}
+                      score={score}
+                      suggestions={suggestionsFor(d)}
+                    />
+                  ) : scale === 'numeric' ? (
                     <ObjectiveCell optionId={option.id} dimension={d} score={score} />
                   ) : (
                     <SubjectiveCell optionId={option.id} dimension={d} score={score} />

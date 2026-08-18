@@ -5,17 +5,17 @@
 
 import { useState } from 'react'
 import type { DecisionSkeletonInput, SkeletonScoreInput } from '../types'
+import { dimensionScale, unitPresets } from '../units'
 import { DimensionFields } from './ApprovalCard'
-import { ImportancePicker, inputClass } from './bits'
+import { ImportancePicker, LabelPicker, inputClass } from './bits'
 
 export type SkeletonOutcome = { error: string }
 
 const smallSelect =
   'w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-sm text-ink focus:border-accent focus:outline-none'
 
-function dimKind(skeleton: DecisionSkeletonInput, name: string) {
+function dimOf(skeleton: DecisionSkeletonInput, name: string) {
   return skeleton.dimensions.find((d) => d.name.trim().toLowerCase() === name.trim().toLowerCase())
-    ?.kind
 }
 
 export default function SkeletonCard({
@@ -75,7 +75,12 @@ export default function SkeletonCard({
     skeleton.name.trim() === '' ||
     skeleton.dimensions.some((d) => d.name.trim() === '') ||
     skeleton.options.some((o) => o.name.trim() === '') ||
-    scores.some((c) => c.option.trim() === '' || c.dimension.trim() === '')
+    scores.some((c) => {
+      if (c.option.trim() === '' || c.dimension.trim() === '') return true
+      const dim = dimOf(skeleton, c.dimension)
+      if (dim && dimensionScale(dim) === 'nominal') return !c.labels || c.labels.length === 0
+      return false
+    })
 
   return (
     <div className="rounded-xl border border-hairline bg-surface p-3">
@@ -166,7 +171,8 @@ export default function SkeletonCard({
       {scores.length > 0 && <p className="mt-3 text-xs font-semibold text-ink-3">Scores</p>}
       <div className="mt-1 space-y-3">
         {scores.map((cell, i) => {
-          const kind = dimKind(skeleton, cell.dimension)
+          const dim = dimOf(skeleton, cell.dimension)
+          const scale = dim ? dimensionScale(dim) : undefined
           return (
             <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
               <div className="mb-2 flex items-center justify-between">
@@ -200,7 +206,17 @@ export default function SkeletonCard({
                 <select
                   className={smallSelect}
                   value={cell.dimension}
-                  onChange={(e) => setScore(i, { ...cell, dimension: e.target.value })}
+                  onChange={(e) => {
+                    const next = dimOf(skeleton, e.target.value)
+                    const nextScale = next ? dimensionScale(next) : undefined
+                    setScore(i, {
+                      option: cell.option,
+                      dimension: e.target.value,
+                      ...(nextScale === 'nominal'
+                        ? { labels: [] }
+                        : { value: nextScale === 'rating' ? 3 : 0 }),
+                    })
+                  }}
                 >
                   {skeleton.dimensions.map((d) => (
                     <option key={d.name} value={d.name}>
@@ -208,22 +224,37 @@ export default function SkeletonCard({
                     </option>
                   ))}
                 </select>
-                {kind === 'subjective' ? (
+                {scale === 'rating' ? (
                   <ImportancePicker
                     value={
-                      Number.isInteger(cell.value) && cell.value >= 1 && cell.value <= 5
-                        ? cell.value
+                      Number.isInteger(cell.value) && (cell.value ?? 0) >= 1 && (cell.value ?? 0) <= 5
+                        ? cell.value!
                         : 3
                     }
-                    onChange={(value) => setScore(i, { ...cell, value })}
+                    onChange={(value) => setScore(i, { option: cell.option, dimension: cell.dimension, value })}
+                  />
+                ) : scale === 'nominal' ? (
+                  <LabelPicker
+                    value={cell.labels ?? []}
+                    suggestions={dim ? unitPresets(dim) : []}
+                    placeholder={`Add ${dim?.unit || dim?.name.toLowerCase() || 'value'}`}
+                    onChange={(labels) =>
+                      setScore(i, { option: cell.option, dimension: cell.dimension, labels })
+                    }
                   />
                 ) : (
                   <input
                     className={inputClass}
                     type="number"
                     step="any"
-                    value={cell.value}
-                    onChange={(e) => setScore(i, { ...cell, value: Number(e.target.value) })}
+                    value={cell.value ?? ''}
+                    onChange={(e) =>
+                      setScore(i, {
+                        option: cell.option,
+                        dimension: cell.dimension,
+                        value: Number(e.target.value),
+                      })
+                    }
                   />
                 )}
               </div>
@@ -264,7 +295,9 @@ export default function SkeletonCard({
                   {
                     option: s.options[0].name,
                     dimension: s.dimensions[0].name,
-                    value: s.dimensions[0].kind === 'subjective' ? 3 : 0,
+                    ...(dimensionScale(s.dimensions[0]) === 'nominal'
+                      ? { labels: [] }
+                      : { value: s.dimensions[0].kind === 'subjective' ? 3 : 0 }),
                   },
                 ],
               }))

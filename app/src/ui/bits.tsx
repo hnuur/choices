@@ -91,3 +91,90 @@ export function FieldError({ message }: { message: string }) {
 
 export const inputClass =
   'w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none'
+
+/** Multi-select: type a new value or pick from the dropdown. */
+export function LabelPicker({
+  value,
+  suggestions,
+  onChange,
+  placeholder = 'Add or pick a value',
+}: {
+  value: string[]
+  suggestions: string[]
+  onChange: (labels: string[]) => void
+  placeholder?: string
+}) {
+  const [text, setText] = useState('')
+  const [open, setOpen] = useState(false)
+  const selectedKeys = new Set(value.map((v) => v.toLowerCase()))
+  const q = text.trim().toLowerCase()
+  const choices = suggestions.filter((s) => {
+    if (selectedKeys.has(s.toLowerCase())) return false
+    return q === '' || s.toLowerCase().includes(q)
+  })
+  const add = (raw: string) => {
+    const t = raw.trim()
+    if (!t || selectedKeys.has(t.toLowerCase())) return
+    onChange([...value, t])
+    setText('')
+  }
+
+  return (
+    <div className="space-y-2">
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {value.map((label) => (
+            <button
+              key={label}
+              type="button"
+              className="inline-flex min-h-11 items-center gap-1 rounded-full border border-hairline bg-hover px-3 text-sm text-ink-2"
+              onClick={() => onChange(value.filter((v) => v !== label))}
+              aria-label={`Remove ${label}`}
+            >
+              {label}
+              <span className="text-ink-4">×</span>
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          className={inputClass}
+          placeholder={placeholder}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => {
+            window.setTimeout(() => setOpen(false), 150)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (choices.length === 1 && q) add(choices[0])
+              else add(text)
+            }
+          }}
+        />
+        {open && choices.length > 0 && (
+          <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-xl border border-hairline bg-surface-2 py-1">
+            {choices.map((s) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  className="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink hover:bg-hover"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => add(s)}
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  )
+}

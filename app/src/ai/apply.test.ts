@@ -50,6 +50,23 @@ describe('applyProposals', () => {
     expect(bundle!.dimensions.find((d) => d.id === weight.id)!.importance).toBe(5)
   })
 
+  it('applies categorical labels through the mutation layer', async () => {
+    const decision = await createDecision('TV')
+    const genre = await addDimension(decision.id, {
+      name: 'Genre',
+      kind: 'objective',
+      importance: 3,
+      unit: 'genre',
+    })
+    const show = await addOption(decision.id, { name: 'The Bear' })
+    const outcomes = await applyProposals(decision.id, [
+      { type: 'setScore', optionId: show.id, dimensionId: genre.id, labels: ['Comedy'] },
+    ])
+    expect(outcomes[0].ok).toBe(true)
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.scores).toEqual([{ optionId: show.id, dimensionId: genre.id, labels: ['Comedy'] }])
+  })
+
   it('applies subjective 1–5 scores through the mutation layer', async () => {
     const { decision, feel, sony } = await buildDecision()
     const outcomes = await applyProposals(decision.id, [

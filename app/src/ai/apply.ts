@@ -94,7 +94,7 @@ export async function applyProposals(
         case 'setScore': {
           if (!optionIds.has(p.optionId)) throw new Error('option is not in this decision')
           if (!dimensionIds.has(p.dimensionId)) throw new Error('dimension is not in this decision')
-          await setScore(p.optionId, p.dimensionId, p.value)
+          await setScore(p.optionId, p.dimensionId, p.labels ?? p.value!)
           break
         }
         case 'createDecision':

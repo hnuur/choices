@@ -1,6 +1,7 @@
 import { breakEvenProbes, dropOneProbes, rankOptions } from '../scoring'
 import type { DecisionBundle } from '../queries'
 import type { Dimension } from '../types'
+import { dimensionScale, formatLabels } from '../units'
 import { Progress } from './bits'
 import { pct } from './format'
 
@@ -104,28 +105,33 @@ export default function ResultsTab({
         <div className="mt-4 space-y-3">
           {dimensions.map((d) => {
             const cell = first.cells[d.id]
+            const scale = dimensionScale(d)
             return (
               <div key={d.id}>
                 <div className="flex justify-between text-[15px]">
                   <span className="text-ink-2">{d.name}</span>
                   <span className="text-ink-2">
-                    {d.kind === 'objective'
-                      ? `${cell.raw}${d.unit ? ` ${d.unit}` : ''}`
-                      : `${cell.raw}/5`}
+                    {scale === 'nominal'
+                      ? formatLabels(cell.labels ?? [])
+                      : scale === 'numeric'
+                        ? `${cell.raw}${d.unit ? ` ${d.unit}` : ''}`
+                        : `${cell.raw}/5`}
                   </span>
                 </div>
-                <div
-                  className="mt-1.5 w-full overflow-hidden rounded-full bg-hairline"
-                  style={{ height: `${1 + d.importance}px` }}
-                >
+                {scale !== 'nominal' && (
                   <div
-                    className="h-full rounded-full bg-accent"
-                    style={{
-                      width: pct(barFraction(d, cell.raw, rawsByDim.get(d.id)!)),
-                      opacity: 0.5 + d.importance * 0.1,
-                    }}
-                  />
-                </div>
+                    className="mt-1.5 w-full overflow-hidden rounded-full bg-hairline"
+                    style={{ height: `${1 + d.importance}px` }}
+                  >
+                    <div
+                      className="h-full rounded-full bg-accent"
+                      style={{
+                        width: pct(barFraction(d, cell.raw, rawsByDim.get(d.id)!)),
+                        opacity: 0.5 + d.importance * 0.1,
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}
@@ -154,6 +160,14 @@ export default function ResultsTab({
           </li>
         ))}
       </ol>
+
+      {results.categorical.length > 0 && (
+        <div className="rounded-xl border border-hairline bg-surface p-3 text-xs text-ink-2">
+          <span className="font-medium text-ink">Recorded, not ranked:</span>{' '}
+          {results.categorical.map((d) => d.name).join(', ')} — categories aren't a higher/lower
+          scale, so they don't change the total.
+        </div>
+      )}
 
       {results.nonDiscriminating.length > 0 && (
         <div className="rounded-xl border border-hairline bg-surface p-3 text-xs text-ink-2">
