@@ -85,12 +85,27 @@ describe('parseReply', () => {
     ).toThrowError(/importance/)
   })
 
-  it('rejects non-finite score values', () => {
+  it('accepts Genre without direction and setScore labels', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({
+        proposals: [
+          { type: 'addDimension', dimension: { name: 'Genre', kind: 'objective', importance: 4, unit: 'genre' } },
+          { type: 'setScore', optionId: 'o1', dimensionId: 'd1', labels: ['Drama', 'Comedy'] },
+        ],
+      })),
+    )
+    const add = parsed.proposals[0]
+    expect(add.type === 'addDimension' && add.dimension.direction).toBeUndefined()
+    const score = parsed.proposals[1]
+    expect(score.type === 'setScore' && score.labels).toEqual(['Drama', 'Comedy'])
+  })
+
+  it('rejects setScore with both value and labels', () => {
     expect(() =>
       parseReply(fence(JSON.stringify({
-        proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd', value: 'heavy' }],
+        proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd', value: 1, labels: ['x'] }],
       }))),
-    ).toThrowError(/finite number/)
+    ).toThrowError(/exactly one/)
   })
 
   it('rejects empty patch objects', () => {
@@ -149,6 +164,21 @@ describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
     expect(p.decision.dimensions).toHaveLength(2)
     expect(p.decision.dimensions[0]).toEqual({ name: 'Weight', kind: 'objective', direction: 'lower', importance: 4, unit: 'g' })
     expect(p.decision.options[1]).toEqual({ name: 'Fuji X-T5', notes: 'aps-c' })
+  })
+
+  it('parses categorical skeleton scores as labels', () => {
+    const parsed = parseReply(
+      skeleton({
+        name: 'TV night',
+        dimensions: [{ name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' }],
+        options: [{ name: 'The Bear' }],
+        scores: [{ option: 'The Bear', dimension: 'Genre', labels: ['Comedy'] }],
+      }),
+    )
+    const p = parsed.proposals[0]
+    expect(p.type === 'createDecision' && p.decision.scores).toEqual([
+      { option: 'The Bear', dimension: 'Genre', labels: ['Comedy'] },
+    ])
   })
 
   it('parses best-effort scores keyed by option and dimension name', () => {

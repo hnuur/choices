@@ -7,7 +7,8 @@ import type { ApplyOutcome } from '../ai/apply'
 import type { Proposal } from '../ai/proposals'
 import type { DecisionBundle } from '../queries'
 import type { DimensionInput } from '../types'
-import { ImportancePicker, inputClass } from './bits'
+import { dimensionScale, unitPresets } from '../units'
+import { ImportancePicker, LabelPicker, inputClass } from './bits'
 
 const TYPE_LABEL: Record<Proposal['type'], string> = {
   addDimension: 'Add dimension',
@@ -33,7 +34,10 @@ function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
       if (p.optionId === '' || p.dimensionId === '') return true
       const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
       if (!dim) return true
-      if (dim.kind === 'subjective') return !Number.isInteger(p.value) || p.value < 1 || p.value > 5
+      const scale = dimensionScale(dim)
+      if (scale === 'nominal') return !p.labels || p.labels.length === 0
+      if (p.value === undefined) return true
+      if (scale === 'rating') return !Number.isInteger(p.value) || p.value < 1 || p.value > 5
       return !Number.isFinite(p.value)
     }
     default:
@@ -41,11 +45,14 @@ function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
   }
 }
 
-function scoreValueForKind(kind: 'objective' | 'subjective' | undefined, value: number): number {
-  if (kind === 'subjective') {
-    return Number.isInteger(value) && value >= 1 && value <= 5 ? value : 3
-  }
-  return value
+function scorePayloadFor(
+  dim: { kind: 'objective' | 'subjective'; name?: string; unit?: string } | undefined,
+): Pick<Extract<Proposal, { type: 'setScore' }>, 'value' | 'labels'> {
+  if (!dim) return { value: 0 }
+  const scale = dimensionScale(dim)
+  if (scale === 'nominal') return { labels: [] }
+  if (scale === 'rating') return { value: 3 }
+  return { value: 0 }
 }
 
 function SetScoreFields({
@@ -58,6 +65,13 @@ function SetScoreFields({
   onChange: (next: Extract<Proposal, { type: 'setScore' }>) => void
 }) {
   const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+  const scale = dim ? dimensionScale(dim) : undefined
+  const suggestions = dim
+    ? [
+        ...unitPresets(dim),
+        ...bundle.scores.flatMap((s) => (s.dimensionId === dim.id ? (s.labels ?? []) : [])),
+      ].filter((label, i, all) => all.findIndex((x) => x.toLowerCase() === label.toLowerCase()) === i)
+    : []
   return (
     <div className="space-y-2">
       <select
@@ -77,20 +91,33 @@ function SetScoreFields({
         onChange={(e) => {
           const dimensionId = e.target.value
           const next = bundle.dimensions.find((d) => d.id === dimensionId)
-          onChange({ ...p, dimensionId, value: scoreValueForKind(next?.kind, p.value) })
+          onChange({ ...p, dimensionId, value: undefined, labels: undefined, ...scorePayloadFor(next) })
         }}
       >
         {bundle.dimensions.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
-            {d.kind === 'subjective' ? ' (1–5)' : d.unit ? ` (${d.unit})` : ''}
+            {dimensionScale(d) === 'rating'
+              ? ' (1–5)'
+              : dimensionScale(d) === 'nominal'
+                ? ` (${d.unit || 'labels'})`
+                : d.unit
+                  ? ` (${d.unit})`
+                  : ''}
           </option>
         ))}
       </select>
-      {dim?.kind === 'subjective' ? (
+      {scale === 'rating' ? (
         <ImportancePicker
-          value={scoreValueForKind('subjective', p.value)}
-          onChange={(value) => onChange({ ...p, value })}
+          value={p.value && Number.isInteger(p.value) && p.value >= 1 && p.value <= 5 ? p.value : 3}
+          onChange={(value) => onChange({ ...p, value, labels: undefined })}
+        />
+      ) : scale === 'nominal' ? (
+        <LabelPicker
+          value={p.labels ?? []}
+          suggestions={suggestions}
+          placeholder={`Add ${dim?.unit || dim?.name.toLowerCase() || 'value'}`}
+          onChange={(labels) => onChange({ ...p, labels, value: undefined })}
         />
       ) : (
         <div className="flex items-center gap-2">
@@ -98,8 +125,8 @@ function SetScoreFields({
             className={inputClass}
             type="number"
             step="any"
-            value={p.value}
-            onChange={(e) => onChange({ ...p, value: Number(e.target.value) })}
+            value={p.value ?? ''}
+            onChange={(e) => onChange({ ...p, value: Number(e.target.value), labels: undefined })}
           />
           {dim?.unit && <span className="shrink-0 text-sm text-ink-3">{dim.unit}</span>}
         </div>
@@ -147,25 +174,27 @@ export function DimensionFields({
       </div>
       {dimension.kind === 'objective' && (
         <>
-          <div className="flex gap-1">
-            {(['higher', 'lower'] as const).map((direction) => (
-              <button
-                key={direction}
-                type="button"
-                onClick={() => onChange({ ...dimension, direction })}
-                className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
-                  dimension.direction === direction
-                    ? 'bg-accent font-semibold text-on-accent'
-                    : 'bg-hover text-ink-2 hover:bg-white/9'
-                }`}
-              >
-                {direction} is better
-              </button>
-            ))}
-          </div>
+          {dimensionScale(dimension) === 'numeric' && (
+            <div className="flex gap-1">
+              {(['higher', 'lower'] as const).map((direction) => (
+                <button
+                  key={direction}
+                  type="button"
+                  onClick={() => onChange({ ...dimension, direction })}
+                  className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                    dimension.direction === direction
+                      ? 'bg-accent font-semibold text-on-accent'
+                      : 'bg-hover text-ink-2 hover:bg-white/9'
+                  }`}
+                >
+                  {direction} is better
+                </button>
+              ))}
+            </div>
+          )}
           <input
             className={inputClass}
-            placeholder="Unit (optional)"
+            placeholder="Unit (optional) — e.g. g, €, genre"
             value={dimension.unit ?? ''}
             onChange={(e) => onChange({ ...dimension, unit: e.target.value.trim() || undefined })}
           />
@@ -308,7 +337,16 @@ export default function ApprovalCard({
                     )}
                   </>
                 )}
-                {p.patch.direction !== undefined && p.patch.kind !== 'subjective' && (
+                {p.patch.direction !== undefined &&
+                  p.patch.kind !== 'subjective' &&
+                  dimensionScale({
+                    kind: p.patch.kind ?? bundle.dimensions.find((d) => d.id === p.id)?.kind ?? 'objective',
+                    name: p.patch.name ?? bundle.dimensions.find((d) => d.id === p.id)?.name,
+                    unit:
+                      p.patch.unit === null
+                        ? undefined
+                        : (p.patch.unit ?? bundle.dimensions.find((d) => d.id === p.id)?.unit),
+                  }) === 'numeric' && (
                   <div className="flex gap-1">
                     {(['higher', 'lower'] as const).map((direction) => (
                       <button
@@ -406,7 +444,7 @@ export default function ApprovalCard({
                 type: 'setScore',
                 optionId: bundle.options[0].id,
                 dimensionId: bundle.dimensions[0].id,
-                value: scoreValueForKind(bundle.dimensions[0].kind, 0),
+                ...scorePayloadFor(bundle.dimensions[0]),
               })
             }
           >

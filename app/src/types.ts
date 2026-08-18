@@ -15,7 +15,7 @@ export interface Dimension {
   decisionId: string
   name: string
   kind: DimensionKind
-  /** Objective only; must be undefined for subjective dimensions. */
+  /** Numeric objective only; must be undefined for subjective and nominal. */
   direction?: Direction
   /** 1..5 importance weight. */
   importance: number
@@ -33,7 +33,10 @@ export interface Option {
 export interface Score {
   optionId: string
   dimensionId: string
-  value: number
+  /** Subjective 1–5 or objective numeric raw value. */
+  value?: number
+  /** Objective nominal (genre, cuisine, …): one or more labels. */
+  labels?: string[]
 }
 
 /** JSON backup of a whole decision (mutation layer in Phase 3, UI in Phase 5). */
@@ -63,7 +66,8 @@ export interface OptionInput {
 export interface SkeletonScoreInput {
   option: string
   dimension: string
-  value: number
+  value?: number
+  labels?: string[]
 }
 
 /** Whole-decision skeleton (Phase-7 ramble payload → one transactional write). */

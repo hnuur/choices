@@ -276,3 +276,45 @@ describe('sensitivity — drop-one-dimension', () => {
     expect(dropOneProbes([d1, dim({ id: 'd2' })], [a, b], [])).toEqual([])
   })
 })
+
+describe('rankOptions — nominal (categorical) dimensions', () => {
+  it('requires labels to count as scored and excludes them from the total', () => {
+    const price = dim({ id: 'price', name: 'Price', direction: 'lower', importance: 5, unit: '€' })
+    const genre = dim({
+      id: 'genre',
+      name: 'Genre',
+      direction: undefined,
+      importance: 4,
+      unit: 'genre',
+    })
+    const [a, b] = [opt('a', 'Show A'), opt('b', 'Show B')]
+    const incomplete = rankOptions(
+      [price, genre],
+      [a, b],
+      [
+        { optionId: 'a', dimensionId: 'price', value: 10 },
+        { optionId: 'b', dimensionId: 'price', value: 20 },
+        { optionId: 'a', dimensionId: 'genre', labels: ['Drama'] },
+      ],
+    )
+    expect(incomplete.complete).toBe(false)
+    expect(incomplete.scoredCells).toBe(3)
+
+    const complete = rankOptions(
+      [price, genre],
+      [a, b],
+      [
+        { optionId: 'a', dimensionId: 'price', value: 10 },
+        { optionId: 'b', dimensionId: 'price', value: 20 },
+        { optionId: 'a', dimensionId: 'genre', labels: ['Drama'] },
+        { optionId: 'b', dimensionId: 'genre', labels: ['Comedy', 'Drama'] },
+      ],
+    )
+    expect(complete.complete).toBe(true)
+    expect(complete.categorical.map((d) => d.id)).toEqual(['genre'])
+    // Lower price wins; genre labels do not flip it.
+    expect(complete.winner!.option.id).toBe('a')
+    expect(complete.winner!.cells.genre.labels).toEqual(['Drama'])
+    expect(complete.ranking[1].cells.genre.labels).toEqual(['Comedy', 'Drama'])
+  })
+})

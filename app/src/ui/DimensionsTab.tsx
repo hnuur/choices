@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ValidationError, addDimension, deleteDimension, updateDimension } from '../mutations'
 import type { DecisionBundle } from '../queries'
 import type { Dimension, DimensionInput } from '../types'
+import { dimensionScale } from '../units'
 import { Badge, ConfirmButton, FieldError, ImportancePicker, inputClass } from './bits'
 
 interface FormState {
@@ -22,15 +23,20 @@ const formOf = (d: Dimension): FormState => ({
 })
 
 function inputOf(form: FormState): DimensionInput {
-  return form.kind === 'objective'
-    ? {
-        name: form.name,
-        kind: 'objective',
-        direction: form.direction,
-        importance: form.importance,
-        unit: form.unit.trim() || undefined,
-      }
-    : { name: form.name, kind: 'subjective', importance: form.importance }
+  if (form.kind === 'subjective') {
+    return { name: form.name, kind: 'subjective', importance: form.importance }
+  }
+  const unit = form.unit.trim() || undefined
+  if (dimensionScale({ kind: 'objective', name: form.name, unit }) === 'nominal') {
+    return { name: form.name, kind: 'objective', importance: form.importance, unit }
+  }
+  return {
+    name: form.name,
+    kind: 'objective',
+    direction: form.direction,
+    importance: form.importance,
+    unit,
+  }
 }
 
 function DimensionForm({
@@ -63,8 +69,10 @@ function DimensionForm({
     <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
       {hint && (
         <p className="text-xs leading-relaxed text-ink-3">
-          Objective dimensions are facts with a unit (price, weight); subjective ones are 1–5
-          ratings. Importance 1–5 is how much the ranking should care.
+          Objective dimensions are facts with a unit (price, weight); a unit
+          like genre is picked from a list, not typed as a number. Subjective
+          ones are 1–5 ratings. Importance 1–5 is how much the ranking should
+          care.
         </p>
       )}
       <input
@@ -91,28 +99,35 @@ function DimensionForm({
       </div>
       {form.kind === 'objective' && (
         <>
-          <div className="flex gap-1">
-            {(['higher', 'lower'] as const).map((direction) => (
-              <button
-                key={direction}
-                type="button"
-                onClick={() => patch({ direction })}
-                className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
-                  form.direction === direction
-                    ? 'bg-accent font-semibold text-on-accent'
-                    : 'bg-hover text-ink-2 hover:bg-white/9'
-                }`}
-              >
-                {direction} is better
-              </button>
-            ))}
-          </div>
+          {dimensionScale({ kind: 'objective', name: form.name, unit: form.unit }) === 'numeric' && (
+            <div className="flex gap-1">
+              {(['higher', 'lower'] as const).map((direction) => (
+                <button
+                  key={direction}
+                  type="button"
+                  onClick={() => patch({ direction })}
+                  className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                    form.direction === direction
+                      ? 'bg-accent font-semibold text-on-accent'
+                      : 'bg-hover text-ink-2 hover:bg-white/9'
+                  }`}
+                >
+                  {direction} is better
+                </button>
+              ))}
+            </div>
+          )}
           <input
             className={inputClass}
-            placeholder="Unit (optional) — e.g. g, €"
+            placeholder="Unit (optional) — e.g. g, €, genre"
             value={form.unit}
             onChange={(e) => patch({ unit: e.target.value })}
           />
+          {dimensionScale({ kind: 'objective', name: form.name, unit: form.unit }) === 'nominal' && (
+            <p className="text-xs text-ink-3">
+              Score by typing or picking one or more values — not a 1–5 rating.
+            </p>
+          )}
         </>
       )}
       <div>
@@ -171,7 +186,8 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
                 <div className="font-medium">{d.name}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   <Badge>{d.kind}</Badge>
-                  {d.kind === 'objective' && <Badge>{d.direction} is better</Badge>}
+                  {dimensionScale(d) === 'numeric' && <Badge>{d.direction} is better</Badge>}
+                  {dimensionScale(d) === 'nominal' && <Badge>pick labels</Badge>}
                   {d.unit && <Badge>{d.unit}</Badge>}
                   <Badge>importance {d.importance}</Badge>
                 </div>

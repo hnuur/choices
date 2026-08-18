@@ -13,7 +13,7 @@ const LEVEL_FOCUS: Record<Tab, string> = {
   options:
     'The user is on the Options tab: they most likely want to add or remove options, or prefill scores.',
   score:
-    'The user is on the Score tab: they most likely want help filling cells — raw values with units for objective dimensions, integers 1–5 for subjective ratings.',
+    'The user is on the Score tab: they most likely want help filling cells — raw values with units for numeric objective dimensions, labels (one or more, from a list) for categorical units like genre, integers 1–5 for subjective ratings.',
   results:
     'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers.',
 }
@@ -28,7 +28,7 @@ const LOOKUP_GUIDANCE = `
 Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. ${PLACE_LIST_RULE} For place recommendations, never cite per-place websites or Maps links. Other factual sources (articles, specs sheets) may be named once at the end by publication title only — no URLs next to place names. Proposals still use the same JSON contract.`
 
 export function systemPrompt(tab: Tab, webLookup = false): string {
-  return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
+  return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective numeric ones carry a raw value + unit + direction; objective categorical ones like genre carry one or more labels; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals. Categorical cells fill the matrix but do not change the ranking.
 
 ${LEVEL_FOCUS[tab]}
 
@@ -39,28 +39,28 @@ Response contract:
 - Answer in plain prose (no JSON block) only when there is genuinely nothing to add or change — e.g. explaining results on the Results tab.
 - To propose changes, include exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [...]}. The user reviews every proposal on an approval card and may edit or delete rows before applying, so propose concrete values.
 - Payload types:
-  - {"type":"addDimension","dimension":{"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}}
+  - {"type":"addDimension","dimension":{"name","kind":"objective"|"subjective","direction":"higher"|"lower" (numeric objective only),"importance":1-5,"unit"?}}
   - {"type":"updateDimension","id","patch":{any of name/kind/direction/importance/unit}}
   - {"type":"deleteDimension","id"}
   - {"type":"addOption","option":{"name","notes"?}}. For places, name is the place name; notes are the one-sentence blurb only.
   - {"type":"deleteOption","id"}
-  - {"type":"setScore","optionId","dimensionId","value"}
-- setScore fills a cell: objective dimensions take a raw number in the dimension's unit; subjective dimensions take an integer 1–5. When the user asks to score, propose setScore for both kinds.
+  - {"type":"setScore","optionId","dimensionId","value"?,"labels"?}
+- setScore fills a cell: numeric objective dimensions take a raw number in the dimension's unit (\`value\`); subjective dimensions take an integer 1–5 (\`value\`); categorical dimensions (unit or name like genre, cuisine, brand) take \`labels\`: an array of one or more strings. Never use a 1–5 rating for genre or other categories. When the user asks to score, propose setScore for every kind.
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.
 - ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
 
 /** Phase-7 ramble scope: no decision exists yet — the reply may propose one. */
 export function rambleSystemPrompt(webLookup = false): string {
-  return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective ones carry a raw value + unit + direction; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals.
+  return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective numeric ones carry a raw value + unit + direction; objective categorical ones like genre carry one or more labels; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals. Categorical cells fill the matrix but do not change the ranking.
 
 The user is describing a decision they want to make (typed or a voice ramble). Listen for the type of thing, the dimensions they care about, candidate options, and any facts or judgements that can become scores.
 
 Response contract:
 - If the input contains a decision, propose building it: exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [{"type":"createDecision","decision":{"name": string,"dimensions": [...],"options": [...],"scores": [...]}}]}.
-  - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg).
+  - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (numeric objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg; genre is objective with unit "genre" and no direction).
   - "options" entries: {"name","notes"?}. For places, name is the place name; notes are the one-sentence blurb only.
-  - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number}. Use the same names as above. Objective values are raw numbers in the dimension's unit; subjective values are integers 1–5. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
+  - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number} or {"option","dimension","labels":["…"]}. Use the same names as above. Numeric objective values are raw numbers in the dimension's unit; subjective values are integers 1–5; categorical dimensions use labels (one or more strings), never a 1–5 rating. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
   - Keep the skeleton faithful to what they said — name the decision after the thing being chosen, and include only dimensions and options they mentioned or clearly implied.
   - The message should briefly say what you filled and what you guessed. Do not tell them to copy JSON; they will choose Fill in what you can or Keep chatting in the app.
 - If they are refining a proposal already on the card, emit a full replacement createDecision (not a patch) that incorporates their follow-up.
@@ -73,7 +73,7 @@ interface Snapshot {
   decision: { id: string; name: string }
   dimensions: unknown[]
   options: unknown[]
-  scores: { optionId: string; dimensionId: string; value: number }[]
+  scores: { optionId: string; dimensionId: string; value?: number; labels?: string[] }[]
   results?: unknown
 }
 
@@ -85,14 +85,14 @@ export function decisionSnapshot(bundle: DecisionBundle): string {
       id: d.id,
       name: d.name,
       kind: d.kind,
-      ...(d.kind === 'objective' ? { direction: d.direction, unit: d.unit ?? null } : {}),
+      ...(d.kind === 'objective' ? { direction: d.direction ?? null, unit: d.unit ?? null } : {}),
       importance: d.importance,
     })),
     options: bundle.options.map((o) => ({ id: o.id, name: o.name, notes: o.notes ?? null })),
     scores: bundle.scores.map((s) => ({
       optionId: s.optionId,
       dimensionId: s.dimensionId,
-      value: s.value,
+      ...(s.labels ? { labels: s.labels } : { value: s.value }),
     })),
   }
   if (results.complete && results.winner) {
