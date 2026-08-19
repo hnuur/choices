@@ -139,8 +139,17 @@ describe('parseReply', () => {
     ).toThrowError(/direction/)
   })
 
-  it('rejects non-array proposals', () => {
-    expect(() => parseReply(fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o' } })))).toThrowError(/must be an array/)
+  it('accepts a single proposal object in place of an array', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o1' } })),
+    )
+    expect(parsed.proposals).toEqual([{ type: 'deleteOption', id: 'o1' }])
+  })
+
+  it('rejects a non-object proposals value', () => {
+    expect(() => parseReply(fence(JSON.stringify({ proposals: 'nope' })))).toThrowError(
+      ProposalParseError,
+    )
   })
 
   it('parses an unclosed json fence (truncated generation)', () => {
@@ -175,6 +184,32 @@ describe('parseReply', () => {
         proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd' }],
       }))),
     ).toThrowError(/exactly one/)
+  })
+
+  it('parses a loose dump of setScore objects (no proposals wrapper)', () => {
+    const dump = `Based on your request:
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "51a39e63-3334-45f8-8498-1728fc406f08", "value": 5}
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "4415a8a4-764a-4cea-839f-eef488843bbf", "value": 1, "labels": ["Drama"]}
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "372a8e33-4e5e-4a52-baf4-ca938b7d3322", "value": 1}`
+    const parsed = parseReply(dump)
+    expect(parsed.proposals).toHaveLength(3)
+    const genre = parsed.proposals[1]
+    expect(genre.type === 'setScore' && genre.labels).toEqual(['Drama'])
+    expect(genre.type === 'setScore' && genre.value).toBeUndefined()
+    expect(parsed.message).toContain('Based on your request')
+  })
+
+  it('keeps well-formed rows when one proposal in the batch is malformed', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({
+        proposals: [
+          { type: 'setScore', optionId: 'o1', dimensionId: 'd1', value: 4 },
+          { type: 'dropTable', id: 'x' },
+          { type: 'setScore', optionId: 'o2', dimensionId: 'd1', labels: ['Drama'] },
+        ],
+      })),
+    )
+    expect(parsed.proposals.map((p) => p.type)).toEqual(['setScore', 'setScore'])
   })
 })
 
