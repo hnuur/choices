@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { applyProposals, type ApplyOutcome } from '../ai/apply'
 import { decisionSnapshot, systemPrompt } from '../ai/context'
 import { formatPlaceReply } from '../ai/formatPlaceReply'
-import { chat, ProviderError } from '../ai/providers'
+import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError, type Proposal } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
@@ -35,6 +35,22 @@ type Entry =
     }
 
 let entrySeq = 0
+
+/** Don't forward a wall of setScore JSON on the next turn — it blows the request and re-triggers parse errors. */
+function compactAssistantDump(text: string): string {
+  if (!/"type"\s*:\s*"setScore"/.test(text) || text.length < 400) return text
+  try {
+    const parsed = parseReply(text)
+    if (parsed.proposals.length > 0) {
+      const lead =
+        parsed.message && !/"type"\s*:\s*"setScore"/.test(parsed.message) ? `${parsed.message}\n\n` : ''
+      return `${lead}I proposed ${parsed.proposals.length} score changes on an approval card (not applied until Approve).`
+    }
+  } catch {
+    /* still compact */
+  }
+  return 'I listed proposed scores as JSON. I will resend a valid json block with exactly one of value or labels per setScore and a distinct optionId per option from the snapshot.'
+}
 
 export default function ChatSheet({
   bundle,
@@ -144,13 +160,27 @@ export default function ChatSheet({
     if (raw === undefined) setInput('')
     // Prior turns are forwarded so the assistant keeps context; resolved
     // approval cards join as an assistant turn so it knows what landed.
-    const history = entries.flatMap((e) => {
-      if (e.kind === 'user' || e.kind === 'assistant') return [{ role: e.kind, content: e.text }]
-      if (e.kind === 'card' && e.resolved) {
+    const history: ChatMessage[] = entries.flatMap((e): ChatMessage[] => {
+      if (e.kind === 'user') return [{ role: 'user', content: e.text }]
+      if (e.kind === 'assistant') {
+        return [{ role: 'assistant', content: compactAssistantDump(e.text) }]
+      }
+      if (e.kind === 'error') {
         return [
           {
-            role: 'assistant' as const,
-            content: `I proposed: ${e.proposals.map((p) => p.type).join(', ')}. The user ${e.resolved} them.`,
+            role: 'assistant',
+            content: `The app rejected my last reply (${e.text}). I will send a new \`\`\`json block that follows the contract.`,
+          },
+        ]
+      }
+      if (e.kind === 'card') {
+        const status = e.resolved
+          ? `The user ${e.resolved} them.`
+          : 'They are waiting on an approval card and are NOT in the scores until the user taps Approve. Do not resend the JSON. If they ask whether the scores were added, tell them to Approve the card.'
+        return [
+          {
+            role: 'assistant',
+            content: `I proposed: ${e.proposals.map((p) => p.type).join(', ')}. ${status}`,
           },
         ]
       }
@@ -173,14 +203,16 @@ export default function ChatSheet({
       )
       const parsed = parseReply(reply)
       const displayMessage = (raw: string) => formatPlaceReply(raw.trim())
-      const spokenText =
-        parsed.message || (parsed.proposals.length === 0 ? displayMessage(reply) : '')
+      const hideDump =
+        parsed.proposals.length > 0 && /"type"\s*:\s*"setScore"/.test(parsed.message)
+      const prose = parsed.message && !hideDump ? displayMessage(parsed.message) : ''
+      const spokenText = prose || (parsed.proposals.length === 0 ? displayMessage(reply) : '')
       setEntries((prev) => {
         const next = [...prev]
-        if (parsed.message) next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(parsed.message) })
+        if (prose) next.push({ id: ++entrySeq, kind: 'assistant', text: prose })
         if (parsed.proposals.length > 0) {
           next.push({ id: ++entrySeq, kind: 'card', proposals: parsed.proposals })
-        } else if (!parsed.message && reply.trim()) {
+        } else if (!prose && reply.trim()) {
           next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(reply) })
         }
         return next

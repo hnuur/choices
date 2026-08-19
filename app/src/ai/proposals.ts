@@ -123,23 +123,36 @@ function parseOptionInput(v: unknown, label: string): OptionInput {
   return option
 }
 
+function parseLabels(v: unknown, label: string): string[] {
+  if (!Array.isArray(v) || v.some((x) => typeof x !== 'string')) {
+    fail(`${label}.labels must be an array of strings`)
+  }
+  return normalizeLabels(v as string[])
+}
+
+/**
+ * Models often emit both a leftover 1–5 `value` and `labels` on categorical
+ * cells. Prefer non-empty labels; otherwise require a finite value.
+ */
+function parseScoreFields(
+  obj: Record<string, unknown>,
+  label: string,
+): { value: number } | { labels: string[] } {
+  const hasValue = obj.value !== undefined
+  const hasLabels = obj.labels !== undefined
+  const labels = hasLabels ? parseLabels(obj.labels, label) : []
+  if (labels.length > 0) return { labels }
+  if (hasValue) return { value: requireFiniteNumber(obj.value, `${label}.value`) }
+  if (hasLabels) fail(`${label}.labels must contain at least one value`)
+  fail(`${label} needs exactly one of value or labels`)
+}
+
 function parseSkeletonScore(v: unknown, label: string): SkeletonScoreInput {
   const obj = requireRecord(v, label)
   rejectUnknownKeys(obj, ['option', 'dimension', 'value', 'labels'], label)
   const option = requireString(obj.option, `${label}.option`)
   const dimension = requireString(obj.dimension, `${label}.dimension`)
-  const hasValue = obj.value !== undefined
-  const hasLabels = obj.labels !== undefined
-  if (hasValue === hasLabels) fail(`${label} needs exactly one of value or labels`)
-  if (hasLabels) {
-    if (!Array.isArray(obj.labels) || obj.labels.some((x) => typeof x !== 'string')) {
-      fail(`${label}.labels must be an array of strings`)
-    }
-    const labels = normalizeLabels(obj.labels as string[])
-    if (labels.length === 0) fail(`${label}.labels must contain at least one value`)
-    return { option, dimension, labels }
-  }
-  return { option, dimension, value: requireFiniteNumber(obj.value, `${label}.value`) }
+  return { option, dimension, ...parseScoreFields(obj, label) }
 }
 
 function parseDecisionSkeleton(v: unknown, label: string): DecisionSkeletonInput {
@@ -199,23 +212,7 @@ function parseProposal(raw: unknown, index: number): Proposal {
       rejectUnknownKeys(obj, ['type', 'optionId', 'dimensionId', 'value', 'labels'], label)
       const optionId = requireString(obj.optionId, `${label}.optionId`)
       const dimensionId = requireString(obj.dimensionId, `${label}.dimensionId`)
-      const hasValue = obj.value !== undefined
-      const hasLabels = obj.labels !== undefined
-      if (hasValue === hasLabels) fail(`${label} needs exactly one of value or labels`)
-      if (hasLabels) {
-        if (!Array.isArray(obj.labels) || obj.labels.some((x) => typeof x !== 'string')) {
-          fail(`${label}.labels must be an array of strings`)
-        }
-        const labels = normalizeLabels(obj.labels as string[])
-        if (labels.length === 0) fail(`${label}.labels must contain at least one value`)
-        return { type: 'setScore', optionId, dimensionId, labels }
-      }
-      return {
-        type: 'setScore',
-        optionId,
-        dimensionId,
-        value: requireFiniteNumber(obj.value, `${label}.value`),
-      }
+      return { type: 'setScore', optionId, dimensionId, ...parseScoreFields(obj, label) }
     }
     case 'createDecision': {
       rejectUnknownKeys(obj, ['type', 'decision'], label)
@@ -229,32 +226,178 @@ function parseProposal(raw: unknown, index: number): Proposal {
 }
 
 function parseProposalsArray(v: unknown): Proposal[] {
-  if (!Array.isArray(v)) fail('proposals must be an array')
-  return v.map((raw, i) => parseProposal(raw, i))
+  const list = Array.isArray(v) ? v : [v]
+  const out: Proposal[] = []
+  let firstError: string | undefined
+  for (let i = 0; i < list.length; i++) {
+    try {
+      out.push(parseProposal(list[i], i))
+    } catch (e) {
+      if (!(e instanceof ProposalParseError)) throw e
+      firstError ??= e.message
+    }
+  }
+  if (out.length === 0) fail(firstError ?? 'proposals must be an array')
+  return out
 }
 
-/**
- * Extracts the first fenced JSON block from a reply. Replies without one are
- * prose-only (results questions etc.) and carry no proposals.
- */
-export function parseReply(text: string): ParsedReply {
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (!fence) return { message: text.trim(), proposals: [] }
+/** String-aware slice of one `{...}` or `[...]` starting at `start`. */
+function takeBalanced(text: string, start: number): string | null {
+  if (text[start] !== '{' && text[start] !== '[') return null
+  const stack: string[] = []
+  let inString = false
+  let escape = false
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escape) escape = false
+      else if (ch === '\\') escape = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+    if (ch === '{' || ch === '[') stack.push(ch)
+    else if (ch === '}' || ch === ']') {
+      const want = ch === '}' ? '{' : '['
+      if (stack.pop() !== want) return null
+      if (stack.length === 0) return text.slice(start, i + 1)
+    }
+  }
+  return null
+}
 
-  let parsed: unknown
+/** Loose `{ "type": "setScore", ... }` dumps — one object per line or comma-separated. */
+function collectTypedObjects(text: string): unknown[] {
+  const found: unknown[] = []
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] !== '{') continue
+    const slice = takeBalanced(text, i)
+    if (!slice) continue
+    try {
+      const value: unknown = JSON.parse(slice)
+      if (isRecord(value) && typeof value.type === 'string') {
+        found.push(value)
+        i += slice.length - 1
+      }
+    } catch {
+      /* incomplete object */
+    }
+  }
+  return found
+}
+
+function closeOpenBrackets(s: string): string {
+  const stack: string[] = []
+  let inString = false
+  let escape = false
+  for (const ch of s) {
+    if (inString) {
+      if (escape) escape = false
+      else if (ch === '\\') escape = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') {
+      inString = true
+      continue
+    }
+    if (ch === '{' || ch === '[') stack.push(ch)
+    else if (ch === '}' || ch === ']') stack.pop()
+  }
+  let out = s.replace(/,\s*$/, '')
+  if (inString) out += '"'
+  out = out.replace(/,\s*$/, '')
+  while (stack.length > 0) {
+    out += stack.pop() === '{' ? '}' : ']'
+  }
+  return out
+}
+
+function parseJsonLoose(raw: string): unknown {
+  const trimmed = raw.trim()
   try {
-    parsed = JSON.parse(fence[1])
+    return JSON.parse(trimmed)
+  } catch {
+    /* truncated dumps are common on a full score matrix */
+  }
+  const lastBrace = trimmed.lastIndexOf('}')
+  if (lastBrace < 0) fail('the JSON block in the reply is malformed')
+  try {
+    return JSON.parse(closeOpenBrackets(trimmed.slice(0, lastBrace + 1)))
   } catch {
     fail('the JSON block in the reply is malformed')
   }
+}
 
-  if (Array.isArray(parsed)) {
-    return { message: text.slice(0, fence.index).trim(), proposals: parseProposalsArray(parsed) }
+/**
+ * Pulls a proposals JSON payload out of a reply: a closed fence, an unclosed
+ * fence (truncated generation), or a bare object that contains "proposals".
+ */
+function extractJsonBlock(text: string): { json: string; prose: string } | null {
+  const closed = text.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (closed && closed.index !== undefined) {
+    return { json: closed[1], prose: text.slice(0, closed.index).trim() }
   }
-  const obj = requireRecord(parsed, 'reply JSON')
-  rejectUnknownKeys(obj, ['message', 'proposals'], 'reply JSON')
-  const message = obj.message === undefined ? '' : requireString(obj.message, 'message')
-  const proposals = obj.proposals === undefined ? [] : parseProposalsArray(obj.proposals)
-  const prose = text.slice(0, fence.index).trim()
-  return { message: [prose, message].filter(Boolean).join('\n\n'), proposals }
+  const open = text.match(/```(?:json)?\s*([\s\S]*)$/)
+  if (open && open.index !== undefined && /[{[]/.test(open[1])) {
+    return { json: open[1], prose: text.slice(0, open.index).trim() }
+  }
+  const bareObj = text.search(/\{\s*"(?:message|proposals|type)"\s*:/)
+  if (bareObj >= 0) {
+    return { json: text.slice(bareObj), prose: text.slice(0, bareObj).trim() }
+  }
+  const bareArr = text.search(/\[\s*\{\s*"type"\s*:/)
+  if (bareArr >= 0) {
+    return { json: text.slice(bareArr), prose: text.slice(0, bareArr).trim() }
+  }
+  return null
+}
+
+/**
+ * Extracts proposals from a reply. Accepts a fenced JSON object/array, a bare
+ * `{"proposals":[...]}` object, a bare `[{type:...}]` array, or a loose dump
+ * of `{ "type": "setScore", ... }` objects (the shape models paste when they
+ * skip the wrapper). One bad row does not reject the rest.
+ */
+export function parseReply(text: string): ParsedReply {
+  const block = extractJsonBlock(text)
+  let blockError: ProposalParseError | undefined
+  if (block) {
+    try {
+      const parsed = parseJsonLoose(block.json)
+      if (Array.isArray(parsed)) {
+        return { message: block.prose, proposals: parseProposalsArray(parsed) }
+      }
+      if (isRecord(parsed) && typeof parsed.type === 'string') {
+        return { message: block.prose, proposals: parseProposalsArray([parsed]) }
+      }
+      const obj = requireRecord(parsed, 'reply JSON')
+      rejectUnknownKeys(obj, ['message', 'proposals'], 'reply JSON')
+      const message = obj.message === undefined ? '' : requireString(obj.message, 'message')
+      const proposals = obj.proposals === undefined ? [] : parseProposalsArray(obj.proposals)
+      return { message: [block.prose, message].filter(Boolean).join('\n\n'), proposals }
+    } catch (e) {
+      if (!(e instanceof ProposalParseError)) throw e
+      blockError = e
+    }
+  }
+
+  const loose = collectTypedObjects(text)
+  if (loose.length > 0) {
+    try {
+      const proposals = parseProposalsArray(loose)
+      const start = text.search(/\{\s*"type"\s*:/)
+      const prose = (start >= 0 ? text.slice(0, start) : text).trim()
+      return { message: prose, proposals }
+    } catch (e) {
+      if (!(e instanceof ProposalParseError)) throw e
+      blockError ??= e
+    }
+  }
+
+  if (blockError) throw blockError
+  return { message: text.trim(), proposals: [] }
 }

@@ -162,6 +162,15 @@ describe('chat', () => {
     ).rejects.toThrowError(/Incorrect API key/)
   })
 
+  it('rewrites a Safari Load failed TypeError into a reachable-provider message', async () => {
+    stubFetch(() => {
+      throw new TypeError('Load failed')
+    })
+    await expect(
+      chat([{ role: 'user', content: 'hi' }], settings({ mode: 'openai', apiKey: 'sk-test' })),
+    ).rejects.toThrowError(/Couldn't reach the AI provider/)
+  })
+
   it('rejects when AI is not configured', async () => {
     stubFetch(() => jsonResponse({}))
     await expect(chat([{ role: 'user', content: 'hi' }], defaultSettings())).rejects.toThrowError(

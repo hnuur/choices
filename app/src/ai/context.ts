@@ -6,6 +6,7 @@
 import type { DecisionBundle } from '../queries'
 import { rankOptions, NEAR_TIE_MARGIN } from '../scoring'
 import type { Tab } from '../ui/tabs'
+import { dimensionScale } from '../units'
 
 const LEVEL_FOCUS: Record<Tab, string> = {
   dimensions:
@@ -45,7 +46,11 @@ Response contract:
   - {"type":"addOption","option":{"name","notes"?}}. For places, name is the place name; notes are the one-sentence blurb only.
   - {"type":"deleteOption","id"}
   - {"type":"setScore","optionId","dimensionId","value"?,"labels"?}
-- setScore fills a cell: numeric objective dimensions take a raw number in the dimension's unit (\`value\`); subjective dimensions take an integer 1–5 (\`value\`); categorical dimensions (unit or name like genre, cuisine, brand) take \`labels\`: an array of one or more strings. Never use a 1–5 rating for genre or other categories. When the user asks to score, propose setScore for every kind.
+- setScore fills a cell. Copy optionId and dimensionId from the snapshot — each option has its own id; never reuse one option's id on another. Match the dimension's "scale":
+  - "numeric": raw number in \`value\` only (omit labels)
+  - "rating": integer 1–5 in \`value\` only (omit labels)
+  - "nominal": one or more strings in \`labels\` only (omit value). Never a 1–5 rating for genre or other categories.
+  Exactly one of value or labels — never both, never neither. When the user asks to score, emit one setScore per option per dimension they asked for.
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.
 - ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}`
 }
@@ -60,7 +65,7 @@ Response contract:
 - If the input contains a decision, propose building it: exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [{"type":"createDecision","decision":{"name": string,"dimensions": [...],"options": [...],"scores": [...]}}]}.
   - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (numeric objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg; genre is objective with unit "genre" and no direction).
   - "options" entries: {"name","notes"?}. For places, name is the place name; notes are the one-sentence blurb only.
-  - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number} or {"option","dimension","labels":["…"]}. Use the same names as above. Numeric objective values are raw numbers in the dimension's unit; subjective values are integers 1–5; categorical dimensions use labels (one or more strings), never a 1–5 rating. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
+  - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number} or {"option","dimension","labels":["…"]}. Use the same names as above. Exactly one of value or labels — never both. Numeric objective values are raw numbers in the dimension's unit; subjective values are integers 1–5; categorical dimensions (genre, cuisine, brand) use labels only, never a 1–5 rating. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
   - Keep the skeleton faithful to what they said — name the decision after the thing being chosen, and include only dimensions and options they mentioned or clearly implied.
   - The message should briefly say what you filled and what you guessed. Do not tell them to copy JSON; they will choose Fill in what you can or Keep chatting in the app.
 - If they are refining a proposal already on the card, emit a full replacement createDecision (not a patch) that incorporates their follow-up.
@@ -85,6 +90,7 @@ export function decisionSnapshot(bundle: DecisionBundle): string {
       id: d.id,
       name: d.name,
       kind: d.kind,
+      scale: dimensionScale(d),
       ...(d.kind === 'objective' ? { direction: d.direction ?? null, unit: d.unit ?? null } : {}),
       importance: d.importance,
     })),

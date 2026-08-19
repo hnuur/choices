@@ -224,7 +224,7 @@ async function anthropicChat(
       headers,
       body: JSON.stringify({
         model,
-        max_tokens: 4096,
+        max_tokens: 8192,
         ...(system ? { system } : {}),
         messages: thread,
         ...(webLookup ? { tools: [ANTHROPIC_WEB_SEARCH_TOOL] } : {}),
@@ -285,6 +285,23 @@ async function geminiChat(
 }
 
 export async function chat(messages: ChatMessage[], settings: AiSettings): Promise<string> {
+  try {
+    return await chatInner(messages, settings)
+  } catch (e) {
+    remapNetworkError(e)
+  }
+}
+
+function remapNetworkError(e: unknown): never {
+  if (e instanceof ProviderError) throw e
+  const msg = e instanceof Error ? e.message : String(e)
+  if (e instanceof TypeError || /load failed|failed to fetch|networkerror/i.test(msg)) {
+    throw new ProviderError("Couldn't reach the AI provider — check your connection and try again.")
+  }
+  throw e instanceof Error ? e : new ProviderError(msg)
+}
+
+async function chatInner(messages: ChatMessage[], settings: AiSettings): Promise<string> {
   const lookup = settings.webLookup === true
   switch (settings.mode) {
     case 'anthropic':

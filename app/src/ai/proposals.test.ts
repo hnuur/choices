@@ -100,12 +100,15 @@ describe('parseReply', () => {
     expect(score.type === 'setScore' && score.labels).toEqual(['Drama', 'Comedy'])
   })
 
-  it('rejects setScore with both value and labels', () => {
-    expect(() =>
-      parseReply(fence(JSON.stringify({
-        proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd', value: 1, labels: ['x'] }],
-      }))),
-    ).toThrowError(/exactly one/)
+  it('keeps labels when setScore has both value and labels', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({
+        proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd', value: 1, labels: ['Drama'] }],
+      })),
+    )
+    const score = parsed.proposals[0]
+    expect(score.type === 'setScore' && score.labels).toEqual(['Drama'])
+    expect(score.type === 'setScore' && score.value).toBeUndefined()
   })
 
   it('rejects empty patch objects', () => {
@@ -136,8 +139,77 @@ describe('parseReply', () => {
     ).toThrowError(/direction/)
   })
 
-  it('rejects non-array proposals', () => {
-    expect(() => parseReply(fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o' } })))).toThrowError(/must be an array/)
+  it('accepts a single proposal object in place of an array', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({ proposals: { type: 'deleteOption', id: 'o1' } })),
+    )
+    expect(parsed.proposals).toEqual([{ type: 'deleteOption', id: 'o1' }])
+  })
+
+  it('rejects a non-object proposals value', () => {
+    expect(() => parseReply(fence(JSON.stringify({ proposals: 'nope' })))).toThrowError(
+      ProposalParseError,
+    )
+  })
+
+  it('parses an unclosed json fence (truncated generation)', () => {
+    const parsed = parseReply(
+      'Here you go.\n```json\n{"message":"scored","proposals":[{"type":"setScore","optionId":"o1","dimensionId":"d1","value":4}]}',
+    )
+    expect(parsed.proposals).toEqual([
+      { type: 'setScore', optionId: 'o1', dimensionId: 'd1', value: 4 },
+    ])
+    expect(parsed.message).toContain('Here you go.')
+  })
+
+  it('parses a bare proposals object with no fence', () => {
+    const parsed = parseReply(
+      'Proposed scores:\n{"message":"ok","proposals":[{"type":"deleteOption","id":"o1"}]}',
+    )
+    expect(parsed.proposals).toEqual([{ type: 'deleteOption', id: 'o1' }])
+  })
+
+  it('drops a truncated trailing proposal and keeps complete ones', () => {
+    const parsed = parseReply(
+      '```json\n{"proposals":[{"type":"setScore","optionId":"o1","dimensionId":"d1","labels":["Drama"]},{"type":"setScore","optionId":"o2"',
+    )
+    expect(parsed.proposals).toEqual([
+      { type: 'setScore', optionId: 'o1', dimensionId: 'd1', labels: ['Drama'] },
+    ])
+  })
+
+  it('still rejects setScore with neither value nor labels', () => {
+    expect(() =>
+      parseReply(fence(JSON.stringify({
+        proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd' }],
+      }))),
+    ).toThrowError(/exactly one/)
+  })
+
+  it('parses a loose dump of setScore objects (no proposals wrapper)', () => {
+    const dump = `Based on your request:
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "51a39e63-3334-45f8-8498-1728fc406f08", "value": 5}
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "4415a8a4-764a-4cea-839f-eef488843bbf", "value": 1, "labels": ["Drama"]}
+{"type": "setScore", "optionId": "f4ef1b92-e716-48cc-b335-5a430afe9d3e", "dimensionId": "372a8e33-4e5e-4a52-baf4-ca938b7d3322", "value": 1}`
+    const parsed = parseReply(dump)
+    expect(parsed.proposals).toHaveLength(3)
+    const genre = parsed.proposals[1]
+    expect(genre.type === 'setScore' && genre.labels).toEqual(['Drama'])
+    expect(genre.type === 'setScore' && genre.value).toBeUndefined()
+    expect(parsed.message).toContain('Based on your request')
+  })
+
+  it('keeps well-formed rows when one proposal in the batch is malformed', () => {
+    const parsed = parseReply(
+      fence(JSON.stringify({
+        proposals: [
+          { type: 'setScore', optionId: 'o1', dimensionId: 'd1', value: 4 },
+          { type: 'dropTable', id: 'x' },
+          { type: 'setScore', optionId: 'o2', dimensionId: 'd1', labels: ['Drama'] },
+        ],
+      })),
+    )
+    expect(parsed.proposals.map((p) => p.type)).toEqual(['setScore', 'setScore'])
   })
 })
 
@@ -173,6 +245,21 @@ describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
         dimensions: [{ name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' }],
         options: [{ name: 'The Bear' }],
         scores: [{ option: 'The Bear', dimension: 'Genre', labels: ['Comedy'] }],
+      }),
+    )
+    const p = parsed.proposals[0]
+    expect(p.type === 'createDecision' && p.decision.scores).toEqual([
+      { option: 'The Bear', dimension: 'Genre', labels: ['Comedy'] },
+    ])
+  })
+
+  it('keeps labels when a skeleton score has both value and labels', () => {
+    const parsed = parseReply(
+      skeleton({
+        name: 'TV night',
+        dimensions: [{ name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' }],
+        options: [{ name: 'The Bear' }],
+        scores: [{ option: 'The Bear', dimension: 'Genre', value: 1, labels: ['Comedy'] }],
       }),
     )
     const p = parsed.proposals[0]

@@ -141,6 +141,12 @@ export default function RambleSheet({
     for (const e of entriesRef.current) {
       if (e.kind === 'user' || e.kind === 'transcript') history.push({ role: 'user', content: e.text })
       else if (e.kind === 'assistant') history.push({ role: 'assistant', content: e.text })
+      else if (e.kind === 'error') {
+        history.push({
+          role: 'assistant',
+          content: `The app could not use my last reply (${e.text}). I will send a valid createDecision JSON block.`,
+        })
+      }
     }
     try {
       const ai = loadSettings()

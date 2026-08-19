@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { rambleSystemPrompt, systemPrompt } from './context'
+import { decisionSnapshot, rambleSystemPrompt, systemPrompt } from './context'
+import type { DecisionBundle } from '../queries'
 
 describe('lookup guidance', () => {
   it('is absent when web lookup is off so today\'s prompt is unchanged', () => {
@@ -31,5 +32,41 @@ describe('place option blurbs', () => {
     const prompt = rambleSystemPrompt(true)
     expect(prompt).toMatch(/never cite per-place websites/)
     expect(prompt).not.toMatch(/Cite each source in the prose by name and URL/)
+  })
+})
+
+describe('score contract', () => {
+  it('tells the model to copy distinct option ids and emit exactly one of value or labels', () => {
+    const prompt = systemPrompt('score')
+    expect(prompt).toMatch(/never reuse one option's id/)
+    expect(prompt).toMatch(/Exactly one of value or labels/)
+    expect(prompt).toMatch(/"nominal"/)
+    expect(rambleSystemPrompt()).toMatch(/Exactly one of value or labels/)
+  })
+
+  it('labels each snapshot dimension with scale so setScore can match value vs labels', () => {
+    const bundle: DecisionBundle = {
+      decision: { id: 'dec', name: 'TV night', createdAt: 0, updatedAt: 0 },
+      dimensions: [
+        { id: 'g', decisionId: 'dec', name: 'Genre', kind: 'objective', importance: 3, unit: 'genre' },
+        { id: 'q', decisionId: 'dec', name: 'Quality', kind: 'subjective', importance: 4 },
+        { id: 'y', decisionId: 'dec', name: 'Year', kind: 'objective', direction: 'higher', importance: 2, unit: 'year' },
+      ],
+      options: [
+        { id: 'o1', decisionId: 'dec', name: 'The Bear' },
+        { id: 'o2', decisionId: 'dec', name: 'The Good Fight' },
+      ],
+      scores: [],
+    }
+    const snap = JSON.parse(decisionSnapshot(bundle)) as {
+      dimensions: { name: string; scale: string }[]
+    }
+    expect(snap.dimensions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'Genre', scale: 'nominal' }),
+        expect.objectContaining({ name: 'Quality', scale: 'rating' }),
+        expect.objectContaining({ name: 'Year', scale: 'numeric' }),
+      ]),
+    )
   })
 })
