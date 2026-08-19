@@ -44,6 +44,20 @@ describe('score contract', () => {
     expect(rambleSystemPrompt()).toMatch(/Exactly one of value or labels/)
   })
 
+  it('requires setScore proposals on the first turn when scoring on the Score tab', () => {
+    const score = systemPrompt('score')
+    expect(score).toMatch(/SCORE TAB HARD RULE/)
+    expect(score).toMatch(/Proposing IS the action/)
+    expect(score).toMatch(/never wait for "do it"/)
+    expect(score).toMatch(/Never answer with prose-only per-option writeups/)
+    expect(systemPrompt('results')).not.toMatch(/SCORE TAB HARD RULE/)
+  })
+
+  it('lookup-on score tab still ends with setScore proposals in the same reply', () => {
+    expect(systemPrompt('score', true)).toMatch(/research and score/)
+    expect(systemPrompt('score', true)).toMatch(/never stop at a research essay/)
+  })
+
   it('labels each snapshot dimension with scale so setScore can match value vs labels', () => {
     const bundle: DecisionBundle = {
       decision: { id: 'dec', name: 'TV night', createdAt: 0, updatedAt: 0 },
