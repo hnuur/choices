@@ -146,6 +146,14 @@ export default function ChatSheet({
     // approval cards join as an assistant turn so it knows what landed.
     const history = entries.flatMap((e) => {
       if (e.kind === 'user' || e.kind === 'assistant') return [{ role: e.kind, content: e.text }]
+      if (e.kind === 'error') {
+        return [
+          {
+            role: 'assistant' as const,
+            content: `The app rejected my last reply (${e.text}). I will send a new \`\`\`json block that follows the contract.`,
+          },
+        ]
+      }
       if (e.kind === 'card' && e.resolved) {
         return [
           {
