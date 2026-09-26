@@ -100,7 +100,7 @@ describe('parseReply', () => {
     expect(score.type === 'setScore' && score.labels).toEqual(['Drama', 'Comedy'])
   })
 
-  it('keeps labels when setScore has both value and labels', () => {
+  it('keeps both value and labels when setScore has both (card coerces by scale)', () => {
     const parsed = parseReply(
       fence(JSON.stringify({
         proposals: [{ type: 'setScore', optionId: 'o', dimensionId: 'd', value: 1, labels: ['Drama'] }],
@@ -108,7 +108,7 @@ describe('parseReply', () => {
     )
     const score = parsed.proposals[0]
     expect(score.type === 'setScore' && score.labels).toEqual(['Drama'])
-    expect(score.type === 'setScore' && score.value).toBeUndefined()
+    expect(score.type === 'setScore' && score.value).toBe(1)
   })
 
   it('rejects empty patch objects', () => {
@@ -195,7 +195,7 @@ describe('parseReply', () => {
     expect(parsed.proposals).toHaveLength(3)
     const genre = parsed.proposals[1]
     expect(genre.type === 'setScore' && genre.labels).toEqual(['Drama'])
-    expect(genre.type === 'setScore' && genre.value).toBeUndefined()
+    expect(genre.type === 'setScore' && genre.value).toBe(1)
     expect(parsed.message).toContain('Based on your request')
   })
 
@@ -264,7 +264,7 @@ describe('parseReply — createDecision (Phase-7 ramble payload)', () => {
     )
     const p = parsed.proposals[0]
     expect(p.type === 'createDecision' && p.decision.scores).toEqual([
-      { option: 'The Bear', dimension: 'Genre', labels: ['Comedy'] },
+      { option: 'The Bear', dimension: 'Genre', value: 1, labels: ['Comedy'] },
     ])
   })
 

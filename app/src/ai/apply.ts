@@ -16,6 +16,7 @@ import {
 import { queryDecision } from '../queries'
 import type { Decision, DecisionSkeletonInput } from '../types'
 import type { Proposal } from './proposals'
+import { coerceSetScore } from './sanitizeProposals'
 
 export interface ApplyOutcome {
   index: number
@@ -94,7 +95,9 @@ export async function applyProposals(
         case 'setScore': {
           if (!optionIds.has(p.optionId)) throw new Error('option is not in this decision')
           if (!dimensionIds.has(p.dimensionId)) throw new Error('dimension is not in this decision')
-          await setScore(p.optionId, p.dimensionId, p.labels ?? p.value!)
+          const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)!
+          const cell = coerceSetScore(p, dim)
+          await setScore(cell.optionId, cell.dimensionId, cell.labels ?? cell.value!)
           break
         }
         case 'createDecision':
