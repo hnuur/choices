@@ -131,20 +131,26 @@ function parseLabels(v: unknown, label: string): string[] {
 }
 
 /**
- * Models often emit both a leftover 1–5 `value` and `labels` on categorical
- * cells. Prefer non-empty labels; otherwise require a finite value.
+ * Models often emit both a leftover 1–5 `value` and `labels`. Keep both when
+ * present — the approval card coerces to the dimension's scale so a rating
+ * cell is not left label-only (which disabled Approve).
  */
 function parseScoreFields(
   obj: Record<string, unknown>,
   label: string,
-): { value: number } | { labels: string[] } {
+): { value?: number; labels?: string[] } {
   const hasValue = obj.value !== undefined
   const hasLabels = obj.labels !== undefined
   const labels = hasLabels ? parseLabels(obj.labels, label) : []
-  if (labels.length > 0) return { labels }
-  if (hasValue) return { value: requireFiniteNumber(obj.value, `${label}.value`) }
-  if (hasLabels) fail(`${label}.labels must contain at least one value`)
-  fail(`${label} needs exactly one of value or labels`)
+  const value = hasValue ? requireFiniteNumber(obj.value, `${label}.value`) : undefined
+  if (labels.length === 0 && value === undefined) {
+    if (hasLabels) fail(`${label}.labels must contain at least one value`)
+    fail(`${label} needs exactly one of value or labels`)
+  }
+  const out: { value?: number; labels?: string[] } = {}
+  if (labels.length > 0) out.labels = labels
+  if (value !== undefined) out.value = value
+  return out
 }
 
 function parseSkeletonScore(v: unknown, label: string): SkeletonScoreInput {

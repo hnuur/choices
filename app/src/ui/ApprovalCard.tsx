@@ -5,6 +5,7 @@
 import { useState } from 'react'
 import type { ApplyOutcome } from '../ai/apply'
 import type { Proposal } from '../ai/proposals'
+import { coerceSetScore, sanitizeProposals } from '../ai/sanitizeProposals'
 import type { DecisionBundle } from '../queries'
 import type { DimensionInput } from '../types'
 import { dimensionScale, unitPresets } from '../units'
@@ -31,7 +32,7 @@ function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
     case 'addOption':
       return p.option.name.trim() === ''
     case 'setScore': {
-      if (p.optionId === '' || p.dimensionId === '') return true
+      if (!bundle.options.some((o) => o.id === p.optionId)) return true
       const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
       if (!dim) return true
       const scale = dimensionScale(dim)
@@ -43,6 +44,18 @@ function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
     default:
       return false
   }
+}
+
+function rowInvalidReason(p: Proposal, bundle: DecisionBundle): string | null {
+  if (!rowInvalid(p, bundle)) return null
+  if (p.type !== 'setScore') return 'This row needs a fix before Approve.'
+  if (!bundle.options.some((o) => o.id === p.optionId)) return 'Pick an option from the list.'
+  const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+  if (!dim) return 'Pick a dimension from the list.'
+  const scale = dimensionScale(dim)
+  if (scale === 'nominal') return `Add at least one ${dim.unit || dim.name.toLowerCase()} label.`
+  if (scale === 'rating') return 'Pick a rating from 1 to 5.'
+  return 'Enter a number.'
 }
 
 function scorePayloadFor(
@@ -76,9 +89,18 @@ function SetScoreFields({
     <div className="space-y-2">
       <select
         className={smallSelect}
-        value={p.optionId}
-        onChange={(e) => onChange({ ...p, optionId: e.target.value })}
+        value={bundle.options.some((o) => o.id === p.optionId) ? p.optionId : ''}
+        onChange={(e) => {
+          const optionId = e.target.value
+          const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+          onChange(dim ? coerceSetScore({ ...p, optionId }, dim) : { ...p, optionId })
+        }}
       >
+        {!bundle.options.some((o) => o.id === p.optionId) && (
+          <option value="" disabled>
+            Pick an option
+          </option>
+        )}
         {bundle.options.map((o) => (
           <option key={o.id} value={o.id}>
             {o.name}
@@ -87,13 +109,19 @@ function SetScoreFields({
       </select>
       <select
         className={smallSelect}
-        value={p.dimensionId}
+        value={bundle.dimensions.some((d) => d.id === p.dimensionId) ? p.dimensionId : ''}
         onChange={(e) => {
           const dimensionId = e.target.value
           const next = bundle.dimensions.find((d) => d.id === dimensionId)
-          onChange({ ...p, dimensionId, value: undefined, labels: undefined, ...scorePayloadFor(next) })
+          if (next) onChange(coerceSetScore({ ...p, dimensionId }, next))
+          else onChange({ ...p, dimensionId, value: undefined, labels: undefined })
         }}
       >
+        {!bundle.dimensions.some((d) => d.id === p.dimensionId) && (
+          <option value="" disabled>
+            Pick a dimension
+          </option>
+        )}
         {bundle.dimensions.map((d) => (
           <option key={d.id} value={d.id}>
             {d.name}
@@ -222,7 +250,9 @@ export default function ApprovalCard({
   /** Present once applied; the card then renders its result rows. */
   outcomes?: ApplyOutcome[]
 }) {
-  const [proposals, setProposals] = useState<Proposal[]>(initial)
+  const prepared = sanitizeProposals(initial, bundle)
+  const [proposals, setProposals] = useState<Proposal[]>(prepared.proposals)
+  const [dropped] = useState(prepared.dropped)
 
   const update = (index: number, p: Proposal) =>
     setProposals((rows) => rows.map((r, i) => (i === index ? p : r)))
@@ -261,15 +291,36 @@ export default function ApprovalCard({
   }
 
   const invalid = proposals.some((p) => rowInvalid(p, bundle))
+  const invalidCount = proposals.filter((p) => rowInvalid(p, bundle)).length
 
   return (
     <div className="rounded-xl border border-hairline bg-surface p-3">
       <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
         Proposed changes — edit before approving
       </p>
+      {dropped > 0 && (
+        <p className="mt-2 text-xs text-amber-300">
+          Dropped {dropped} unusable score {dropped === 1 ? 'row' : 'rows'} (unknown id or empty
+          genre/labels). The rest can be approved.
+        </p>
+      )}
+      {invalid && (
+        <p className="mt-2 text-xs text-amber-300">
+          {invalidCount} {invalidCount === 1 ? 'row needs' : 'rows need'} a fix before Approve —
+          or remove {invalidCount === 1 ? 'it' : 'them'}.
+        </p>
+      )}
       <div className="mt-2 space-y-3">
-        {proposals.map((p, i) => (
-          <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
+        {proposals.map((p, i) => {
+          const bad = rowInvalid(p, bundle)
+          const reason = rowInvalidReason(p, bundle)
+          return (
+          <div
+            key={i}
+            className={`rounded-lg border bg-surface-2 p-2.5 ${
+              bad ? 'border-amber-400/40' : 'border-hairline'
+            }`}
+          >
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-semibold text-ink-3">{TYPE_LABEL[p.type]}</span>
               <button
@@ -411,8 +462,10 @@ export default function ApprovalCard({
             {p.type === 'setScore' && (
               <SetScoreFields p={p} bundle={bundle} onChange={(next) => update(i, next)} />
             )}
+            {reason && <p className="mt-2 text-xs text-amber-300">{reason}</p>}
           </div>
-        ))}
+          )
+        })}
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1">
