@@ -45,6 +45,16 @@ export function describeProposal(p: Proposal): string {
   }
 }
 
+/** Prefer the IndexedDB/Dexie inner cause when a transaction aborts. */
+export function formatApplyError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e)
+  const inner = (e as Error & { inner?: unknown }).inner
+  if (inner instanceof Error && inner.message && inner.message !== e.message) {
+    return `${e.message} (${inner.message})`
+  }
+  return e.message
+}
+
 /**
  * Phase-7 ramble path: the approved (possibly user-edited) skeleton becomes
  * a decision in one transactional mutation-layer call. Errors bubble to the
@@ -106,7 +116,7 @@ export async function applyProposals(
       }
       outcomes.push({ index, ok: true, label })
     } catch (e) {
-      outcomes.push({ index, ok: false, label, error: e instanceof Error ? e.message : String(e) })
+      outcomes.push({ index, ok: false, label, error: formatApplyError(e) })
     }
   }
   return outcomes

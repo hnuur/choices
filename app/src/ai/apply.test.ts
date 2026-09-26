@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import { addDimension, addOption, createDecision, setScore } from '../mutations'
 import { queryDecision } from '../queries'
-import { applyDecisionSkeleton, applyProposals } from './apply'
+import { applyDecisionSkeleton, applyProposals, formatApplyError } from './apply'
 import type { Proposal } from './proposals'
 
 beforeEach(async () => {
@@ -103,6 +103,39 @@ describe('applyProposals', () => {
     ])
     expect(outcomes.every((o) => !o.ok)).toBe(true)
     expect(outcomes.every((o) => o.error!.includes('not in this decision'))).toBe(true)
+  })
+
+  it('applies a card of several addOption rows (Ask AI “add options”)', async () => {
+    const decision = await createDecision("Simon's retirement")
+    const outcomes = await applyProposals(decision.id, [
+      { type: 'addOption', option: { name: 'Continue Working' } },
+      { type: 'addOption', option: { name: 'Partial Retirement' } },
+      { type: 'addOption', option: { name: 'Full Retirement' } },
+      { type: 'addOption', option: { name: 'Start a Part-Time Job' } },
+      { type: 'addOption', option: { name: 'Invest in Hobbies' } },
+    ])
+    expect(outcomes.every((o) => o.ok)).toBe(true)
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.options.map((o) => o.name).sort()).toEqual([
+      'Continue Working',
+      'Full Retirement',
+      'Invest in Hobbies',
+      'Partial Retirement',
+      'Start a Part-Time Job',
+    ])
+    for (const o of bundle!.options) {
+      expect(Object.prototype.hasOwnProperty.call(o, 'notes')).toBe(false)
+    }
+  })
+
+  it('surfaces Dexie AbortError.inner in the row error', () => {
+    const abort = Object.assign(new Error('Transaction aborted'), {
+      name: 'AbortError',
+      inner: new Error('DataCloneError: The object can not be cloned.'),
+    })
+    expect(formatApplyError(abort)).toBe(
+      'Transaction aborted (DataCloneError: The object can not be cloned.)',
+    )
   })
 
   it('a failing row does not block the rest of the card', async () => {
