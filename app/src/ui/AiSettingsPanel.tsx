@@ -70,7 +70,7 @@ export default function AiSettingsPanel({
     settings.mode === 'anthropic' || settings.mode === 'openai' || settings.mode === 'gemini'
 
   return (
-    <div className="flex flex-1 flex-col overflow-y-auto px-4 pb-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4">
       <h2 className="text-lg font-bold">AI settings</h2>
       <p className="mt-1 rounded-lg bg-hover p-3 text-xs text-ink-2">{disclosureFor(settings)}</p>
 

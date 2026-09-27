@@ -309,8 +309,11 @@ export default function RambleSheet({
 
   if (view === 'settings') {
     return (
-      <div className="fixed inset-0 z-40 flex flex-col bg-bg">
-        <div className="px-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
+      <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
+        <div
+          className="shrink-0 px-4"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}
+        >
           <button
             type="button"
             className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
@@ -325,9 +328,9 @@ export default function RambleSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-bg">
+    <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
       <div
-        className="relative flex items-center gap-2 border-b border-hairline px-4 pb-2"
+        className="relative flex shrink-0 items-center gap-2 border-b border-hairline px-4 pb-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
         <span className="flex-1 text-center text-sm font-semibold text-ink">Ramble</span>
@@ -357,7 +360,7 @@ export default function RambleSheet({
         </button>
       </div>
 
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {!configured && entries.length === 0 && (
           <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
             <p className="text-sm text-ink-2">
@@ -450,7 +453,7 @@ export default function RambleSheet({
       </div>
 
       <div
-        className="border-t border-hairline bg-menu px-4 pt-3"
+        className="shrink-0 border-t border-hairline bg-menu px-4 pt-3"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
       >
         {phase === 'recording' ? (
