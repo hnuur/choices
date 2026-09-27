@@ -95,6 +95,17 @@ function persistDimension(d: Dimension): Dimension {
   return out
 }
 
+/** Strip undefined optionals — Safari IndexedDB aborts puts that clone `undefined`. */
+function persistOption(o: Option): Option {
+  const out: Option = {
+    id: o.id,
+    decisionId: o.decisionId,
+    name: o.name,
+  }
+  if (o.notes) out.notes = o.notes
+  return out
+}
+
 async function touch(decisionId: string): Promise<void> {
   await db.decisions.update(decisionId, { updatedAt: now() })
 }
@@ -193,12 +204,14 @@ export async function createDecisionSkeleton(input: DecisionSkeletonInput): Prom
     decisionId: decision.id,
     ...dimensionFromFields(d),
   }))
-  const options: Option[] = input.options.map((o) => ({
-    id: newId(),
-    decisionId: decision.id,
-    name: requireName(o.name),
-    notes: o.notes,
-  }))
+  const options: Option[] = input.options.map((o) =>
+    persistOption({
+      id: newId(),
+      decisionId: decision.id,
+      name: requireName(o.name),
+      notes: o.notes,
+    }),
+  )
   const scores = resolveSkeletonScores(dimensions, options, input.scores)
   await db.transaction('rw', db.decisions, db.dimensions, db.options, db.scores, async () => {
     await db.decisions.put(decision)
@@ -299,14 +312,16 @@ export async function deleteDimension(id: string): Promise<void> {
 
 export async function addOption(decisionId: string, input: OptionInput): Promise<Option> {
   await requireDecision(decisionId)
-  const option: Option = {
+  const option = persistOption({
     id: newId(),
     decisionId,
     name: requireName(input.name),
     notes: input.notes,
-  }
-  await db.options.put(option)
-  await touch(decisionId)
+  })
+  await db.transaction('rw', db.options, db.decisions, async () => {
+    await db.options.put(option)
+    await db.decisions.update(decisionId, { updatedAt: now() })
+  })
   return option
 }
 
@@ -316,11 +331,20 @@ export async function updateOption(
 ): Promise<void> {
   const option = await db.options.get(id)
   if (!option) throw new ValidationError(`option ${id} does not exist`)
-  const updates: Partial<Option> = {}
-  if (patch.name !== undefined) updates.name = requireName(patch.name)
-  if (patch.notes !== undefined) updates.notes = patch.notes
-  await db.options.update(id, updates)
-  await touch(option.decisionId)
+  const next: Option = {
+    id: option.id,
+    decisionId: option.decisionId,
+    name: patch.name !== undefined ? requireName(patch.name) : option.name,
+  }
+  if ('notes' in patch) {
+    if (patch.notes) next.notes = patch.notes
+  } else if (option.notes) {
+    next.notes = option.notes
+  }
+  await db.transaction('rw', db.options, db.decisions, async () => {
+    await db.options.put(persistOption(next))
+    await db.decisions.update(option.decisionId, { updatedAt: now() })
+  })
 }
 
 /** Deleting an option deletes its scores, in one transaction. */
@@ -436,7 +460,7 @@ export async function importDecision(exported: DecisionExport): Promise<string> 
     if (typeof o.id !== 'string') throw new ValidationError('option id must be a string')
     const id = newId()
     optIdMap.set(o.id, id)
-    return { id, decisionId: '', name: requireName(o.name), notes: o.notes }
+    return persistOption({ id, decisionId: '', name: requireName(o.name), notes: o.notes })
   })
   const dimByNewId = new Map(dimensions.map((d) => [d.id, d]))
   const scores: Score[] = exported.scores.map((s) => {

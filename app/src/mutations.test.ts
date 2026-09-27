@@ -14,6 +14,7 @@ import {
   renameDecision,
   setScore,
   updateDimension,
+  updateOption,
   ValidationError,
 } from './mutations'
 import { rankOptions } from './scoring'
@@ -42,6 +43,26 @@ async function buildDecision() {
   const fuji = await addOption(decision.id, { name: 'Fuji X-T5' })
   return { decision, weight, sexiness, sony, fuji }
 }
+
+describe('options', () => {
+  it('stores options without a notes key when notes are omitted (Safari-safe)', async () => {
+    const d = await createDecision('Retirement')
+    const opt = await addOption(d.id, { name: 'Continue Working' })
+    expect(Object.prototype.hasOwnProperty.call(opt, 'notes')).toBe(false)
+    const stored = await db.options.get(opt.id)
+    expect(stored).toEqual({ id: opt.id, decisionId: d.id, name: 'Continue Working' })
+    expect(Object.prototype.hasOwnProperty.call(stored!, 'notes')).toBe(false)
+  })
+
+  it('keeps notes when provided and clears them on edit', async () => {
+    const d = await createDecision('Retirement')
+    const opt = await addOption(d.id, { name: 'Partial', notes: '3 days/week' })
+    expect((await db.options.get(opt.id))!.notes).toBe('3 days/week')
+    await updateOption(opt.id, { name: 'Partial', notes: undefined })
+    const cleared = await db.options.get(opt.id)
+    expect(Object.prototype.hasOwnProperty.call(cleared!, 'notes')).toBe(false)
+  })
+})
 
 describe('decisions', () => {
   it('creates, renames, rejects empty names', async () => {
