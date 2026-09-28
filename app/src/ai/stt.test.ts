@@ -49,6 +49,7 @@ describe('supportsStt', () => {
 describe('transcribe', () => {
   it('openai preset posts multipart to /audio/transcriptions with whisper-1', async () => {
     stubFetch(() => jsonResponse(fixture['whisper-transcription.json']))
+    // Plain bytes (no ftyp) → no WAV transcode without AudioContext; .m4a name.
     const text = await transcribe(audio(), 'audio/mp4', settings({ mode: 'openai', apiKey: 'sk-test' }))
     expect(text).toContain('Sony A7C II')
     expect(calls[0].url).toBe('https://api.openai.com/v1/audio/transcriptions')
@@ -58,8 +59,39 @@ describe('transcribe', () => {
     expect(form.get('model')).toBe('whisper-1')
     const file = form.get('file') as File
     expect(file).toBeInstanceOf(Blob)
-    // Safari records AAC/mp4 — the upload name must match the container
+    // Safari records AAC/mp4 — without AudioContext we still name it .m4a
     expect(file.name).toBe('ramble.m4a')
+  })
+
+  it('transcodes Safari mp4 (ftyp) to wav before Whisper when AudioContext works', async () => {
+    const samples = new Float32Array([0, 0.1, -0.1, 0])
+    vi.stubGlobal(
+      'AudioContext',
+      vi.fn(function AudioContext() {
+        return {
+          decodeAudioData: async () => ({
+            numberOfChannels: 1,
+            sampleRate: 16000,
+            length: samples.length,
+            getChannelData: () => samples,
+          }),
+          close: async () => undefined,
+        }
+      }),
+    )
+    stubFetch(() => jsonResponse(fixture['whisper-transcription.json']))
+    const ftyp = new Uint8Array(24)
+    ftyp[4] = 0x66
+    ftyp[5] = 0x74
+    ftyp[6] = 0x79
+    ftyp[7] = 0x70
+    await transcribe(
+      new Blob([ftyp], { type: 'audio/mp4' }),
+      'audio/mp4',
+      settings({ mode: 'openai', apiKey: 'k' }),
+    )
+    const file = (calls[0].init.body as FormData).get('file') as File
+    expect(file.name).toBe('ramble.wav')
   })
 
   it('webm recordings upload as .webm', async () => {

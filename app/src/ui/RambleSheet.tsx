@@ -12,6 +12,7 @@ import { parseReply, ProposalParseError } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
 import { supportsStt, transcribe } from '../ai/stt'
 import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
+import { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recordingMime'
 import { queryDecision } from '../queries'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
@@ -29,17 +30,6 @@ let entrySeq = 0
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type NewEntry = DistributiveOmit<Entry, 'id'>
 
-// Safari records AAC in an mp4 container; Chrome/Firefox record webm.
-// Probe what this engine can actually produce, in preference order.
-const MIME_CANDIDATES = ['audio/webm', 'audio/mp4', 'audio/aac', 'audio/ogg;codecs=opus']
-
-export function pickRecordingMimeType(): string | undefined {
-  if (typeof MediaRecorder === 'undefined' || typeof MediaRecorder.isTypeSupported !== 'function') {
-    return undefined
-  }
-  return MIME_CANDIDATES.find((t) => MediaRecorder.isTypeSupported(t))
-}
-
 /** getUserMedia and MediaRecorder both need a secure context (or polyfills). */
 export function micUnavailable(): boolean {
   return !(
@@ -49,6 +39,9 @@ export function micUnavailable(): boolean {
     typeof MediaRecorder !== 'undefined'
   )
 }
+
+// Re-export so ChatSheet can keep importing mic helpers from one place.
+export { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recordingMime'
 
 const formatElapsed = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -249,7 +242,7 @@ export default function RambleSheet({
           setElapsed(0)
           return
         }
-        const type = recorder.mimeType || mimeType || 'audio/webm'
+        const type = resolveRecordingMimeType(recorder.mimeType, mimeType)
         const blob = new Blob(chunksRef.current, { type })
         if (blob.size === 0) {
           pushEntry({ kind: 'error', text: 'Nothing was recorded — try again and speak up.' })
@@ -497,11 +490,7 @@ export default function RambleSheet({
             <input
               ref={inputRef}
               className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
-              placeholder={
-                onTranscript
-                  ? 'Write or speak about this decision…'
-                  : 'Write or speak what you are choosing…'
-              }
+              placeholder={onTranscript ? 'Write or speak…' : 'Type or ramble…'}
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />

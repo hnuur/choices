@@ -16,7 +16,7 @@ import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
 import type { DecisionBundle } from '../queries'
 import AiSettingsPanel from './AiSettingsPanel'
 import ApprovalCard from './ApprovalCard'
-import { micUnavailable, pickRecordingMimeType } from './RambleSheet'
+import { micUnavailable, pickRecordingMimeType, resolveRecordingMimeType } from './RambleSheet'
 import { TABS, type Tab } from './tabs'
 
 const formatElapsed = (s: number) =>
@@ -252,7 +252,7 @@ export default function ChatSheet({
           setElapsed(0)
           return
         }
-        const type = recorder.mimeType || mimeType || 'audio/webm'
+        const type = resolveRecordingMimeType(recorder.mimeType, mimeType)
         const blob = new Blob(chunksRef.current, { type })
         if (blob.size === 0) {
           setEntries((prev) => [
@@ -476,7 +476,7 @@ export default function ChatSheet({
           </button>
           <input
             className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
-            placeholder={configured ? 'Write or speak about this decision…' : 'Set up AI first…'}
+            placeholder={configured ? 'Write or speak…' : 'Set up AI first…'}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />

@@ -2,9 +2,14 @@
 // openai/custom presets, Gemini inline audio on gemini. anthropic and relay
 // have no STT path — supportsStt is false there and the UI greys the mic.
 // Native fetch only (no SDK deps), tested against recorded responses.
+//
+// Safari MediaRecorder emits AAC-in-mp4 that Whisper often rejects as
+// "Invalid file format" even with a .m4a name. Those containers are
+// re-encoded to WAV via AudioContext before upload.
 
 import { errorFrom, ProviderError } from './providers'
 import { effectiveModel, type AiSettings } from './settings'
+import { decodeToWav } from './wav'
 
 export type SttMode = 'openai' | 'custom' | 'gemini'
 
@@ -14,13 +19,89 @@ export function supportsStt(settings: AiSettings): boolean {
 
 const stripTrailingSlash = (url: string) => url.replace(/\/+$/, '')
 
+/** True for containers Safari records that Whisper frequently rejects. */
+export function needsWavTranscode(mimeType: string): boolean {
+  const m = mimeType.toLowerCase()
+  return (
+    m.includes('mp4') ||
+    m.includes('m4a') ||
+    m.includes('aac') ||
+    m.includes('caf') ||
+    m.includes('x-m4a') ||
+    m.trim() === ''
+  )
+}
+
 // Safari records AAC in an mp4 container; pick an extension Whisper's
 // endpoint will accept from the actual recording mimeType.
-function extensionFor(mimeType: string): string {
-  if (mimeType.includes('mp4') || mimeType.includes('aac')) return 'm4a'
-  if (mimeType.includes('ogg')) return 'ogg'
-  if (mimeType.includes('wav')) return 'wav'
+export function extensionFor(mimeType: string): string {
+  const m = mimeType.toLowerCase()
+  if (m.includes('wav')) return 'wav'
+  if (m.includes('mp4') || m.includes('m4a') || m.includes('aac') || m.includes('x-m4a')) return 'm4a'
+  if (m.includes('ogg') || m.includes('oga')) return 'ogg'
+  if (m.includes('mpeg') || m.includes('mp3') || m.includes('mpga')) return 'mp3'
   return 'webm'
+}
+
+/** Peek at magic bytes when the declared mime lies (common on iOS). */
+export async function sniffAudioMime(audio: Blob): Promise<string | null> {
+  const head = new Uint8Array(await audio.slice(0, 16).arrayBuffer())
+  if (head.length < 4) return null
+  // ISO BMFF: ....ftyp
+  if (
+    head.length >= 8 &&
+    head[4] === 0x66 &&
+    head[5] === 0x74 &&
+    head[6] === 0x79 &&
+    head[7] === 0x70
+  ) {
+    return 'audio/mp4'
+  }
+  // RIFF....WAVE
+  if (
+    head.length >= 12 &&
+    head[0] === 0x52 &&
+    head[1] === 0x49 &&
+    head[2] === 0x46 &&
+    head[3] === 0x46 &&
+    head[8] === 0x57 &&
+    head[9] === 0x41 &&
+    head[10] === 0x56 &&
+    head[11] === 0x45
+  ) {
+    return 'audio/wav'
+  }
+  // OggS
+  if (head[0] === 0x4f && head[1] === 0x67 && head[2] === 0x67 && head[3] === 0x53) {
+    return 'audio/ogg'
+  }
+  // EBML (webm/mkv)
+  if (head[0] === 0x1a && head[1] === 0x45 && head[2] === 0xdf && head[3] === 0xa3) {
+    return 'audio/webm'
+  }
+  return null
+}
+
+/**
+ * Resolve a Whisper-friendly upload: Safari mp4/aac → WAV; otherwise keep
+ * the bytes and a matching filename. Falls back to the original blob when
+ * AudioContext is missing (Node tests) or decode fails.
+ */
+export async function prepareForWhisper(
+  audio: Blob,
+  mimeType: string,
+): Promise<{ blob: Blob; filename: string; mimeType: string }> {
+  const sniffed = await sniffAudioMime(audio)
+  const effective = sniffed ?? mimeType
+  if (!needsWavTranscode(effective)) {
+    return { blob: audio, filename: `ramble.${extensionFor(effective)}`, mimeType: effective }
+  }
+  try {
+    const wav = await decodeToWav(audio)
+    return { blob: wav, filename: 'ramble.wav', mimeType: 'audio/wav' }
+  } catch {
+    return { blob: audio, filename: `ramble.${extensionFor(effective)}`, mimeType: effective }
+  }
 }
 
 async function whisperTranscribe(
@@ -29,8 +110,9 @@ async function whisperTranscribe(
   audio: Blob,
   mimeType: string,
 ): Promise<string> {
+  const prepared = await prepareForWhisper(audio, mimeType)
   const form = new FormData()
-  form.append('file', audio, `ramble.${extensionFor(mimeType)}`)
+  form.append('file', prepared.blob, prepared.filename)
   form.append('model', 'whisper-1')
   const res = await fetch(`${stripTrailingSlash(baseUrl)}/audio/transcriptions`, {
     method: 'POST',
@@ -59,7 +141,18 @@ async function geminiTranscribe(
   audio: Blob,
   mimeType: string,
 ): Promise<string> {
-  const data = base64(await audio.arrayBuffer())
+  // Same Safari containers trip Gemini; prefer WAV when we can re-encode.
+  let payload = audio
+  let sendMime = mimeType
+  if (needsWavTranscode(mimeType) || (await sniffAudioMime(audio)) === 'audio/mp4') {
+    try {
+      payload = await decodeToWav(audio)
+      sendMime = 'audio/wav'
+    } catch {
+      /* keep original */
+    }
+  }
+  const data = base64(await payload.arrayBuffer())
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
@@ -71,7 +164,7 @@ async function geminiTranscribe(
             role: 'user',
             parts: [
               { text: 'Transcribe this audio verbatim. Output only the transcript.' },
-              { inline_data: { mime_type: mimeType, data } },
+              { inline_data: { mime_type: sendMime, data } },
             ],
           },
         ],
