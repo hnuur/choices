@@ -8,7 +8,11 @@ import { rankOptions, NEAR_TIE_MARGIN } from '../scoring'
 import type { Tab } from '../ui/tabs'
 import { dimensionScale } from '../units'
 
-const SCORE_FILL_RULE = `SCORE FILL HARD RULE: When the user asks to score, fill, rate, prefill, update, research-and-score, cover missing cells, or otherwise set cell values — including on the first message and including follow-ups like "you missed some" — your reply MUST include a \`\`\`json block with setScore proposals. If they asked for all / everything / the whole matrix (or did not narrow the scope), emit exactly one setScore for EVERY entry in snapshot.unscored (count them: if unscored has N items, proposals must contain N setScore rows — no fewer). If they named specific options or dimensions, cover every unscored cell in that subset. Proposing IS the action: never wait for "do it", "apply", "go ahead", or a second turn. Never answer with prose-only per-option writeups, dimension essays, or bullet research summaries — those are unusable; the user approves scores on a card. Keep "message" to one short sentence (e.g. "Proposed scores for all unscored cells"); put every value in setScore rows only. If web lookup is on, research first then still finish the same reply with the full setScore set — do not stop at research prose. An open approval card does NOT block a better replacement — if the user says scores are missing or wrong, send a new complete json block.`
+const SCORE_FILL_RULE = `SCORE FILL HARD RULE: When the user asks to score, fill, rate, prefill, update, research-and-score, cover missing cells, or otherwise set cell values — including on the first message and follow-ups like "you missed some" — your reply MUST include a \`\`\`json block with setScore proposals. If they asked for all / everything / the whole matrix (or did not narrow the scope), emit exactly one setScore for EVERY entry in snapshot.unscored (count them: if unscored has N items, proposals must contain N setScore rows — no fewer). If they named specific options or dimensions, cover every unscored cell in that subset. Proposing IS the action: never wait for "do it" or a second turn. Never answer with prose-only per-option writeups — the user approves scores on a card. Keep "message" to one short sentence; put every value in setScore rows only. Prefer many small complete setScore objects over one giant unfinished reply — a truncated mid-object dump is unusable. If web lookup is on, research first then still finish with setScore proposals in the same reply. An open approval card does NOT block a better replacement.
+
+Exceptions (plain prose, NO json block):
+- snapshot.unscored is [] (matrix already full) — say all cells are scored; do not re-propose scores.
+- Status questions only ("have all been scored?", "is it complete?", "what's missing?") — answer from results.complete / unscored.length / missingCount; do not emit setScore unless they also ask you to fill.`
 
 const LEVEL_FOCUS: Record<Tab, string> = {
   dimensions:
@@ -16,9 +20,9 @@ const LEVEL_FOCUS: Record<Tab, string> = {
   options:
     'The user is on the Options tab: they most likely want to add or remove options, or prefill scores. If they ask to score or prefill scores, follow SCORE FILL HARD RULE — setScore proposals in the json block on the first turn, not prose-only ratings.',
   score:
-    'The user is on the Score tab: they want cells filled. Any request to score, rate, fill, research, cover gaps, or update dimensions must produce setScore proposals immediately — see SCORE FILL HARD RULE below.',
+    'The user is on the Score tab: they want cells filled or to know what is left. Fill requests follow SCORE FILL HARD RULE; status-only questions stay prose (see Exceptions).',
   results:
-    'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers. If they ask to fill missing scores, follow SCORE FILL HARD RULE.',
+    'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers. Status about completeness stays prose. Only if they ask to fill missing scores, follow SCORE FILL HARD RULE.',
 }
 
 // Hard rule for place recommendations — always on (not only under

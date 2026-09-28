@@ -178,6 +178,19 @@ describe('parseReply', () => {
     ])
   })
 
+  it('soft-fails a truncated fill with no complete rows instead of a red malformed error', () => {
+    const parsed = parseReply(
+      'Filling the matrix.\n```json\n{"message":"Proposed scores for all unscored cells","proposals":[',
+    )
+    expect(parsed.proposals).toEqual([])
+    expect(parsed.message).toMatch(/cut off mid-reply/)
+    expect(parsed.message).toContain('Filling the matrix.')
+  })
+
+  it('still rejects garbage fences that are not a score dump', () => {
+    expect(() => parseReply(fence('{oops'))).toThrowError(ProposalParseError)
+  })
+
   it('still rejects setScore with neither value nor labels', () => {
     expect(() =>
       parseReply(fence(JSON.stringify({

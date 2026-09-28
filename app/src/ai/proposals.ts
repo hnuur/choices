@@ -329,6 +329,10 @@ function parseJsonLoose(raw: string): unknown {
   } catch {
     /* truncated dumps are common on a full score matrix */
   }
+  // Prefer salvaging complete objects before a brittle bracket-close.
+  const salvaged = collectTypedObjects(trimmed)
+  if (salvaged.length > 0) return salvaged
+
   const lastBrace = trimmed.lastIndexOf('}')
   if (lastBrace < 0) fail('the JSON block in the reply is malformed')
   try {
@@ -362,11 +366,16 @@ function extractJsonBlock(text: string): { json: string; prose: string } | null 
   return null
 }
 
+const CUTOFF_NOTE =
+  'The score suggestions were cut off mid-reply — ask again to fill any remaining cells.'
+
 /**
  * Extracts proposals from a reply. Accepts a fenced JSON object/array, a bare
  * `{"proposals":[...]}` object, a bare `[{type:...}]` array, or a loose dump
  * of `{ "type": "setScore", ... }` objects (the shape models paste when they
- * skip the wrapper). One bad row does not reject the rest.
+ * skip the wrapper). One bad row does not reject the rest. Truncated fill
+ * dumps soft-fail to prose instead of a hard malformed error when nothing
+ * salvageable remains.
  */
 export function parseReply(text: string): ParsedReply {
   const block = extractJsonBlock(text)
@@ -388,6 +397,17 @@ export function parseReply(text: string): ParsedReply {
     } catch (e) {
       if (!(e instanceof ProposalParseError)) throw e
       blockError = e
+      // Wrapper failed — still try to pick complete typed objects out of the
+      // fence body (common when generation stops mid-array).
+      const fromBlock = collectTypedObjects(block.json)
+      if (fromBlock.length > 0) {
+        try {
+          return { message: block.prose, proposals: parseProposalsArray(fromBlock) }
+        } catch (inner) {
+          if (!(inner instanceof ProposalParseError)) throw inner
+          blockError = inner
+        }
+      }
     }
   }
 
@@ -404,6 +424,16 @@ export function parseReply(text: string): ParsedReply {
     }
   }
 
-  if (blockError) throw blockError
+  if (blockError) {
+    const json = block?.json ?? ''
+    // Only soft-fail true parse cutoffs — keep rejecting well-formed-but-invalid payloads.
+    if (/malformed/i.test(blockError.message) && /proposals|setScore|"optionId"/i.test(json)) {
+      return {
+        message: [block?.prose, CUTOFF_NOTE].filter(Boolean).join('\n\n'),
+        proposals: [],
+      }
+    }
+    throw blockError
+  }
   return { message: text.trim(), proposals: [] }
 }
