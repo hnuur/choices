@@ -10,11 +10,14 @@ import '@fontsource/jetbrains-mono/500.css'
 import '@fontsource/jetbrains-mono/600.css'
 import App from './App'
 import './index.css'
+import { registerPwa } from './pwa'
 
 // iOS evicts non-persisted IndexedDB under storage pressure; ask once at startup.
 if (navigator.storage?.persist) {
   void navigator.storage.persist()
 }
+
+registerPwa()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
