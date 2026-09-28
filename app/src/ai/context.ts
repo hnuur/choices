@@ -56,7 +56,8 @@ Response contract:
   - "numeric": raw number in \`value\` only (omit labels)
   - "rating": integer 1–5 in \`value\` only (omit labels)
   - "nominal": one or more strings in \`labels\` only (omit value). Never a 1–5 rating for genre or other categories.
-  Exactly one of value or labels — never both, never neither. When the user asks to score, emit one setScore per option per dimension they asked for.
+  Exactly one of value or labels — never both, never neither. When the user asks to score, emit one setScore per option per dimension they asked for. Every setScore MUST include the actual number or labels — never an empty cell.
+- Judgement dimensions (reliability, feel, snow performance, …) are kind:"subjective" with NO unit — never unit:"rating" / "1-5" / "stars" on an objective dimension. Categorical facts use objective + a category unit (genre, cuisine, …).
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.
 - ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}
 - ${SCORE_FILL_RULE}`
@@ -70,7 +71,7 @@ The user is describing a decision they want to make (typed or a voice ramble). L
 
 Response contract:
 - If the input contains a decision, propose building it: exactly one fenced \`\`\`json block of shape {"message": string, "proposals": [{"type":"createDecision","decision":{"name": string,"dimensions": [...],"options": [...],"scores": [...]}}]}.
-  - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (numeric objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg; genre is objective with unit "genre" and no direction).
+  - "dimensions" entries: {"name","kind":"objective"|"subjective","direction":"higher"|"lower" (numeric objective only),"importance":1-5,"unit"?}. Guess sensible kinds/directions/units from what they said (a weight is objective, lower-is-better, in g or kg; genre is objective with unit "genre" and no direction; reliability / feel / snow performance are subjective with no unit — never unit:"rating").
   - "options" entries: {"name","notes"?}. For places, name is the place name; notes are the one-sentence blurb only.
   - "scores" entries: {"option":"<option name>","dimension":"<dimension name>","value": number} or {"option","dimension","labels":["…"]}. Use the same names as above. Exactly one of value or labels — never both. Numeric objective values are raw numbers in the dimension's unit; subjective values are integers 1–5; categorical dimensions (genre, cuisine, brand) use labels only, never a 1–5 rating. Fill every cell you reasonably can — guess when the comparison is implied — and omit a cell rather than inventing a precise fact you cannot support. Partial matrices are OK.
   - Keep the skeleton faithful to what they said — name the decision after the thing being chosen, and include only dimensions and options they mentioned or clearly implied.

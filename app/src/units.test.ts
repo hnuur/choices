@@ -20,9 +20,14 @@ describe('isNumericUnit', () => {
     }
   })
 
-  it('treats a 1–5 style range as the rating scale, not a category', () => {
+  it('treats a 1–5 style range as numeric-unit-shaped (scale maps it to rating)', () => {
     expect(isNumericUnit('1-5')).toBe(true)
     expect(isNumericUnit('1–4')).toBe(true)
+  })
+
+  it('treats the word rating as non-numeric', () => {
+    expect(isNumericUnit('rating')).toBe(false)
+    expect(isNumericUnit('stars')).toBe(false)
   })
 
   it('treats category words as non-numeric', () => {
@@ -35,6 +40,14 @@ describe('isNumericUnit', () => {
 describe('dimensionScale', () => {
   it('maps subjective to the 1–5 rating', () => {
     expect(dimensionScale({ kind: 'subjective', name: 'Sexiness' })).toBe('rating')
+  })
+
+  it('maps objective + unit rating/1-5/stars to rating (Ask AI mistake)', () => {
+    expect(dimensionScale({ kind: 'objective', name: 'Reliability', unit: 'rating' })).toBe('rating')
+    expect(dimensionScale({ kind: 'objective', name: 'Snow Performance', unit: 'stars' })).toBe(
+      'rating',
+    )
+    expect(dimensionScale({ kind: 'objective', name: 'Feel', unit: '1-5' })).toBe('rating')
   })
 
   it('maps objective + numeric/empty unit to numeric', () => {

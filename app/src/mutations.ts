@@ -63,6 +63,10 @@ function dimensionFromFields(fields: {
     throw new ValidationError("kind must be 'objective' or 'subjective'")
   }
   const scale = dimensionScale({ kind: 'objective', name, unit })
+  // unit "rating" / "1-5" is a common model mistake for kind: subjective.
+  if (scale === 'rating') {
+    return { name, kind: 'subjective', direction: undefined, importance }
+  }
   if (scale === 'nominal') {
     return { name, kind: 'objective', direction: undefined, importance, unit }
   }
