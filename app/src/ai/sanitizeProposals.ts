@@ -61,15 +61,22 @@ export function sanitizeProposals(proposals: Proposal[], bundle: DecisionBundle)
     }
     const dim = dimensions.get(p.dimensionId)!
     const coerced = coerceSetScore(p, dim)
-    // Nominal with no labels still cannot be approved — drop rather than
-    // disable the whole card for one genre cell the model forgot.
-    if (dimensionScale(dim) === 'nominal' && (!coerced.labels || coerced.labels.length === 0)) {
+    const scale = dimensionScale(dim)
+    // Empty / unusable cells disable the whole Approve button — drop them.
+    if (scale === 'nominal' && (!coerced.labels || coerced.labels.length === 0)) {
+      dropped++
+      continue
+    }
+    if (scale !== 'nominal' && (coerced.value === undefined || !Number.isFinite(coerced.value))) {
       dropped++
       continue
     }
     if (
-      dimensionScale(dim) !== 'nominal' &&
-      (coerced.value === undefined || !Number.isFinite(coerced.value))
+      scale === 'rating' &&
+      (coerced.value === undefined ||
+        !Number.isInteger(coerced.value) ||
+        coerced.value < 1 ||
+        coerced.value > 5)
     ) {
       dropped++
       continue
