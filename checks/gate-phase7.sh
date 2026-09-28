@@ -82,7 +82,8 @@ ok "skeleton creation transactional and wired through the mutation layer"
 # NT9: recorder + sheet wiring present (each guard would pass vacuously
 # otherwise, so the wiring itself is asserted)
 grep -q 'MediaRecorder' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks MediaRecorder capture"
-grep -q 'isTypeSupported' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks mimeType probing (Safari AAC/mp4)"
+grep -q 'isTypeSupported' "$APP/src/ai/recordingMime.ts" || fail "recording mime probe lacks isTypeSupported (Safari AAC/mp4)"
+grep -q 'pickRecordingMimeType' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet does not use the recording mime probe"
 grep -q 'getUserMedia' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks getUserMedia"
 grep -qi 'https' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the insecure-context message"
 grep -q 'aria-label="Ramble"' "$APP/src/ui/Home.tsx" || fail "home lacks the composer ramble entry"
