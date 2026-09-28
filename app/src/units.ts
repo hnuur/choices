@@ -221,9 +221,22 @@ export function isNumericUnit(unit?: string): boolean {
   const u = foldUnit(unit)
   if (u === '') return true
   if (NUMERIC_UNITS.has(u)) return true
-  // "1-5" / "1–4" is the rating scale, not a category name.
+  // "1-5" / "1–4" is handled as the rating scale in dimensionScale, not here.
   if (/^\d+(\.\d+)?\s*[-–/]\s*\d+(\.\d+)?$/.test(u)) return true
   if (/^[$€£¥₩₹]/.test(unit.trim())) return true
+  return false
+}
+
+/**
+ * Unit words that mean a 1–5 judgement. Models often put unit:"rating" on an
+ * objective dimension instead of kind:"subjective" — treat those as rating.
+ */
+export function isRatingUnit(unit?: string): boolean {
+  if (!unit) return false
+  const u = foldUnit(unit)
+  if (u === 'rating' || u === 'ratings' || u === 'score' || u === 'scores') return true
+  if (u === 'star' || u === 'stars') return true
+  if (/^\d+(\.\d+)?\s*[-–/]\s*\d+(\.\d+)?$/.test(u)) return true
   return false
 }
 
@@ -237,6 +250,8 @@ export function dimensionScale(d: {
   name?: string
 }): DimensionScale {
   if (d.kind === 'subjective') return 'rating'
+  // Objective + unit "rating" / "1-5" / "stars" → 1–5 picker, not label chips.
+  if (isRatingUnit(d.unit)) return 'rating'
   const unit = d.unit?.trim()
   if (unit && !isNumericUnit(unit)) return 'nominal'
   if ((!unit || unit === '') && isNominalName(d.name)) return 'nominal'

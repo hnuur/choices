@@ -41,7 +41,9 @@ describe('score contract', () => {
     expect(prompt).toMatch(/never reuse one option's id/)
     expect(prompt).toMatch(/Exactly one of value or labels/)
     expect(prompt).toMatch(/"nominal"/)
+    expect(prompt).toMatch(/never unit:"rating"/)
     expect(rambleSystemPrompt()).toMatch(/Exactly one of value or labels/)
+    expect(rambleSystemPrompt()).toMatch(/never unit:"rating"/)
   })
 
   it('requires setScore proposals when scoring (every tab gets SCORE FILL HARD RULE)', () => {

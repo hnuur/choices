@@ -25,6 +25,13 @@ export function coerceSetScore(p: SetScoreProposal, dim: Dimension): SetScorePro
       value: p.value,
     }
   }
+  // Model sometimes puts the 1–5 in labels on a rating dim.
+  if (scale === 'rating' && p.labels?.length) {
+    const n = Number(p.labels[0])
+    if (Number.isInteger(n) && n >= 1 && n <= 5) {
+      return { type: 'setScore', optionId: p.optionId, dimensionId: dim.id, value: n }
+    }
+  }
   // Rating with no usable value: default mid so the card is approvable;
   // numeric without a value stays empty for the user to fill.
   if (scale === 'rating') {

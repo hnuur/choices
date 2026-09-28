@@ -51,6 +51,40 @@ describe('coerceSetScore', () => {
     )
     expect(out.value).toBe(3)
   })
+
+  it('reads a 1–5 stuck in labels on a rating dim', () => {
+    const out = coerceSetScore(
+      { type: 'setScore', optionId: 'o1', dimensionId: 'feel', labels: ['4'] },
+      bundle.dimensions[1],
+    )
+    expect(out).toEqual({
+      type: 'setScore',
+      optionId: 'o1',
+      dimensionId: 'feel',
+      value: 4,
+    })
+  })
+
+  it('treats objective + unit rating like a 1–5 scale', () => {
+    const reliability = {
+      id: 'rel',
+      decisionId: 'dec',
+      name: 'Reliability',
+      kind: 'objective' as const,
+      importance: 3,
+      unit: 'rating',
+    }
+    const out = coerceSetScore(
+      { type: 'setScore', optionId: 'o1', dimensionId: 'rel', value: 5 },
+      reliability,
+    )
+    expect(out).toEqual({
+      type: 'setScore',
+      optionId: 'o1',
+      dimensionId: 'rel',
+      value: 5,
+    })
+  })
 })
 
 describe('sanitizeProposals', () => {
