@@ -44,13 +44,44 @@ describe('score contract', () => {
     expect(rambleSystemPrompt()).toMatch(/Exactly one of value or labels/)
   })
 
-  it('requires setScore proposals on the first turn when scoring on the Score tab', () => {
+  it('requires setScore proposals when scoring (every tab gets SCORE FILL HARD RULE)', () => {
     const score = systemPrompt('score')
-    expect(score).toMatch(/SCORE TAB HARD RULE/)
+    expect(score).toMatch(/SCORE FILL HARD RULE/)
     expect(score).toMatch(/Proposing IS the action/)
     expect(score).toMatch(/never wait for "do it"/)
     expect(score).toMatch(/Never answer with prose-only per-option writeups/)
-    expect(systemPrompt('results')).not.toMatch(/SCORE TAB HARD RULE/)
+    expect(score).toMatch(/snapshot\.unscored/)
+    expect(score).toMatch(/open approval card does NOT block/)
+    expect(systemPrompt('options')).toMatch(/SCORE FILL HARD RULE/)
+    expect(systemPrompt('results')).toMatch(/SCORE FILL HARD RULE/)
+  })
+
+  it('lists unscored cells in the snapshot so fill-all can be counted', () => {
+    const bundle: DecisionBundle = {
+      decision: { id: 'dec', name: 'Cars', createdAt: 0, updatedAt: 0 },
+      dimensions: [
+        { id: 'd1', decisionId: 'dec', name: 'Price', kind: 'objective', direction: 'lower', importance: 3, unit: 'USD' },
+        { id: 'd2', decisionId: 'dec', name: 'Feel', kind: 'subjective', importance: 4 },
+      ],
+      options: [
+        { id: 'o1', decisionId: 'dec', name: 'Camry' },
+        { id: 'o2', decisionId: 'dec', name: 'Accord' },
+      ],
+      scores: [{ optionId: 'o1', dimensionId: 'd1', value: 28000 }],
+    }
+    const snap = JSON.parse(decisionSnapshot(bundle)) as {
+      unscored: { optionId: string; dimensionId: string; option: string; dimension: string; scale: string }[]
+      results: { missingCount: number }
+    }
+    expect(snap.unscored).toHaveLength(3)
+    expect(snap.results.missingCount).toBe(3)
+    expect(snap.unscored).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ optionId: 'o1', dimensionId: 'd2', scale: 'rating' }),
+        expect.objectContaining({ optionId: 'o2', dimensionId: 'd1', scale: 'numeric' }),
+        expect.objectContaining({ optionId: 'o2', dimensionId: 'd2', scale: 'rating' }),
+      ]),
+    )
   })
 
   it('lookup-on score tab still ends with setScore proposals in the same reply', () => {

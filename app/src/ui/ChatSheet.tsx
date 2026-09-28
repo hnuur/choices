@@ -174,13 +174,16 @@ export default function ChatSheet({
         ]
       }
       if (e.kind === 'card') {
+        const types = e.proposals.map((p) => p.type).join(', ')
         const status = e.resolved
           ? `The user ${e.resolved} them.`
-          : 'They are waiting on an approval card and are NOT in the scores until the user taps Approve. Do not resend the JSON. If they ask whether the scores were added, tell them to Approve the card.'
+          : e.proposals.length > 0
+            ? `They are still on an open approval card with ${e.proposals.length} row(s) (${types}) — scores are NOT saved until Approve. If they say scores are missing, wrong, or incomplete, send a NEW complete \`\`\`json block that covers every cell they asked for (use snapshot.unscored). That replacement supersedes this card. Only if they ask whether scores already landed, tell them to Approve or Reject first.`
+            : 'They rejected an empty card.'
         return [
           {
             role: 'assistant',
-            content: `I proposed: ${e.proposals.map((p) => p.type).join(', ')}. ${status}`,
+            content: `I proposed: ${types || 'nothing'}. ${status}`,
           },
         ]
       }
@@ -211,6 +214,14 @@ export default function ChatSheet({
         const next = [...prev]
         if (prose) next.push({ id: ++entrySeq, kind: 'assistant', text: prose })
         if (parsed.proposals.length > 0) {
+          // A fresh proposal card supersedes any still-open card so the user
+          // isn't trapped under an incomplete first attempt.
+          for (let i = 0; i < next.length; i++) {
+            const e = next[i]
+            if (e.kind === 'card' && !e.resolved) {
+              next[i] = { ...e, outcomes: [], resolved: 'rejected' }
+            }
+          }
           next.push({ id: ++entrySeq, kind: 'card', proposals: parsed.proposals })
         } else if (!prose && reply.trim()) {
           next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(reply) })
@@ -336,21 +347,21 @@ export default function ChatSheet({
   return (
     <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
       <div
-        className="relative flex shrink-0 items-center gap-2 border-b border-hairline px-4 pb-2"
+        className="relative z-30 flex shrink-0 items-center gap-1 border-b border-hairline bg-bg px-3 pb-2"
         style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
       >
         <button
           type="button"
-          className="min-h-11 rounded-full bg-hover px-3 text-xs font-medium text-ink-2"
+          className="min-h-11 shrink-0 rounded-full bg-hover px-3 text-xs font-medium text-ink-2"
           onClick={onCycleTab}
           title="Tap to switch what the AI is looking at"
         >
           {TABS.find((t) => t.id === tab)?.label} ▾
         </button>
-        <span className="flex-1 text-center text-sm font-semibold text-ink">Ask AI</span>
+        <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-ink">Ask AI</span>
         <button
           type="button"
-          className={`min-h-11 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
+          className={`min-h-11 shrink-0 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
             voice ? 'text-accent-ink' : 'text-ink-4'
           }`}
           onClick={toggleVoice}
@@ -359,7 +370,7 @@ export default function ChatSheet({
         </button>
         <button
           type="button"
-          className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
+          className="min-h-11 shrink-0 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
           onClick={() => setView('settings')}
         >
           Settings
@@ -367,10 +378,10 @@ export default function ChatSheet({
         <button
           type="button"
           aria-label="Close"
-          className="h-11 w-11 rounded-md text-ink-3 hover:bg-hover"
+          className="relative z-40 min-h-11 shrink-0 rounded-md px-3 text-sm font-semibold text-ink-2 hover:bg-hover"
           onClick={() => onStateChange('closed')}
         >
-          ✕
+          Close
         </button>
       </div>
 

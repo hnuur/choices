@@ -8,17 +8,17 @@ import { rankOptions, NEAR_TIE_MARGIN } from '../scoring'
 import type { Tab } from '../ui/tabs'
 import { dimensionScale } from '../units'
 
-const SCORE_FILL_RULE = `SCORE TAB HARD RULE: When the user asks to score, fill, rate, prefill, update, research-and-score, or otherwise set cell values — including on the first message — your reply MUST include a \`\`\`json block with setScore proposals for every cell they asked for (if unspecified: every option × every dimension in the snapshot). Proposing IS the action: never wait for "do it", "apply", "go ahead", or a second turn. Never answer with prose-only per-option writeups, dimension essays, or bullet research summaries — those are unusable; the user approves scores on a card. Keep "message" to one short sentence (e.g. "Proposed scores for all options"); put every value in setScore rows only. If web lookup is on, research first then still finish the same reply with setScore proposals — do not stop at research prose.`
+const SCORE_FILL_RULE = `SCORE FILL HARD RULE: When the user asks to score, fill, rate, prefill, update, research-and-score, cover missing cells, or otherwise set cell values — including on the first message and including follow-ups like "you missed some" — your reply MUST include a \`\`\`json block with setScore proposals. If they asked for all / everything / the whole matrix (or did not narrow the scope), emit exactly one setScore for EVERY entry in snapshot.unscored (count them: if unscored has N items, proposals must contain N setScore rows — no fewer). If they named specific options or dimensions, cover every unscored cell in that subset. Proposing IS the action: never wait for "do it", "apply", "go ahead", or a second turn. Never answer with prose-only per-option writeups, dimension essays, or bullet research summaries — those are unusable; the user approves scores on a card. Keep "message" to one short sentence (e.g. "Proposed scores for all unscored cells"); put every value in setScore rows only. If web lookup is on, research first then still finish the same reply with the full setScore set — do not stop at research prose. An open approval card does NOT block a better replacement — if the user says scores are missing or wrong, send a new complete json block.`
 
 const LEVEL_FOCUS: Record<Tab, string> = {
   dimensions:
-    'The user is on the Dimensions tab: they most likely want to add, refine, split, rebalance (importance) or remove dimensions.',
+    'The user is on the Dimensions tab: they most likely want to add, refine, split, rebalance (importance) or remove dimensions. If they ask to score or fill cells, follow SCORE FILL HARD RULE.',
   options:
-    'The user is on the Options tab: they most likely want to add or remove options, or prefill scores. If they ask to score or prefill scores, respond with setScore proposals in the json block on the first turn — not prose-only ratings.',
+    'The user is on the Options tab: they most likely want to add or remove options, or prefill scores. If they ask to score or prefill scores, follow SCORE FILL HARD RULE — setScore proposals in the json block on the first turn, not prose-only ratings.',
   score:
-    'The user is on the Score tab: they want cells filled. Any request to score, rate, fill, research, or update dimensions must produce setScore proposals immediately — see SCORE TAB HARD RULE below.',
+    'The user is on the Score tab: they want cells filled. Any request to score, rate, fill, research, cover gaps, or update dimensions must produce setScore proposals immediately — see SCORE FILL HARD RULE below.',
   results:
-    'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers.',
+    'The user is on the Results tab: they want explanations of the ranking — answer from the computed results in the snapshot, never invent numbers. If they ask to fill missing scores, follow SCORE FILL HARD RULE.',
 }
 
 // Hard rule for place recommendations — always on (not only under
@@ -31,12 +31,11 @@ const LOOKUP_GUIDANCE = `
 Web lookup is on. When the user asks for an objective fact (price, weight, spec, date), look it up. Omit a cell rather than invent a number you did not find. Subjective 1–5 ratings are judgement, not a web result. When the user asks to research and score, look up what you need then still finish with setScore proposals in the same reply — never stop at a research essay. ${PLACE_LIST_RULE} For place recommendations, never cite per-place websites or Maps links. Other factual sources (articles, specs sheets) may be named once at the end by publication title only — no URLs next to place names. Proposals still use the same JSON contract.`
 
 export function systemPrompt(tab: Tab, webLookup = false): string {
-  const scoreRule = tab === 'score' ? `\n- ${SCORE_FILL_RULE}` : ''
   return `You are the built-in assistant of Choices, a local-first app for choosing between instances of a thing. The user defines dimensions (objective numeric ones carry a raw value + unit + direction; objective categorical ones like genre carry one or more labels; subjective ones are 1–5 ratings), options, and scores; the app ranks options by importance-weighted totals. Categorical cells fill the matrix but do not change the ranking.
 
 ${LEVEL_FOCUS[tab]}
 
-The current decision is attached as JSON. Dimensions and options carry ids — reference those ids, never invent new ones for existing things.
+The current decision is attached as JSON. Dimensions and options carry ids — reference those ids, never invent new ones for existing things. When results.complete is false, snapshot.unscored lists every empty cell (optionId, dimensionId, names, scale) — use that list when filling scores.
 
 Response contract:
 - Suggestions are proposals: when the user asks which dimensions, options or scores to add — or how to refine, split or rebalance them — attach them in the \`\`\`json block on the first turn. Never list suggestions only in prose; the user applies suggestions through approval cards, so a prose-only suggestion is unusable.
@@ -55,7 +54,8 @@ Response contract:
   - "nominal": one or more strings in \`labels\` only (omit value). Never a 1–5 rating for genre or other categories.
   Exactly one of value or labels — never both, never neither. When the user asks to score, emit one setScore per option per dimension they asked for.
 - Keep proposals minimal: only what the user asked for. Importance weights are integers 1–5.
-- ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}${scoreRule}`
+- ${PLACE_LIST_RULE}${webLookup ? LOOKUP_GUIDANCE : ''}
+- ${SCORE_FILL_RULE}`
 }
 
 /** Phase-7 ramble scope: no decision exists yet — the reply may propose one. */
@@ -82,11 +82,31 @@ interface Snapshot {
   dimensions: unknown[]
   options: unknown[]
   scores: { optionId: string; dimensionId: string; value?: number; labels?: string[] }[]
+  /** Empty cells the model must cover when the user asks to fill/score all. */
+  unscored: {
+    optionId: string
+    dimensionId: string
+    option: string
+    dimension: string
+    scale: string
+  }[]
   results?: unknown
 }
 
 export function decisionSnapshot(bundle: DecisionBundle): string {
   const results = rankOptions(bundle.dimensions, bundle.options, bundle.scores)
+  const scored = new Set(bundle.scores.map((s) => `${s.optionId}\0${s.dimensionId}`))
+  const unscored = bundle.options.flatMap((o) =>
+    bundle.dimensions
+      .filter((d) => !scored.has(`${o.id}\0${d.id}`))
+      .map((d) => ({
+        optionId: o.id,
+        dimensionId: d.id,
+        option: o.name,
+        dimension: d.name,
+        scale: dimensionScale(d),
+      })),
+  )
   const snapshot: Snapshot = {
     decision: { id: bundle.decision.id, name: bundle.decision.name },
     dimensions: bundle.dimensions.map((d) => ({
@@ -103,6 +123,7 @@ export function decisionSnapshot(bundle: DecisionBundle): string {
       dimensionId: s.dimensionId,
       ...(s.labels ? { labels: s.labels } : { value: s.value }),
     })),
+    unscored,
   }
   if (results.complete && results.winner) {
     snapshot.results = {
@@ -115,12 +136,16 @@ export function decisionSnapshot(bundle: DecisionBundle): string {
       margin: results.margin === undefined ? null : Number(results.margin.toFixed(4)),
       nearTie: results.margin !== undefined && results.margin <= NEAR_TIE_MARGIN,
       nonDiscriminating: results.nonDiscriminating.map((d) => d.name),
+      complete: true,
+      scoredCells: results.scoredCells,
+      totalCells: results.totalCells,
     }
   } else {
     snapshot.results = {
       complete: false,
       scoredCells: results.scoredCells,
       totalCells: results.totalCells,
+      missingCount: unscored.length,
     }
   }
   return JSON.stringify(snapshot)

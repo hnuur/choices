@@ -292,28 +292,101 @@ export default function ApprovalCard({
 
   const invalid = proposals.some((p) => rowInvalid(p, bundle))
   const invalidCount = proposals.filter((p) => rowInvalid(p, bundle)).length
+  const setScoreCount = proposals.filter((p) => p.type === 'setScore').length
+  const compactScores = setScoreCount >= 6 && setScoreCount === proposals.length
+
+  const approveValid = () => {
+    const valid = proposals.filter((p) => !rowInvalid(p, bundle))
+    onApply(valid)
+  }
 
   return (
-    <div className="rounded-xl border border-hairline bg-surface p-3">
-      <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
-        Proposed changes — edit before approving
-      </p>
-      {dropped > 0 && (
-        <p className="mt-2 text-xs text-amber-300">
-          Dropped {dropped} unusable score {dropped === 1 ? 'row' : 'rows'} (unknown id or empty
-          genre/labels). The rest can be approved.
+    <div className="flex max-h-[min(70vh,36rem)] flex-col overflow-hidden rounded-xl border border-hairline bg-surface">
+      <div className="shrink-0 px-3 pt-3">
+        <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
+          Proposed changes — edit before approving
         </p>
-      )}
-      {invalid && (
-        <p className="mt-2 text-xs text-amber-300">
-          {invalidCount} {invalidCount === 1 ? 'row needs' : 'rows need'} a fix before Approve —
-          or remove {invalidCount === 1 ? 'it' : 'them'}.
-        </p>
-      )}
-      <div className="mt-2 space-y-3">
+        {dropped > 0 && (
+          <p className="mt-2 text-xs text-amber-300">
+            Dropped {dropped} unusable score {dropped === 1 ? 'row' : 'rows'} (unknown id or empty
+            cell). The rest can be approved.
+          </p>
+        )}
+        {invalid && (
+          <p className="mt-2 text-xs text-amber-300">
+            {invalidCount} {invalidCount === 1 ? 'row needs' : 'rows need'} a fix — remove{' '}
+            {invalidCount === 1 ? 'it' : 'them'}, or Approve the valid rows only.
+          </p>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-2">
         {proposals.map((p, i) => {
           const bad = rowInvalid(p, bundle)
           const reason = rowInvalidReason(p, bundle)
+          if (compactScores && p.type === 'setScore') {
+            const opt = bundle.options.find((o) => o.id === p.optionId)
+            const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+            const scale = dim ? dimensionScale(dim) : undefined
+            const summary =
+              scale === 'nominal'
+                ? (p.labels ?? []).join(', ') || '—'
+                : p.value === undefined
+                  ? '—'
+                  : String(p.value)
+            return (
+              <div
+                key={i}
+                className={`flex items-start gap-2 rounded-lg border bg-surface-2 p-2 ${
+                  bad ? 'border-amber-400/40' : 'border-hairline'
+                }`}
+              >
+                <div className="min-w-0 flex-1 py-1.5">
+                  <p className="truncate text-sm font-medium text-ink">{opt?.name ?? 'Option'}</p>
+                  <p className="truncate text-xs text-ink-3">
+                    {dim?.name ?? 'Dimension'}
+                    {dim?.unit ? ` · ${dim.unit}` : ''} · {summary}
+                  </p>
+                  {reason && <p className="mt-1 text-xs text-amber-300">{reason}</p>}
+                </div>
+                {scale === 'rating' && (
+                  <div className="flex shrink-0 gap-0.5">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        className={`h-9 w-8 rounded-md text-xs font-medium ${
+                          p.value === n ? 'bg-accent text-on-accent' : 'bg-hover text-ink-2'
+                        }`}
+                        onClick={() => update(i, { ...p, value: n, labels: undefined })}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {scale === 'numeric' && (
+                  <input
+                    className="h-9 w-20 shrink-0 rounded-md border border-hairline bg-bg px-2 text-sm text-ink"
+                    type="number"
+                    step="any"
+                    value={p.value ?? ''}
+                    onChange={(e) =>
+                      update(i, { ...p, value: Number(e.target.value), labels: undefined })
+                    }
+                  />
+                )}
+                <button
+                  type="button"
+                  aria-label="Remove row"
+                  className="h-11 w-11 shrink-0 rounded-md text-lg text-ink-4 hover:bg-hover"
+                  onClick={() => remove(i)}
+                >
+                  ×
+                </button>
+              </div>
+            )
+          }
           return (
           <div
             key={i}
@@ -468,52 +541,53 @@ export default function ApprovalCard({
         })}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1">
-        <button
-          type="button"
-          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
-          onClick={() =>
-            add({
-              type: 'addDimension',
-              dimension: { name: '', kind: 'subjective', importance: 3 },
-            })
-          }
-        >
-          + dimension
-        </button>
-        <button
-          type="button"
-          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
-          onClick={() => add({ type: 'addOption', option: { name: '' } })}
-        >
-          + option
-        </button>
-        {bundle.dimensions.length > 0 && bundle.options.length > 0 && (
+      <div className="shrink-0 space-y-2 border-t border-hairline bg-surface px-3 py-3">
+        <div className="flex flex-wrap gap-1">
           <button
             type="button"
             className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
             onClick={() =>
               add({
-                type: 'setScore',
-                optionId: bundle.options[0].id,
-                dimensionId: bundle.dimensions[0].id,
-                ...scorePayloadFor(bundle.dimensions[0]),
+                type: 'addDimension',
+                dimension: { name: '', kind: 'subjective', importance: 3 },
               })
             }
           >
-            + score
+            + dimension
           </button>
-        )}
-      </div>
-
-      <div className="mt-3 space-y-2">
+          <button
+            type="button"
+            className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+            onClick={() => add({ type: 'addOption', option: { name: '' } })}
+          >
+            + option
+          </button>
+          {bundle.dimensions.length > 0 && bundle.options.length > 0 && (
+            <button
+              type="button"
+              className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+              onClick={() =>
+                add({
+                  type: 'setScore',
+                  optionId: bundle.options[0].id,
+                  dimensionId: bundle.dimensions[0].id,
+                  ...scorePayloadFor(bundle.dimensions[0]),
+                })
+              }
+            >
+              + score
+            </button>
+          )}
+        </div>
         <button
           type="button"
-          disabled={proposals.length === 0 || invalid}
+          disabled={proposals.length === 0 || (invalid && proposals.every((p) => rowInvalid(p, bundle)))}
           className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
-          onClick={() => onApply(proposals)}
+          onClick={() => (invalid ? approveValid() : onApply(proposals))}
         >
-          Approve{proposals.length > 0 ? ` (${proposals.length})` : ''}
+          {invalid
+            ? `Approve valid (${proposals.length - invalidCount})`
+            : `Approve${proposals.length > 0 ? ` (${proposals.length})` : ''}`}
         </button>
         <button
           type="button"
