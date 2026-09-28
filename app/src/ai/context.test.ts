@@ -52,6 +52,8 @@ describe('score contract', () => {
     expect(score).toMatch(/Never answer with prose-only per-option writeups/)
     expect(score).toMatch(/snapshot\.unscored/)
     expect(score).toMatch(/open approval card does NOT block/)
+    expect(score).toMatch(/snapshot\.unscored is \[\]/)
+    expect(score).toMatch(/Status questions only/)
     expect(systemPrompt('options')).toMatch(/SCORE FILL HARD RULE/)
     expect(systemPrompt('results')).toMatch(/SCORE FILL HARD RULE/)
   })
