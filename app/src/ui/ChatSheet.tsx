@@ -17,6 +17,7 @@ import type { DecisionBundle } from '../queries'
 import AiSettingsPanel from './AiSettingsPanel'
 import ApprovalCard from './ApprovalCard'
 import { micUnavailable, pickRecordingMimeType, resolveRecordingMimeType } from './RambleSheet'
+import SheetShell from './SheetShell'
 import { TABS, type Tab } from './tabs'
 
 const formatElapsed = (s: number) =>
@@ -322,14 +323,13 @@ export default function ChatSheet({
     )
   }
 
-  // h-dvh + overflow-hidden + min-h-0: on iOS, fixed inset-0 can be taller
-  // than the visible viewport, which pushes the compose bar off-screen.
+  // Pin to visualViewport so the iOS keyboard cannot scroll header/compose away.
   if (view === 'settings') {
     return (
-      <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
+      <SheetShell>
         <div
           className="shrink-0 px-4"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}
+          style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
           <button
             type="button"
@@ -340,15 +340,15 @@ export default function ChatSheet({
           </button>
         </div>
         <AiSettingsPanel onDone={() => setView('chat')} />
-      </div>
+      </SheetShell>
     )
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
+    <SheetShell>
       <div
         className="relative z-30 flex shrink-0 items-center gap-1 border-b border-hairline bg-bg px-3 pb-2"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+        style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.75rem))' }}
       >
         <button
           type="button"
@@ -440,7 +440,7 @@ export default function ChatSheet({
       {rec === 'recording' ? (
         <div
           className="flex shrink-0 items-center justify-center gap-4 border-t border-hairline bg-menu px-4 pt-3"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+          style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
         >
           <button
             type="button"
@@ -470,7 +470,7 @@ export default function ChatSheet({
       ) : (
         <form
           className="flex shrink-0 items-center gap-2 border-t border-hairline bg-menu px-4 pt-2"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.5rem)' }}
+          style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
           onSubmit={(e) => {
             e.preventDefault()
             void send()
@@ -500,6 +500,6 @@ export default function ChatSheet({
           </button>
         </form>
       )}
-    </div>
+    </SheetShell>
   )
 }

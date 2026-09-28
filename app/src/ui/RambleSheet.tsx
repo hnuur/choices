@@ -16,6 +16,7 @@ import { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recording
 import { queryDecision } from '../queries'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
+import SheetShell from './SheetShell'
 import SkeletonCard, { type SkeletonOutcome } from './SkeletonCard'
 import { entryTab, type Tab } from './tabs'
 
@@ -302,10 +303,10 @@ export default function RambleSheet({
 
   if (view === 'settings') {
     return (
-      <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
+      <SheetShell>
         <div
           className="shrink-0 px-4"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}
+          style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
           <button
             type="button"
@@ -316,15 +317,15 @@ export default function RambleSheet({
           </button>
         </div>
         <AiSettingsPanel onDone={() => setView('ramble')} />
-      </div>
+      </SheetShell>
     )
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 z-40 flex h-dvh max-h-dvh flex-col overflow-hidden bg-bg">
+    <SheetShell>
       <div
         className="relative flex shrink-0 items-center gap-2 border-b border-hairline px-4 pb-2"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+        style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.75rem))' }}
       >
         <span className="flex-1 text-center text-sm font-semibold text-ink">Ramble</span>
         <button
@@ -447,7 +448,7 @@ export default function RambleSheet({
 
       <div
         className="shrink-0 border-t border-hairline bg-menu px-4 pt-3"
-        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+        style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
       >
         {phase === 'recording' ? (
           <div className="flex items-center justify-center gap-4">
@@ -504,6 +505,6 @@ export default function RambleSheet({
           </form>
         )}
       </div>
-    </div>
+    </SheetShell>
   )
 }
