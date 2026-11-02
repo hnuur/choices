@@ -5,7 +5,7 @@
 // approve the sheet drops to the bar, which carries the status line.
 
 import { useEffect, useRef, useState } from 'react'
-import { applyProposals, type ApplyOutcome } from '../ai/apply'
+import { applyProposals, formatApplyError, summarizeApplyOutcomes, type ApplyOutcome } from '../ai/apply'
 import { decisionSnapshot, systemPrompt } from '../ai/context'
 import { formatPlaceReply } from '../ai/formatPlaceReply'
 import { chat, ProviderError, type ChatMessage } from '../ai/providers'
@@ -76,6 +76,8 @@ export default function ChatSheet({
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const applyingCards = useRef(new Set<number>())
+  const [applyingCard, setApplyingCard] = useState<number | null>(null)
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
   // Mirror so an in-flight reply re-checks the toggle after its await.
   const voiceRef = useRef(voice)
@@ -170,13 +172,15 @@ export default function ChatSheet({
         return [
           {
             role: 'assistant',
-            content: `The app rejected my last reply (${e.text}). I will send a new \`\`\`json block that follows the contract.`,
+            content: `The app reported an error (${e.text}). I must use the decision snapshot and save outcomes to check what persisted, and send valid proposals for any remaining requested changes.`,
           },
         ]
       }
       if (e.kind === 'card') {
         const types = e.proposals.map((p) => p.type).join(', ')
-        const status = e.resolved
+        const status = e.outcomes?.length
+          ? summarizeApplyOutcomes(e.outcomes)
+          : e.resolved
           ? `The user ${e.resolved} them.`
           : e.proposals.length > 0
             ? `They are still on an open approval card with ${e.proposals.length} row(s) (${types}) — scores are NOT saved until Approve. If they say scores are missing, wrong, or incomplete, send a NEW complete \`\`\`json block that covers every cell they asked for (use snapshot.unscored). That replacement supersedes this card. Only if they ask whether scores already landed, tell them to Approve or Reject first.`
@@ -305,14 +309,33 @@ export default function ChatSheet({
   }
 
   const apply = async (cardId: number, proposals: Proposal[]) => {
-    const outcomes = await applyProposals(bundle.decision.id, proposals)
-    setEntries((prev) =>
-      prev.map((e) =>
-        e.kind === 'card' && e.id === cardId ? { ...e, outcomes, resolved: 'applied' } : e,
-      ),
-    )
-    onApplied?.()
-    onStateChange('peek')
+    if (applyingCards.current.has(cardId)) return
+    applyingCards.current.add(cardId)
+    setApplyingCard(cardId)
+    try {
+      const outcomes = await applyProposals(bundle.decision.id, proposals)
+      const failed = outcomes.filter((o) => !o.ok).map((o) => proposals[o.index])
+      const errorId = failed.length > 0 ? ++entrySeq : null
+      const retryId = failed.length > 0 ? ++entrySeq : null
+      setEntries((prev) => {
+        const next: Entry[] = prev.map((e) =>
+          e.kind === 'card' && e.id === cardId ? { ...e, outcomes, resolved: 'applied' } : e,
+        )
+        if (errorId !== null && retryId !== null) {
+          next.push({ id: errorId, kind: 'error', text: 'Some changes could not be saved. Review the errors above, then edit or retry the failed rows below.' })
+          next.push({ id: retryId, kind: 'card', proposals: failed })
+        }
+        return next
+      })
+      if (outcomes.some((o) => o.ok)) onApplied?.()
+      // Keep failed writes visible; only a successful save drops to peek.
+      if (failed.length === 0) onStateChange('peek')
+    } catch (e) {
+      setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'error', text: `Could not save changes: ${formatApplyError(e)}. Try Approve again.` }])
+    } finally {
+      applyingCards.current.delete(cardId)
+      setApplyingCard(null)
+    }
   }
 
   const reject = (cardId: number) => {
@@ -407,6 +430,7 @@ export default function ChatSheet({
               bundle={bundle}
               initial={entry.proposals}
               outcomes={entry.outcomes}
+              applying={applyingCard === entry.id}
               onApply={(proposals) => void apply(entry.id, proposals)}
               onReject={() => reject(entry.id)}
             />

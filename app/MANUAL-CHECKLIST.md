@@ -321,3 +321,25 @@ turn it on. Live lookup items need a model that can search.
       shows "This endpoint cannot look up the web."
 - [ ] Proposed scores still need approve — Reject writes nothing.
 
+## Phone usability regression checks (Phase-6/7 follow-up)
+
+- [ ] Simulate a failed database write while approving AI changes: the
+      sheet stays open, shows the save error, and offers only failed rows
+      for retry. Retrying must not duplicate already-saved options.
+- [ ] After a partial save, ask AI what saved: it receives the actual
+      success/failure counts and errors, rather than being told all applied.
+- [ ] While saving, Approve shows Saving… and cannot be tapped repeatedly.
+- [ ] At 320px width, AI settings provider controls stay at least 44px
+      tall, and Save can be scrolled fully into view above the home indicator.
+- [ ] In an AI proposal with six or more score rows, option/dimension
+      labels remain visible and the five rating buttons each have at least
+      a 44×44px target; no horizontal scrolling is needed.
+- [ ] Clear a numeric score in a normal or compact approval card: the field
+      stays empty and Approve valid rows excludes it instead of saving zero.
+      Clearing a numeric score in the ramble skeleton also leaves it empty.
+- [ ] On iPhone, focusing approval/skeleton selectors and numeric fields
+      does not auto-zoom the page. Pinch zoom remains available.
+- [ ] On a phone in landscape, chat and ramble content clears the notch;
+      long unbroken replies do not force horizontal scrolling. With the
+      keyboard open, the header and compose bar remain visible.
+

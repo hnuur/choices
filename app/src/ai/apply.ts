@@ -26,6 +26,15 @@ export interface ApplyOutcome {
   error?: string
 }
 
+/** Tell the model what persisted, including partial failures. */
+export function summarizeApplyOutcomes(outcomes: ApplyOutcome[]): string {
+  const applied = outcomes.filter((o) => o.ok).length
+  const failed = outcomes.filter((o) => !o.ok)
+  return `${applied} of ${outcomes.length} changes saved.${failed.length > 0
+    ? ` ${failed.length} failed and were NOT saved: ${failed.map((o) => `${o.label}: ${o.error ?? 'unknown error'}`).join('; ')}.`
+    : ''}`
+}
+
 export function describeProposal(p: Proposal): string {
   switch (p.type) {
     case 'addDimension':

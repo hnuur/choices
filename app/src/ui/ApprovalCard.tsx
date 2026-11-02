@@ -23,7 +23,7 @@ const TYPE_LABEL: Record<Proposal['type'], string> = {
 }
 
 const smallSelect =
-  'w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-sm text-ink focus:border-accent focus:outline-none'
+  'min-w-0 w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-base text-ink focus:border-accent focus:outline-none'
 
 function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
   switch (p.type) {
@@ -154,7 +154,7 @@ function SetScoreFields({
             type="number"
             step="any"
             value={p.value ?? ''}
-            onChange={(e) => onChange({ ...p, value: Number(e.target.value), labels: undefined })}
+            onChange={(e) => onChange({ ...p, value: e.target.value === '' ? undefined : Number(e.target.value), labels: undefined })}
           />
           {dim?.unit && <span className="shrink-0 text-sm text-ink-3">{dim.unit}</span>}
         </div>
@@ -242,6 +242,7 @@ export default function ApprovalCard({
   onApply,
   onReject,
   outcomes,
+  applying = false,
 }: {
   bundle: DecisionBundle
   initial: Proposal[]
@@ -249,6 +250,7 @@ export default function ApprovalCard({
   onReject: () => void
   /** Present once applied; the card then renders its result rows. */
   outcomes?: ApplyOutcome[]
+  applying?: boolean
 }) {
   const prepared = sanitizeProposals(initial, bundle)
   const [proposals, setProposals] = useState<Proposal[]>(prepared.proposals)
@@ -337,11 +339,11 @@ export default function ApprovalCard({
             return (
               <div
                 key={i}
-                className={`flex items-start gap-2 rounded-lg border bg-surface-2 p-2 ${
+                className={`flex flex-wrap items-start gap-2 rounded-lg border bg-surface-2 p-2 ${
                   bad ? 'border-amber-400/40' : 'border-hairline'
                 }`}
               >
-                <div className="min-w-0 flex-1 py-1.5">
+                <div className="min-w-0 flex-1 basis-[calc(100%-4rem)] py-1.5">
                   <p className="truncate text-sm font-medium text-ink">{opt?.name ?? 'Option'}</p>
                   <p className="truncate text-xs text-ink-3">
                     {dim?.name ?? 'Dimension'}
@@ -350,12 +352,12 @@ export default function ApprovalCard({
                   {reason && <p className="mt-1 text-xs text-amber-300">{reason}</p>}
                 </div>
                 {scale === 'rating' && (
-                  <div className="flex shrink-0 gap-0.5">
+                  <div className="order-last flex w-full gap-1">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <button
                         key={n}
                         type="button"
-                        className={`h-9 w-8 rounded-md text-xs font-medium ${
+                        className={`h-11 min-w-0 flex-1 rounded-md text-sm font-medium ${
                           p.value === n ? 'bg-accent text-on-accent' : 'bg-hover text-ink-2'
                         }`}
                         onClick={() => update(i, { ...p, value: n, labels: undefined })}
@@ -367,12 +369,12 @@ export default function ApprovalCard({
                 )}
                 {scale === 'numeric' && (
                   <input
-                    className="h-9 w-20 shrink-0 rounded-md border border-hairline bg-bg px-2 text-sm text-ink"
+                    className="order-last h-11 min-w-0 w-full rounded-md border border-hairline bg-bg px-2 text-base text-ink"
                     type="number"
                     step="any"
                     value={p.value ?? ''}
                     onChange={(e) =>
-                      update(i, { ...p, value: Number(e.target.value), labels: undefined })
+                      update(i, { ...p, value: e.target.value === '' ? undefined : Number(e.target.value), labels: undefined })
                     }
                   />
                 )}
@@ -581,11 +583,11 @@ export default function ApprovalCard({
         </div>
         <button
           type="button"
-          disabled={proposals.length === 0 || (invalid && proposals.every((p) => rowInvalid(p, bundle)))}
+          disabled={applying || proposals.length === 0 || (invalid && proposals.every((p) => rowInvalid(p, bundle)))}
           className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
           onClick={() => (invalid ? approveValid() : onApply(proposals))}
         >
-          {invalid
+          {applying ? 'Saving…' : invalid
             ? `Approve valid (${proposals.length - invalidCount})`
             : `Approve${proposals.length > 0 ? ` (${proposals.length})` : ''}`}
         </button>
@@ -593,6 +595,7 @@ export default function ApprovalCard({
           type="button"
           className="w-full rounded-xl py-3 text-sm font-medium text-ink-3 hover:bg-hover"
           onClick={onReject}
+          disabled={applying}
         >
           Reject
         </button>

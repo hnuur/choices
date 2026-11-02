@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import { addDimension, addOption, createDecision, setScore } from '../mutations'
 import { queryDecision } from '../queries'
-import { applyDecisionSkeleton, applyProposals, formatApplyError } from './apply'
+import { applyDecisionSkeleton, applyProposals, formatApplyError, summarizeApplyOutcomes } from './apply'
 import type { Proposal } from './proposals'
 
 beforeEach(async () => {
@@ -150,6 +150,29 @@ describe('applyProposals', () => {
     const bundle = await queryDecision(decision.id)
     expect(bundle!.options).toHaveLength(3)
     expect(bundle!.scores).toHaveLength(2)
+  })
+
+  it('reports partial saves accurately and can retry only the failed rows', async () => {
+    const { decision, weight, sony } = await buildDecision()
+    const proposals: Proposal[] = [
+      { type: 'addOption', option: { name: 'Nikon Zf' } },
+      { type: 'setScore', optionId: sony.id, dimensionId: weight.id, value: 514 },
+    ]
+    const { vi } = await import('vitest')
+    const write = vi.spyOn(db.scores, 'put').mockRejectedValueOnce(new Error('Storage full'))
+    const outcomes = await applyProposals(decision.id, proposals)
+    write.mockRestore()
+
+    expect(outcomes.map((o) => o.ok)).toEqual([true, false])
+    expect(summarizeApplyOutcomes(outcomes)).toContain('1 of 2 changes saved')
+    expect(summarizeApplyOutcomes(outcomes)).toContain('NOT saved: Set score: Storage full')
+    const retry = outcomes.filter((o) => !o.ok).map((o) => proposals[o.index])
+    const retried = await applyProposals(decision.id, retry)
+    expect(retried.every((o) => o.ok)).toBe(true)
+    const bundle = await queryDecision(decision.id)
+    expect(bundle!.options.filter((o) => o.name === 'Nikon Zf')).toHaveLength(1)
+    expect(bundle!.scores).toEqual([{ optionId: sony.id, dimensionId: weight.id, value: 514 }])
+    expect(summarizeApplyOutcomes(retried)).toBe('1 of 1 changes saved.')
   })
 
   it('deletes cascade through the mutation layer', async () => {

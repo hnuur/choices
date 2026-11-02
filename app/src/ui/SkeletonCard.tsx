@@ -12,7 +12,7 @@ import { ImportancePicker, LabelPicker, inputClass } from './bits'
 export type SkeletonOutcome = { error: string }
 
 const smallSelect =
-  'w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-sm text-ink focus:border-accent focus:outline-none'
+  'min-w-0 w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-base text-ink focus:border-accent focus:outline-none'
 
 function dimOf(skeleton: DecisionSkeletonInput, name: string) {
   return skeleton.dimensions.find((d) => d.name.trim().toLowerCase() === name.trim().toLowerCase())
@@ -252,7 +252,7 @@ export default function SkeletonCard({
                       setScore(i, {
                         option: cell.option,
                         dimension: cell.dimension,
-                        value: Number(e.target.value),
+                        value: e.target.value === '' ? undefined : Number(e.target.value),
                       })
                     }
                   />
