@@ -93,6 +93,19 @@ describe('score contract', () => {
     expect(systemPrompt('score', true)).toMatch(/never stop at a research essay/)
   })
 
+  it('includes invalid legacy ratings in the cells AI still needs to fill', () => {
+    const snapshot = JSON.parse(decisionSnapshot({
+      decision: { id: 'dec', name: 'Camera', createdAt: 0, updatedAt: 0 },
+      dimensions: [{ id: 'd', decisionId: 'dec', name: 'Feel', kind: 'objective', unit: 'rating', importance: 3 }],
+      options: [{ id: 'o', decisionId: 'dec', name: 'Sony' }],
+      scores: [{ optionId: 'o', dimensionId: 'd', value: 7 }],
+    }))
+    expect(snapshot.results.complete).toBe(false)
+    expect(snapshot.unscored).toEqual([
+      { optionId: 'o', dimensionId: 'd', option: 'Sony', dimension: 'Feel', scale: 'rating' },
+    ])
+  })
+
   it('labels each snapshot dimension with scale so setScore can match value vs labels', () => {
     const bundle: DecisionBundle = {
       decision: { id: 'dec', name: 'TV night', createdAt: 0, updatedAt: 0 },

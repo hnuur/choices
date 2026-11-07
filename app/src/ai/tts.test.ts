@@ -43,6 +43,34 @@ describe('cleanForSpeech', () => {
 })
 
 describe('speak', () => {
+  it.each([200, 500])('does not restart remote or fallback speech after stopping an in-flight %s response', async (status) => {
+    vi.resetModules()
+    const voice = await import('./tts')
+    const play = vi.fn(async () => {})
+    class FakeAudio {
+      src = ''
+      volume = 1
+      loop = false
+      onended: (() => void) | null = null
+      play = play
+      pause = vi.fn()
+      setAttribute = vi.fn()
+    }
+    const browserSpeak = vi.fn()
+    vi.stubGlobal('Audio', FakeAudio)
+    vi.stubGlobal('speechSynthesis', { speak: browserSpeak, cancel: vi.fn() })
+    vi.stubGlobal('SpeechSynthesisUtterance', class {})
+    let resolve!: (response: Response) => void
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>((done) => { resolve = done })))
+    const pending = voice.speak('hello', settings({ mode: 'openai', apiKey: 'k' }))
+    voice.stopSpeaking()
+    resolve(new Response('audio', { status }))
+    await pending
+    voice.stopSpeaking()
+    expect(play).not.toHaveBeenCalled()
+    expect(browserSpeak).not.toHaveBeenCalled()
+  })
+
   it('posts to /audio/speech on the openai preset', async () => {
     const urls: string[] = []
     vi.stubGlobal(

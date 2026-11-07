@@ -52,8 +52,9 @@ ok "TTS engine with on-device fallback"
 grep -q 'voiceReplies' "$APP/src/ai/settings.ts" || fail "voiceReplies setting missing"
 grep -q 'voiceReplies: true' "$APP/src/ai/settings.ts" || fail "voice replies not on by default"
 grep -q 'saveSettings' "$C" || fail "voice toggle is not persisted"
-grep -q 'speak(spokenText' "$C" || fail "replies are not spoken"
-grep -q "state !== 'full') stopSpeaking()" "$C" || fail "speech does not stop when the sheet drops"
+grep -Eq 'speak\((displayMessage\()?spokenText' "$C" || fail "replies are not spoken"
+sed -n "/if (state !== 'full') {/,/}/p" "$C" | grep -q 'stopSpeaking()' \
+  || fail "speech does not stop when the sheet drops"
 grep -q 'Voice {voice' "$C" || fail "voice toggle missing from the chat header"
 ok "voice toggle + speak-on-reply + stop-on-close wired"
 

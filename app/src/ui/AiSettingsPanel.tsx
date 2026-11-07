@@ -70,7 +70,10 @@ export default function AiSettingsPanel({
     settings.mode === 'anthropic' || settings.mode === 'openai' || settings.mode === 'gemini'
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4">
+    <div
+      className="min-h-0 flex-1 overflow-y-auto px-4"
+      style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 1rem))' }}
+    >
       <h2 className="text-lg font-bold">AI settings</h2>
       <p className="mt-1 rounded-lg bg-hover p-3 text-xs text-ink-2">{disclosureFor(settings)}</p>
 
@@ -81,7 +84,7 @@ export default function AiSettingsPanel({
             key={m.id}
             type="button"
             onClick={() => patch({ mode: m.id })}
-            className={`rounded-lg px-2 py-2.5 text-sm font-medium ${
+            className={`min-h-11 rounded-lg px-2 py-2.5 text-sm font-medium ${
               settings.mode === m.id
                 ? 'bg-accent font-semibold text-on-accent'
                 : 'border border-hairline bg-surface text-ink-2'

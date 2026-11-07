@@ -4,7 +4,7 @@
 // device — disclosed in AI settings, nowhere else.
 
 import type { DecisionBundle } from '../queries'
-import { rankOptions, NEAR_TIE_MARGIN } from '../scoring'
+import { cellIsScored, rankOptions, NEAR_TIE_MARGIN } from '../scoring'
 import type { Tab } from '../ui/tabs'
 import { dimensionScale } from '../units'
 
@@ -100,10 +100,10 @@ interface Snapshot {
 
 export function decisionSnapshot(bundle: DecisionBundle): string {
   const results = rankOptions(bundle.dimensions, bundle.options, bundle.scores)
-  const scored = new Set(bundle.scores.map((s) => `${s.optionId}\0${s.dimensionId}`))
+  const byCell = new Map(bundle.scores.map((s) => [`${s.optionId}\0${s.dimensionId}`, s]))
   const unscored = bundle.options.flatMap((o) =>
     bundle.dimensions
-      .filter((d) => !scored.has(`${o.id}\0${d.id}`))
+      .filter((d) => !cellIsScored(d, byCell.get(`${o.id}\0${d.id}`)))
       .map((d) => ({
         optionId: o.id,
         dimensionId: d.id,

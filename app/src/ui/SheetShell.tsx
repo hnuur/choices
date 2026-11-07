@@ -20,6 +20,8 @@ export default function SheetShell({
     top,
     height: height > 0 ? height : undefined,
     maxHeight: height > 0 ? height : '100dvh',
+    paddingLeft: 'env(safe-area-inset-left)',
+    paddingRight: 'env(safe-area-inset-right)',
     // When the keyboard has scrolled the visual viewport, skip status-bar /
     // home-indicator padding so header + compose still fit.
     ['--sheet-pad-top' as string]: top > 0 || keyboardOpen
@@ -31,7 +33,7 @@ export default function SheetShell({
   }
   return (
     <div
-      className={`fixed inset-x-0 z-40 flex flex-col overflow-hidden bg-bg ${className}`}
+      className={`fixed inset-x-0 z-40 flex flex-col overflow-hidden bg-bg [overflow-wrap:anywhere] ${className}`}
       style={style}
     >
       {children}

@@ -90,7 +90,7 @@ export function FieldError({ message }: { message: string }) {
 }
 
 export const inputClass =
-  'w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none'
+  'min-w-0 w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none'
 
 /** Multi-select: type a new value or pick from the dropdown. */
 export function LabelPicker({

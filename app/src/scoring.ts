@@ -60,7 +60,9 @@ export function cellIsScored(dimension: Dimension, score: Score | undefined): bo
   if (dimensionScale(dimension) === 'nominal') {
     return Array.isArray(score.labels) && score.labels.length > 0
   }
-  return typeof score.value === 'number' && Number.isFinite(score.value)
+  if (typeof score.value !== 'number' || !Number.isFinite(score.value)) return false
+  return dimensionScale(dimension) !== 'rating' ||
+    (Number.isInteger(score.value) && score.value >= 1 && score.value <= 5)
 }
 
 export function rankOptions(
@@ -101,7 +103,7 @@ export function rankOptions(
   for (const d of rankingDims) {
     const raws = options.map((o) => byCell.get(cellKey(o.id, d.id))!.value!)
     const norms =
-      d.kind === 'objective'
+      dimensionScale(d) === 'numeric'
         ? normalizeObjective(raws, d.direction ?? 'higher')
         : raws.map(subjectiveScore)
     normalized.set(d.id, norms)

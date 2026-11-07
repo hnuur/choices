@@ -73,6 +73,25 @@ describe('rankOptions — full-matrix rule', () => {
 })
 
 describe('rankOptions — totals', () => {
+  it('uses the 1–5 formula for legacy objective rating dimensions', () => {
+    const legacy = dim({ id: 'feel', unit: 'rating', direction: 'lower' })
+    const scores: Score[] = [
+      { optionId: 'a', dimensionId: 'feel', value: 3 },
+      { optionId: 'b', dimensionId: 'feel', value: 4 },
+    ]
+    const results = rankOptions([legacy], [opt('a'), opt('b')], scores)
+    expect(results.winner?.option.id).toBe('b')
+    expect(results.ranking.map((r) => r.total)).toEqual([0.75, 0.5])
+  })
+
+  it('rejects out-of-range legacy ratings as incomplete cells', () => {
+    const legacy = dim({ id: 'feel', unit: 'rating' })
+    const results = rankOptions([legacy], [opt('a')], [
+      { optionId: 'a', dimensionId: 'feel', value: 7 },
+    ])
+    expect(results.complete).toBe(false)
+  })
+
   it('computes Σ(importance × score) / Σ(importance) with renormalized weights', () => {
     // d1 importance 1 (objective), d2 importance 5 (subjective): weights sum 6.
     const d1 = dim({ id: 'd1', importance: 1 })
