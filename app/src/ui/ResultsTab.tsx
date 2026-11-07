@@ -11,7 +11,7 @@ import { pct } from './format'
 // (min for lower-better).
 function barFraction(d: Dimension, raw: number, raws: number[]): number {
   const clamp = (x: number) => Math.min(1, Math.max(0, x))
-  if (d.kind === 'subjective') return clamp(raw / 5)
+  if (dimensionScale(d) === 'rating') return clamp(raw / 5)
   if (d.direction === 'lower') {
     const min = Math.min(...raws)
     if (raw === 0) return min === 0 ? 1 : 0

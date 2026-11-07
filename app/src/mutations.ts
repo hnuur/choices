@@ -134,8 +134,10 @@ export async function createDecision(name: string): Promise<Decision> {
 }
 
 export async function renameDecision(id: string, name: string): Promise<void> {
-  await requireDecision(id)
-  await db.decisions.update(id, { name: requireName(name), updatedAt: now() })
+  return db.transaction('rw', [db.decisions], async () => {
+    await requireDecision(id)
+    await db.decisions.update(id, { name: requireName(name), updatedAt: now() })
+  })
 }
 
 function findUniqueByName<T extends { name: string }>(items: T[], name: string): T | undefined {
@@ -248,16 +250,18 @@ export async function addDimension(
   decisionId: string,
   input: DimensionInput,
 ): Promise<Dimension> {
-  await requireDecision(decisionId)
-  const fields = dimensionFromFields(input)
-  const dimension: Dimension = {
-    id: newId(),
-    decisionId,
-    ...fields,
-  }
-  await db.dimensions.put(persistDimension(dimension))
-  await touch(decisionId)
-  return dimension
+  return db.transaction('rw', [db.decisions, db.dimensions], async () => {
+    await requireDecision(decisionId)
+    const fields = dimensionFromFields(input)
+    const dimension: Dimension = {
+      id: newId(),
+      decisionId,
+      ...fields,
+    }
+    await db.dimensions.put(persistDimension(dimension))
+    await touch(decisionId)
+    return dimension
+  })
 }
 
 export interface DimensionPatch {
@@ -276,76 +280,76 @@ export interface DimensionPatch {
  * the same transaction.
  */
 export async function updateDimension(id: string, patch: DimensionPatch): Promise<void> {
-  const dimension = await db.dimensions.get(id)
-  if (!dimension) throw new ValidationError(`dimension ${id} does not exist`)
-  // null clears (the JSON-safe form, used by AI patches); an explicit
-  // undefined value clears too (key present), matching the pre-Phase-6
-  // semantics relied on by the UI forms.
-  const clearsDirection = patch.direction === null || ('direction' in patch && patch.direction === undefined)
-  const clearsUnit = patch.unit === null || ('unit' in patch && patch.unit === undefined)
-  const merged: Dimension = {
-    ...dimension,
-    ...patch,
-    direction: clearsDirection ? undefined : patch.direction ?? dimension.direction,
-    unit: clearsUnit ? undefined : patch.unit ?? dimension.unit,
-  }
-  const fields = dimensionFromFields(merged)
-  const next: Dimension = { ...dimension, ...fields }
-  const scaleChanged = dimensionScale(dimension) !== dimensionScale(next)
-  await db.transaction('rw', db.dimensions, db.scores, async () => {
+  return db.transaction('rw', [db.decisions, db.dimensions, db.scores], async () => {
+    const dimension = await db.dimensions.get(id)
+    if (!dimension) throw new ValidationError(`dimension ${id} does not exist`)
+    // null clears (the JSON-safe form, used by AI patches); an explicit
+    // undefined value clears too (key present), matching the pre-Phase-6
+    // semantics relied on by the UI forms.
+    const clearsDirection = patch.direction === null || ('direction' in patch && patch.direction === undefined)
+    const clearsUnit = patch.unit === null || ('unit' in patch && patch.unit === undefined)
+    const merged: Dimension = {
+      ...dimension,
+      ...patch,
+      direction: clearsDirection ? undefined : patch.direction ?? dimension.direction,
+      unit: clearsUnit ? undefined : patch.unit ?? dimension.unit,
+    }
+    const fields = dimensionFromFields(merged)
+    const next: Dimension = { ...dimension, ...fields }
+    const scaleChanged = dimensionScale(dimension) !== dimensionScale(next)
     if (scaleChanged) {
       await db.scores.where('dimensionId').equals(id).delete()
     }
     await db.dimensions.put(persistDimension(next))
+    await touch(dimension.decisionId)
   })
-  await touch(dimension.decisionId)
 }
 
 /** Deleting a dimension deletes its scores, in one transaction. */
 export async function deleteDimension(id: string): Promise<void> {
-  const dimension = await db.dimensions.get(id)
-  if (!dimension) throw new ValidationError(`dimension ${id} does not exist`)
-  await db.transaction('rw', db.dimensions, db.scores, async () => {
+  return db.transaction('rw', [db.decisions, db.dimensions, db.scores], async () => {
+    const dimension = await db.dimensions.get(id)
+    if (!dimension) throw new ValidationError(`dimension ${id} does not exist`)
     await db.scores.where('dimensionId').equals(id).delete()
     await db.dimensions.delete(id)
+    await touch(dimension.decisionId)
   })
-  await touch(dimension.decisionId)
 }
 
 // --- options ---------------------------------------------------------------
 
 export async function addOption(decisionId: string, input: OptionInput): Promise<Option> {
-  await requireDecision(decisionId)
-  const option = persistOption({
-    id: newId(),
-    decisionId,
-    name: requireName(input.name),
-    notes: input.notes,
-  })
-  await db.transaction('rw', db.options, db.decisions, async () => {
+  return db.transaction('rw', [db.decisions, db.options], async () => {
+    await requireDecision(decisionId)
+    const option = persistOption({
+      id: newId(),
+      decisionId,
+      name: requireName(input.name),
+      notes: input.notes,
+    })
     await db.options.put(option)
     await db.decisions.update(decisionId, { updatedAt: now() })
+    return option
   })
-  return option
 }
 
 export async function updateOption(
   id: string,
   patch: { name?: string; notes?: string },
 ): Promise<void> {
-  const option = await db.options.get(id)
-  if (!option) throw new ValidationError(`option ${id} does not exist`)
-  const next: Option = {
-    id: option.id,
-    decisionId: option.decisionId,
-    name: patch.name !== undefined ? requireName(patch.name) : option.name,
-  }
-  if ('notes' in patch) {
-    if (patch.notes) next.notes = patch.notes
-  } else if (option.notes) {
-    next.notes = option.notes
-  }
-  await db.transaction('rw', db.options, db.decisions, async () => {
+  return db.transaction('rw', [db.decisions, db.options], async () => {
+    const option = await db.options.get(id)
+    if (!option) throw new ValidationError(`option ${id} does not exist`)
+    const next: Option = {
+      id: option.id,
+      decisionId: option.decisionId,
+      name: patch.name !== undefined ? requireName(patch.name) : option.name,
+    }
+    if ('notes' in patch) {
+      if (patch.notes) next.notes = patch.notes
+    } else if (option.notes) {
+      next.notes = option.notes
+    }
     await db.options.put(persistOption(next))
     await db.decisions.update(option.decisionId, { updatedAt: now() })
   })
@@ -353,13 +357,13 @@ export async function updateOption(
 
 /** Deleting an option deletes its scores, in one transaction. */
 export async function deleteOption(id: string): Promise<void> {
-  const option = await db.options.get(id)
-  if (!option) throw new ValidationError(`option ${id} does not exist`)
-  await db.transaction('rw', db.options, db.scores, async () => {
+  return db.transaction('rw', [db.decisions, db.options, db.scores], async () => {
+    const option = await db.options.get(id)
+    if (!option) throw new ValidationError(`option ${id} does not exist`)
     await db.scores.where('optionId').equals(id).delete()
     await db.options.delete(id)
+    await touch(option.decisionId)
   })
-  await touch(option.decisionId)
 }
 
 // --- scores ---------------------------------------------------------------
@@ -369,43 +373,47 @@ export async function setScore(
   dimensionId: string,
   valueOrLabels: number | string[],
 ): Promise<void> {
-  const [option, dimension] = await Promise.all([
-    db.options.get(optionId),
-    db.dimensions.get(dimensionId),
-  ])
-  if (!option) throw new ValidationError(`option ${optionId} does not exist`)
-  if (!dimension) throw new ValidationError(`dimension ${dimensionId} does not exist`)
-  if (option.decisionId !== dimension.decisionId) {
-    throw new ValidationError('option and dimension belong to different decisions')
-  }
-  const scale = dimensionScale(dimension)
-  let score: Score
-  if (scale === 'nominal') {
-    if (!Array.isArray(valueOrLabels)) {
-      throw new ValidationError('categorical scores take one or more labels')
+  return db.transaction('rw', [db.decisions, db.options, db.dimensions, db.scores], async () => {
+    const [option, dimension] = await Promise.all([
+      db.options.get(optionId),
+      db.dimensions.get(dimensionId),
+    ])
+    if (!option) throw new ValidationError(`option ${optionId} does not exist`)
+    if (!dimension) throw new ValidationError(`dimension ${dimensionId} does not exist`)
+    if (option.decisionId !== dimension.decisionId) {
+      throw new ValidationError('option and dimension belong to different decisions')
     }
-    const labels = normalizeLabels(valueOrLabels)
-    if (labels.length === 0) {
-      throw new ValidationError('categorical scores need at least one label')
+    const scale = dimensionScale(dimension)
+    let score: Score
+    if (scale === 'nominal') {
+      if (!Array.isArray(valueOrLabels)) {
+        throw new ValidationError('categorical scores take one or more labels')
+      }
+      const labels = normalizeLabels(valueOrLabels)
+      if (labels.length === 0) {
+        throw new ValidationError('categorical scores need at least one label')
+      }
+      score = { optionId, dimensionId, labels }
+    } else {
+      if (typeof valueOrLabels !== 'number' || !Number.isFinite(valueOrLabels)) {
+        throw new ValidationError('score value must be a finite number')
+      }
+      if (scale === 'rating' && (!Number.isInteger(valueOrLabels) || valueOrLabels < 1 || valueOrLabels > 5)) {
+        throw new ValidationError('subjective scores must be integers 1..5')
+      }
+      score = { optionId, dimensionId, value: valueOrLabels }
     }
-    score = { optionId, dimensionId, labels }
-  } else {
-    if (typeof valueOrLabels !== 'number' || !Number.isFinite(valueOrLabels)) {
-      throw new ValidationError('score value must be a finite number')
-    }
-    if (scale === 'rating' && (!Number.isInteger(valueOrLabels) || valueOrLabels < 1 || valueOrLabels > 5)) {
-      throw new ValidationError('subjective scores must be integers 1..5')
-    }
-    score = { optionId, dimensionId, value: valueOrLabels }
-  }
-  await db.scores.put(score)
-  await touch(option.decisionId)
+    await db.scores.put(score)
+    await touch(option.decisionId)
+  })
 }
 
 export async function clearScore(optionId: string, dimensionId: string): Promise<void> {
-  const option = await db.options.get(optionId)
-  await db.scores.delete([optionId, dimensionId])
-  if (option) await touch(option.decisionId)
+  return db.transaction('rw', [db.decisions, db.options, db.scores], async () => {
+    const option = await db.options.get(optionId)
+    await db.scores.delete([optionId, dimensionId])
+    if (option) await touch(option.decisionId)
+  })
 }
 
 // --- backup (JSON export/import) ---------------------------------------------------------------

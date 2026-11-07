@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from './db'
 import {
   addDimension,
@@ -65,6 +65,34 @@ describe('options', () => {
 })
 
 describe('decisions', () => {
+  it.each(['addDimension', 'updateDimension', 'deleteDimension', 'deleteOption', 'setScore', 'clearScore'] as const)(
+    '%s rolls back if updating the decision timestamp fails', async (operation) => {
+      const { decision, weight, sony } = await buildDecision()
+      await setScore(sony.id, weight.id, 500)
+      const snapshot = async () => ({
+        dimensions: await db.dimensions.toArray(),
+        options: await db.options.toArray(),
+        scores: await db.scores.toArray(),
+      })
+      const before = await snapshot()
+      const update = vi.spyOn(db.decisions, 'update').mockRejectedValueOnce(new Error('Write failed'))
+      const actions = {
+        addDimension: () => addDimension(decision.id, { name: 'Price', kind: 'subjective', importance: 2 }),
+        updateDimension: () => updateDimension(weight.id, { kind: 'subjective', direction: null }),
+        deleteDimension: () => deleteDimension(weight.id),
+        deleteOption: () => deleteOption(sony.id),
+        setScore: () => setScore(sony.id, weight.id, 600),
+        clearScore: () => clearScore(sony.id, weight.id),
+      }
+      try {
+        await expect(actions[operation]()).rejects.toThrow('Write failed')
+      } finally {
+        update.mockRestore()
+      }
+      expect(await snapshot()).toEqual(before)
+    },
+  )
+
   it('creates, renames, rejects empty names', async () => {
     const d = await createDecision('Camera')
     expect(d.id).toBeTruthy()

@@ -252,7 +252,7 @@ Chat with a configured provider, in a mobile-width viewport.
       JSON read aloud.
 - [ ] Apply a card, then ask a follow-up ("did that land?"): the
       assistant answers knowing the proposals were applied; reject
-      another and it knows that too.
+      another and it knows those proposals were rejected.
 - [ ] Multi-turn context: a follow-up can reference an earlier answer
       ("what did you just say?") without re-explaining the decision.
 - [ ] Closing the sheet (✕, or approve dropping it to peek) stops the
@@ -329,6 +329,13 @@ turn it on. Live lookup items need a model that can search.
 - [ ] After a partial save, ask AI what saved: it receives the actual
       success/failure counts and errors, rather than being told all applied.
 - [ ] While saving, Approve shows Saving… and cannot be tapped repeatedly.
+- [ ] Edit a numeric objective dimension into a subjective one and save:
+      the edit succeeds, its old unit/direction disappear, and old scores clear.
+- [ ] A legacy objective dimension with unit rating uses the same totals
+      and result bars as a subjective 1–5 dimension. Invalid legacy ratings
+      remain unscored and are included in the AI snapshot's missing cells.
+- [ ] Close the AI sheet while a remote voice reply is loading: no audio
+      starts afterward, including the on-device fallback if the request fails.
 - [ ] At 320px width, AI settings provider controls stay at least 44px
       tall, and Save can be scrolled fully into view above the home indicator.
 - [ ] In an AI proposal with six or more score rows, option/dimension

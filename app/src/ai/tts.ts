@@ -35,6 +35,8 @@ const SILENCE =
 let player: HTMLAudioElement | null = null
 let currentUrl: string | null = null
 let synthWatch: ReturnType<typeof setInterval> | null = null
+// Closing a sheet or starting a newer reply invalidates pending audio work.
+let speechGeneration = 0
 
 function getPlayer(): HTMLAudioElement | null {
   if (typeof Audio === 'undefined') return null
@@ -72,6 +74,7 @@ export function unlockSpeech(): void {
 }
 
 export function stopSpeaking(): void {
+  speechGeneration++
   clearSynthWatch()
   if (player) {
     player.onended = null
@@ -85,19 +88,22 @@ export function stopSpeaking(): void {
   if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel()
 }
 
-async function speakRemote(baseUrl: string, apiKey: string, text: string): Promise<boolean> {
+async function speakRemote(baseUrl: string, apiKey: string, text: string, generation: number): Promise<boolean> {
   const res = await fetch(`${baseUrl.replace(/\/+$/, '')}/audio/speech`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({ model: 'tts-1', voice: 'alloy', input: text }),
   })
+  if (generation !== speechGeneration) return true
   const a = getPlayer()
   if (!res.ok || !a) return false
+  const blob = await res.blob()
+  if (generation !== speechGeneration) return true
   if (currentUrl) {
     URL.revokeObjectURL(currentUrl)
     currentUrl = null
   }
-  const url = URL.createObjectURL(await res.blob())
+  const url = URL.createObjectURL(blob)
   currentUrl = url
   a.loop = false
   a.volume = 1
@@ -129,18 +135,20 @@ function speakBrowser(text: string): void {
 export async function speak(text: string, settings: AiSettings): Promise<void> {
   const clean = cleanForSpeech(text)
   if (!clean) return
+  const generation = ++speechGeneration
   try {
     const engine = voiceEngineFor(settings)
     // Keep the gesture-primed player looping until the blob is ready;
     // pausing it first lets iOS drop the audio session during the fetch.
     if (engine === 'openai') {
-      if (await speakRemote('https://api.openai.com/v1', settings.apiKey.trim(), clean)) return
+      if (await speakRemote('https://api.openai.com/v1', settings.apiKey.trim(), clean, generation)) return
     } else if (engine === 'custom') {
-      if (await speakRemote(settings.baseUrl.trim(), settings.apiKey.trim(), clean)) return
+      if (await speakRemote(settings.baseUrl.trim(), settings.apiKey.trim(), clean, generation)) return
     }
   } catch {
     /* network or playback failure — fall through to the on-device voice */
   }
+  if (generation !== speechGeneration) return
   stopSpeaking()
   speakBrowser(clean)
 }

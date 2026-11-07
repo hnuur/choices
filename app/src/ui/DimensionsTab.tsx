@@ -175,7 +175,11 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
               initial={formOf(d)}
               submitLabel="Save"
               onSubmit={async (input) => {
-                await updateDimension(d.id, input)
+                await updateDimension(d.id, {
+                  ...input,
+                  direction: input.direction ?? null,
+                  unit: input.unit ?? null,
+                })
                 setEditing(null)
               }}
               onCancel={() => setEditing(null)}
