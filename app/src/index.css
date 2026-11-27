@@ -33,13 +33,84 @@
   }
 }
 
-/* black-translucent status bar lets the shell run under it when installed;
-   env() is 0 in browsers, so this only bites in standalone display. */
-body {
-  padding-top: env(safe-area-inset-top);
-}
-
 .app-bg {
+  /* Include the standalone status-bar inset within the viewport height. */
+  padding-top: env(safe-area-inset-top);
   background-color: var(--color-bg);
   background-image: radial-gradient(120% 80% at 50% 0%, #14171c, #08090b 60%);
+}
+
+@layer components {
+  .page-content,
+  .sheet-content {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: var(--content-gutter, 1rem);
+    overflow-wrap: anywhere;
+  }
+
+  .page-content {
+    max-width: 28rem;
+    padding-left: max(var(--content-gutter, 1rem), env(safe-area-inset-left));
+    padding-right: max(var(--content-gutter, 1rem), env(safe-area-inset-right));
+  }
+
+  .sheet-content {
+    max-width: 46rem;
+  }
+
+  @media (min-width: 40rem) {
+    .page-content,
+    .sheet-content {
+      --content-gutter: 2rem;
+    }
+
+    .page-content {
+      max-width: 52rem;
+    }
+  }
+
+  @media (min-width: 64rem) {
+    .page-content {
+      max-width: 66rem;
+    }
+  }
+}
+
+@layer components {
+  .conversation-message {
+    max-width: min(100%, 62ch);
+  }
+
+  .conversation-message p {
+    white-space: pre-line;
+  }
+
+  .conversation-message > * + * {
+    margin-block-start: 0.65em;
+  }
+
+  .conversation-message ul,
+  .conversation-message ol {
+    padding-inline-start: 1.4em;
+  }
+
+  .conversation-message ul { list-style: disc; }
+  .conversation-message ol { list-style: decimal; }
+  .conversation-message li + li { margin-block-start: 0.25em; }
+
+  .conversation-message :is(h1, h2, h3, h4, h5, h6) {
+    font-size: 1.05em;
+    font-weight: 700;
+  }
+
+  .conversation-message a {
+    color: var(--color-accent-ink);
+    text-decoration: underline;
+  }
+
+  .conversation-message pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
 }

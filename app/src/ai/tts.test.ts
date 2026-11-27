@@ -43,6 +43,22 @@ describe('cleanForSpeech', () => {
 })
 
 describe('speak', () => {
+  it('waits for guided browser playback to finish before returning', async () => {
+    let utterance: { onend?: () => void } | undefined
+    vi.stubGlobal('SpeechSynthesisUtterance', class {})
+    vi.stubGlobal('speechSynthesis', {
+      speak: (value: typeof utterance) => { utterance = value },
+      cancel: vi.fn(),
+    })
+    const completed = vi.fn()
+    const pending = speak('How would you rate it?', settings({ mode: 'gemini' }), new AbortController().signal)
+    void pending.then(completed)
+    await Promise.resolve()
+    expect(completed).not.toHaveBeenCalled()
+    utterance?.onend?.()
+    await pending
+    expect(completed).toHaveBeenCalledOnce()
+  })
   it.each([200, 500])('does not restart remote or fallback speech after stopping an in-flight %s response', async (status) => {
     vi.resetModules()
     const voice = await import('./tts')

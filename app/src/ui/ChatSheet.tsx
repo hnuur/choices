@@ -5,20 +5,25 @@
 // approve the sheet drops to the bar, which carries the status line.
 
 import { useEffect, useRef, useState } from 'react'
-import { applyProposals, formatApplyError, summarizeApplyOutcomes, type ApplyOutcome } from '../ai/apply'
+import { applyProposals, describeVoiceProposal, formatApplyError, summarizeApplyOutcomes, type ApplyOutcome } from '../ai/apply'
 import { decisionSnapshot, systemPrompt } from '../ai/context'
 import { formatPlaceReply } from '../ai/formatPlaceReply'
 import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError, type Proposal } from '../ai/proposals'
+import { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recordingMime'
+import { sanitizeProposals } from '../ai/sanitizeProposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
-import { supportsStt, transcribe } from '../ai/stt'
+import { recordingUnavailableReason, transcribe } from '../ai/stt'
 import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
-import type { DecisionBundle } from '../queries'
+import { queryDecision, type DecisionBundle } from '../queries'
+import { voiceReviewCommand } from '../ai/voiceCapture'
 import AiSettingsPanel from './AiSettingsPanel'
-import ApprovalCard from './ApprovalCard'
-import { micUnavailable, pickRecordingMimeType, resolveRecordingMimeType } from './RambleSheet'
+import ApprovalCard, { reviewableProposals } from './ApprovalCard'
+import ConversationMessage from './ConversationMessage'
+import HandsFreeControls from './HandsFreeControls'
 import SheetShell from './SheetShell'
 import { TABS, type Tab } from './tabs'
+import { handsFreeUnavailableReason, useHandsFree } from './useHandsFree'
 
 const formatElapsed = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -76,6 +81,9 @@ export default function ChatSheet({
   const [entries, setEntries] = useState<Entry[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const sending = useRef(false)
+  const reviewRef = useRef<(() => Proposal[]) | null>(null)
+  const voicedReview = useRef<{ id: number; changes: string } | null>(null)
   const applyingCards = useRef(new Set<number>())
   const [applyingCard, setApplyingCard] = useState<number | null>(null)
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
@@ -90,10 +98,24 @@ export default function ChatSheet({
   tabRef.current = tab
   const [rec, setRec] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [elapsed, setElapsed] = useState(0)
+  const pendingMic = useRef<AbortController | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const cancelledRef = useRef(false)
   const timerRef = useRef<number | null>(null)
+  const settings = loadSettings()
+  const configured = isConfigured(settings)
+  const recordingReason = configured ? recordingUnavailableReason(settings) : null
+  const canRecord = configured && !recordingReason
+  const handsFreeReason = handsFreeUnavailableReason(recordingReason, configured)
+  const inChat = useRef(false)
+  inChat.current = state === 'full' && view === 'chat'
+  const pendingCard = [...entries].reverse().find((entry) => entry.kind === 'card' && !entry.resolved)
+  const handsFree = useHandsFree(
+    inChat.current && !handsFreeReason,
+    (text, signal) => guidedTurn(text, signal),
+    (signal) => startGuidance(signal),
+  )
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -101,6 +123,8 @@ export default function ChatSheet({
 
   // Spoken replies stop when the sheet drops or unmounts.
   const stopRecorder = () => {
+    pendingMic.current?.abort()
+    pendingMic.current = null
     if (timerRef.current !== null) window.clearInterval(timerRef.current)
     timerRef.current = null
     const recorder = recorderRef.current
@@ -142,8 +166,6 @@ export default function ChatSheet({
 
   if (state !== 'full') return null
 
-  const configured = isConfigured(loadSettings())
-
   const toggleVoice = () => {
     const next = !voice
     setVoice(next)
@@ -152,14 +174,21 @@ export default function ChatSheet({
     else unlockSpeech()
   }
 
-  const send = async (raw?: string) => {
+  const send = async (
+    raw?: string,
+    signal?: AbortSignal,
+    snapshot = bundle,
+    showUser = true,
+  ) => {
     const text = (raw ?? input).trim()
-    if (!text || busy) return
+    if (!text || sending.current || signal?.aborted) return
+    pendingMic.current?.abort()
     if (!configured) {
+      if (raw !== undefined) setInput(text)
       setView('settings')
       return
     }
-    if (voiceRef.current) unlockSpeech()
+    if (!signal && voiceRef.current) unlockSpeech()
     if (raw === undefined) setInput('')
     // Prior turns are forwarded so the assistant keeps context; resolved
     // approval cards join as an assistant turn so it knows what landed.
@@ -182,6 +211,7 @@ export default function ChatSheet({
           ? summarizeApplyOutcomes(e.outcomes)
           : e.resolved
           ? `The user ${e.resolved} them.`
+          : signal ? 'The card is still pending. Continue based on the latest user turn and snapshot.'
           : e.proposals.length > 0
             ? `They are still on an open approval card with ${e.proposals.length} row(s) (${types}) — scores are NOT saved until Approve. If they say scores are missing, wrong, or incomplete, send a NEW complete \`\`\`json block that covers every cell they asked for (use snapshot.unscored). That replacement supersedes this card. Only if they ask whether scores already landed, tell them to Approve or Reject first.`
             : 'They rejected an empty card.'
@@ -194,27 +224,31 @@ export default function ChatSheet({
       }
       return []
     })
-    setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'user', text }])
+    if (showUser) setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'user', text }])
+    sending.current = true
     setBusy(true)
     try {
       const ai = loadSettings()
       const reply = await chat(
         [
-          { role: 'system', content: systemPrompt(tabRef.current, ai.webLookup) },
+          { role: 'system', content: systemPrompt(tabRef.current, ai.webLookup, !!signal) },
           ...history,
           {
             role: 'user',
-            content: `Decision snapshot (JSON):\n${decisionSnapshot(bundle)}\n\n${text}`,
+            content: `Decision snapshot (JSON):\n${decisionSnapshot(snapshot)}\n\n${text}`,
           },
         ],
         ai,
+        signal,
       )
+      if (signal?.aborted) return
       const parsed = parseReply(reply)
       const displayMessage = (raw: string) => formatPlaceReply(raw.trim())
       const hideDump =
         parsed.proposals.length > 0 && /"type"\s*:\s*"setScore"/.test(parsed.message)
       const prose = parsed.message && !hideDump ? displayMessage(parsed.message) : ''
       const spokenText = prose || (parsed.proposals.length === 0 ? displayMessage(reply) : '')
+      const proposalId = ++entrySeq
       setEntries((prev) => {
         const next = [...prev]
         if (prose) next.push({ id: ++entrySeq, kind: 'assistant', text: prose })
@@ -227,14 +261,21 @@ export default function ChatSheet({
               next[i] = { ...e, outcomes: [], resolved: 'rejected' }
             }
           }
-          next.push({ id: ++entrySeq, kind: 'card', proposals: parsed.proposals })
+          next.push({ id: proposalId, kind: 'card', proposals: parsed.proposals })
         } else if (!prose && reply.trim()) {
           next.push({ id: ++entrySeq, kind: 'assistant', text: displayMessage(reply) })
         }
         return next
       })
-      if (voiceRef.current && spokenText) void speak(displayMessage(spokenText), loadSettings())
+      if (signal && parsed.proposals.length) {
+        const prepared = sanitizeProposals(parsed.proposals, snapshot)
+        await readReview(proposalId, reviewableProposals(prepared.proposals, snapshot), signal, snapshot)
+      } else if (inChat.current && (signal || voiceRef.current) && spokenText) {
+        if (signal) await speak(spokenText, loadSettings(), signal)
+        else void speak(spokenText, loadSettings())
+      }
     } catch (e) {
+      if (signal?.aborted) return
       const message =
         e instanceof ProposalParseError
           ? `Couldn't read the suggested changes: ${e.message}`
@@ -242,23 +283,34 @@ export default function ChatSheet({
             ? e.message
             : String(e)
       setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'error', text: message }])
+      if (signal) await speak('I could not finish that request. Try saying it again.', loadSettings(), signal)
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
 
   const startRecording = async () => {
+    if (!canRecord || busy || rec !== 'idle' || pendingMic.current || handsFree.status) return
+    const request = new AbortController()
+    pendingMic.current = request
+    let stream: MediaStream | undefined
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const inputStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream = inputStream
+      if (request.signal.aborted) {
+        inputStream.getTracks().forEach((track) => track.stop())
+        return
+      }
       const mimeType = pickRecordingMimeType()
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      const recorder = new MediaRecorder(inputStream, mimeType ? { mimeType } : undefined)
       chunksRef.current = []
       cancelledRef.current = false
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop())
+        inputStream.getTracks().forEach((t) => t.stop())
         if (timerRef.current !== null) {
           window.clearInterval(timerRef.current)
           timerRef.current = null
@@ -300,11 +352,15 @@ export default function ChatSheet({
       setRec('recording')
       timerRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000)
     } catch (e) {
+      stream?.getTracks().forEach((track) => track.stop())
+      if (request.signal.aborted) return
       const message =
         e instanceof DOMException && e.name === 'NotAllowedError'
           ? 'Microphone permission was denied — allow the mic for this site and try again.'
           : `Could not start the microphone: ${e instanceof Error ? e.message : String(e)}`
       setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'error', text: message }])
+    } finally {
+      if (pendingMic.current === request) pendingMic.current = null
     }
   }
 
@@ -329,7 +385,8 @@ export default function ChatSheet({
       })
       if (outcomes.some((o) => o.ok)) onApplied?.()
       // Keep failed writes visible; only a successful save drops to peek.
-      if (failed.length === 0) onStateChange('peek')
+      if (failed.length === 0 && !handsFree.status) onStateChange('peek')
+      return outcomes
     } catch (e) {
       setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'error', text: `Could not save changes: ${formatApplyError(e)}. Try Approve again.` }])
     } finally {
@@ -346,12 +403,81 @@ export default function ChatSheet({
     )
   }
 
+  async function say(text: string, signal: AbortSignal, display = text) {
+    setEntries((prev) => [...prev, { id: ++entrySeq, kind: 'assistant', text: display }])
+    await speak(text, loadSettings(), signal)
+  }
+
+  async function readReview(id: number, changes: Proposal[], signal: AbortSignal, snapshot = bundle) {
+    voicedReview.current = null
+    if (changes.length === 0) {
+      await say('There are no valid changes to save. Tell me what to revise.', signal)
+      return
+    }
+    const rows = changes.map((change) => describeVoiceProposal(change, snapshot))
+    const help = 'Say “save changes” or “discard changes.”'
+    await say(`Proposed changes. ${rows.join('. ')}. ${help}`, signal,
+      `**Proposed changes**\n\n${rows.map((row) => `- ${row}`).join('\n')}\n\n${help}`)
+    if (!signal.aborted) voicedReview.current = { id, changes: JSON.stringify(changes) }
+  }
+
+  async function startGuidance(signal: AbortSignal) {
+    voicedReview.current = null
+    if (pendingCard) {
+      await readReview(pendingCard.id, reviewRef.current?.() ?? [], signal)
+    } else if (entries.some((entry) => entry.kind === 'assistant')) {
+      await say('Hands-free is on. You can answer the last question or tell me what to work on.', signal)
+    } else {
+      await send('Start guiding me through this choice. Ask one question based on the current decision.', signal, bundle, false)
+    }
+  }
+
+  async function guidedTurn(text: string, signal: AbortSignal) {
+    const command = voiceReviewCommand(text)
+    if (!command) {
+      await send(text, signal)
+      return
+    }
+    if (!pendingCard) {
+      await say('There are no pending changes. Tell me what you’d like to change or discuss.', signal)
+      return
+    }
+    const changes = reviewRef.current?.() ?? []
+    if (command === 'save' && (
+      voicedReview.current?.id !== pendingCard.id || voicedReview.current.changes !== JSON.stringify(changes)
+    )) {
+      await readReview(pendingCard.id, changes, signal)
+      return
+    }
+
+    voicedReview.current = null
+    let result = 'The proposed changes were discarded.'
+    if (command === 'save') {
+      if (changes.length === 0) return
+      const outcomes = await apply(pendingCard.id, changes)
+      if (!outcomes) {
+        if (!signal.aborted) await say('I couldn’t save the changes. Review the error and try again.', signal)
+        return
+      }
+      result = summarizeApplyOutcomes(outcomes)
+      if (outcomes.some((outcome) => !outcome.ok)) {
+        if (!signal.aborted) await say(`${result} Review the remaining changes before saving again.`, signal)
+        return
+      }
+    } else {
+      reject(pendingCard.id)
+    }
+    if (signal.aborted) return
+    const updated = await queryDecision(bundle.decision.id)
+    if (updated) await send(`${result} Continue the walkthrough from the updated decision.`, signal, updated, false)
+  }
+
   // Pin to visualViewport so the iOS keyboard cannot scroll header/compose away.
   if (view === 'settings') {
     return (
-      <SheetShell>
+      <SheetShell label="AI settings" onClose={() => setView('chat')}>
         <div
-          className="shrink-0 px-4"
+          className="sheet-content shrink-0"
           style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
           <button
@@ -368,47 +494,64 @@ export default function ChatSheet({
   }
 
   return (
-    <SheetShell>
-      <div
-        className="relative z-30 flex shrink-0 items-center gap-1 border-b border-hairline bg-bg px-3 pb-2"
-        style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.75rem))' }}
-      >
-        <button
-          type="button"
-          className="min-h-11 shrink-0 rounded-full bg-hover px-3 text-xs font-medium text-ink-2"
-          onClick={onCycleTab}
-          title="Tap to switch what the AI is looking at"
-        >
-          {TABS.find((t) => t.id === tab)?.label} ▾
-        </button>
-        <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-ink">Ask AI</span>
-        <button
-          type="button"
-          className={`min-h-11 shrink-0 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
-            voice ? 'text-accent-ink' : 'text-ink-4'
-          }`}
-          onClick={toggleVoice}
-        >
-          Voice {voice ? 'on' : 'off'}
-        </button>
-        <button
-          type="button"
-          className="min-h-11 shrink-0 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
-          onClick={() => setView('settings')}
-        >
-          Settings
-        </button>
-        <button
-          type="button"
-          aria-label="Close"
-          className="relative z-40 min-h-11 shrink-0 rounded-md px-3 text-sm font-semibold text-ink-2 hover:bg-hover"
-          onClick={() => onStateChange('closed')}
-        >
-          Close
-        </button>
-      </div>
+    <SheetShell label="Ask AI" onClose={() => onStateChange('closed')}>
+      <header className="shrink-0 border-b border-hairline">
+        <div className="sheet-content flex flex-wrap items-center gap-1 pb-2 pt-[var(--sheet-pad-top)]">
+          <h2 className="mr-auto text-base font-semibold text-ink sm:text-lg">Ask AI</h2>
+          <button
+            type="button"
+            className="min-h-11 shrink-0 rounded-full bg-hover px-3 text-sm font-medium text-ink-2"
+            onClick={onCycleTab}
+            aria-label={`AI context: ${TABS.find((t) => t.id === tab)?.label}. Switch to the next section.`}
+          >
+            {TABS.find((t) => t.id === tab)?.label} ▾
+          </button>
+          <button
+            type="button"
+            aria-pressed={voice || !!handsFree.status}
+            disabled={!!handsFree.status}
+            className={`min-h-11 shrink-0 rounded-md px-2 text-sm font-medium ${
+              voice || handsFree.status ? 'text-accent-ink' : 'text-ink-2'
+            }`}
+            onClick={toggleVoice}
+          >
+            Replies {voice || handsFree.status ? 'on' : 'off'}
+          </button>
+          <button
+            type="button"
+            disabled={rec === 'recording'}
+            className="min-h-11 shrink-0 rounded-md px-2 text-sm font-medium text-ink-2 hover:bg-hover disabled:opacity-40"
+            onClick={() => {
+              handsFree.stop()
+              pendingMic.current?.abort()
+              setView('settings')
+            }}
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            aria-label="Close"
+            className="h-11 w-11 shrink-0 rounded-md text-ink-3 hover:bg-hover"
+            onClick={() => onStateChange('closed')}
+          >
+            ✕
+          </button>
+        </div>
+      </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-label="Conversation"
+        aria-live={handsFree.status ? 'off' : 'polite'}
+        className="sheet-content min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-3"
+      >
+        {configured && entries.length === 0 && rec === 'idle' && (
+          <p className="mt-6 rounded-xl border border-hairline bg-surface p-4 text-sm text-ink-2">
+            Ask about your decision or describe a change you’d like to make.
+          </p>
+        )}
         {!configured && entries.length === 0 && (
           <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
             <p className="text-sm text-ink-2">
@@ -431,22 +574,12 @@ export default function ChatSheet({
               initial={entry.proposals}
               outcomes={entry.outcomes}
               applying={applyingCard === entry.id}
+              reviewRef={entry.id === pendingCard?.id ? reviewRef : undefined}
               onApply={(proposals) => void apply(entry.id, proposals)}
               onReject={() => reject(entry.id)}
             />
           ) : (
-            <div
-              key={entry.id}
-              className={
-                entry.kind === 'user'
-                  ? 'ml-8 rounded-xl bg-accent px-3 py-2 text-sm text-on-accent'
-                  : entry.kind === 'error'
-                    ? 'rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300'
-                    : 'mr-8 rounded-xl bg-surface px-3 py-2 text-sm text-ink-2'
-              }
-            >
-              {entry.text}
-            </div>
+            <ConversationMessage key={entry.id} text={entry.text} kind={entry.kind} />
           ),
         )}
         {rec === 'transcribing' && (
@@ -454,76 +587,87 @@ export default function ChatSheet({
             Transcribing…
           </div>
         )}
-        {busy && (
+        {busy && !handsFree.status && (
           <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
             {loadSettings().webLookup ? 'Looking up…' : 'Thinking…'}
           </div>
         )}
       </div>
 
-      {rec === 'recording' ? (
-        <div
-          className="flex shrink-0 items-center justify-center gap-4 border-t border-hairline bg-menu px-4 pt-3"
-          style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
-        >
-          <button
-            type="button"
-            className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
-            onClick={() => {
-              cancelledRef.current = true
-              recorderRef.current?.stop()
-            }}
-          >
-            Cancel
-          </button>
-          <div className="flex items-center gap-2">
-            <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-            <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
-          </div>
-          <button
-            type="button"
-            className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
-            onClick={() => {
-              if (voiceRef.current) unlockSpeech()
-              recorderRef.current?.stop()
-            }}
-          >
-            Stop
-          </button>
+      <footer className="shrink-0 border-t border-hairline bg-menu">
+        <div className="sheet-content pt-2 pb-[var(--sheet-pad-bottom)]">
+          {rec !== 'recording' && (
+            <HandsFreeControls
+              session={handsFree}
+              unavailable={handsFreeReason}
+              busy={busy || rec !== 'idle' || applyingCard !== null}
+            />
+          )}
+          {rec === 'recording' ? (
+            <div
+              className="flex items-center justify-center gap-4"
+            >
+              <button
+                type="button"
+                className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
+                onClick={() => {
+                  cancelledRef.current = true
+                  recorderRef.current?.stop()
+                }}
+              >
+                Cancel
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+                <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
+              </div>
+              <button
+                type="button"
+                className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
+                onClick={() => {
+                  if (voiceRef.current) unlockSpeech()
+                  recorderRef.current?.stop()
+                }}
+              >
+                Stop
+              </button>
+            </div>
+          ) : (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                handsFree.stop()
+                void send()
+              }}
+            >
+              <button
+                type="button"
+                disabled={!canRecord || busy || rec !== 'idle' || !!handsFree.status}
+                aria-label="Record a ramble"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
+                onClick={() => void startRecording()}
+              >
+                <span className="size-1.5 rounded-full bg-accent" />
+              </button>
+              <input
+                aria-label="Ask AI message"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
+                placeholder={canRecord ? 'Write or speak…' : 'Type a message…'}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={busy || rec !== 'idle' || input.trim() === ''}
+                className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent enabled:hover:bg-accent-ink disabled:opacity-40"
+              >
+                Send
+              </button>
+            </form>
+          )}
         </div>
-      ) : (
-        <form
-          className="flex shrink-0 items-center gap-2 border-t border-hairline bg-menu px-4 pt-2"
-          style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.5rem))' }}
-          onSubmit={(e) => {
-            e.preventDefault()
-            void send()
-          }}
-        >
-          <button
-            type="button"
-            disabled={!configured || !supportsStt(loadSettings()) || micUnavailable() || busy || rec !== 'idle'}
-            aria-label="Record a ramble"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
-            onClick={() => void startRecording()}
-          >
-            <span className="size-1.5 rounded-full bg-accent" />
-          </button>
-          <input
-            className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
-            placeholder={configured ? 'Write or speak…' : 'Set up AI first…'}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button
-            type="submit"
-            disabled={busy || rec !== 'idle' || input.trim() === ''}
-            className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent enabled:hover:bg-accent-ink disabled:opacity-40"
-          >
-            Send
-          </button>
-        </form>
-      )}
+      </footer>
     </SheetShell>
   )
 }

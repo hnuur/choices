@@ -24,6 +24,11 @@ describe('formatPlaceReply', () => {
     expect(formatPlaceReply(plain)).toBe(plain)
   })
 
+  it('preserves bold headings and paragraphs in a guided comparison', () => {
+    const text = '**Current job**\nA predictable schedule.\n\n**New role**\nMore flexibility.'
+    expect(formatPlaceReply(text)).toBe(text)
+  })
+
   it('strips search cards into name — blurb lines', () => {
     const out = formatPlaceReply(MONTREAL_CARD)
     expect(out).toContain('Restaurant Ermitage — Known for its authentic borscht and cozy atmosphere.')

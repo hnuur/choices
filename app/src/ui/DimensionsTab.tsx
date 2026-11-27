@@ -87,7 +87,7 @@ function DimensionForm({
             key={kind}
             type="button"
             onClick={() => patch({ kind })}
-            className={`flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
+            className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
               form.kind === kind
                 ? 'bg-accent font-semibold text-on-accent'
                 : 'bg-hover text-ink-2 hover:bg-white/9'
@@ -106,7 +106,7 @@ function DimensionForm({
                   key={direction}
                   type="button"
                   onClick={() => patch({ direction })}
-                  className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                  className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
                     form.direction === direction
                       ? 'bg-accent font-semibold text-on-accent'
                       : 'bg-hover text-ink-2 hover:bg-white/9'

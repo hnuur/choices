@@ -144,8 +144,8 @@ export default function ScoreTab({ bundle }: { bundle: DecisionBundle }) {
   }
 
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-hairline bg-surface p-3">
+    <div className="grid items-start gap-3 lg:grid-cols-2">
+      <div className="rounded-xl border border-hairline bg-surface p-3 lg:col-span-2">
         <div className="mb-1.5 flex justify-between font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3">
           <span>Score matrix</span>
           <span>

@@ -2,7 +2,7 @@
 // edit fields, remove rows, add rows. Approve applies exactly what is on
 // the card at that moment; reject applies nothing.
 
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import type { ApplyOutcome } from '../ai/apply'
 import type { Proposal } from '../ai/proposals'
 import { coerceSetScore, sanitizeProposals } from '../ai/sanitizeProposals'
@@ -12,10 +12,12 @@ import { dimensionScale, unitPresets } from '../units'
 import { ImportancePicker, LabelPicker, inputClass } from './bits'
 
 const TYPE_LABEL: Record<Proposal['type'], string> = {
+  renameDecision: 'Rename decision',
   addDimension: 'Add dimension',
   updateDimension: 'Update dimension',
   deleteDimension: 'Delete dimension',
   addOption: 'Add option',
+  updateOption: 'Update option',
   deleteOption: 'Delete option',
   setScore: 'Set score',
   // Ramble scope only — decision-bound cards never render this row.
@@ -27,10 +29,22 @@ const smallSelect =
 
 function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
   switch (p.type) {
+    case 'renameDecision':
+      return p.name.trim() === ''
     case 'addDimension':
       return p.dimension.name.trim() === ''
     case 'addOption':
       return p.option.name.trim() === ''
+    case 'updateOption':
+      return !bundle.options.some((option) => option.id === p.id) || p.patch.name?.trim() === ''
+    case 'deleteOption':
+      return !bundle.options.some((option) => option.id === p.id)
+    case 'updateDimension':
+      return !bundle.dimensions.some((dimension) => dimension.id === p.id) || p.patch.name?.trim() === ''
+    case 'deleteDimension':
+      return !bundle.dimensions.some((dimension) => dimension.id === p.id)
+    case 'createDecision':
+      return true
     case 'setScore': {
       if (!bundle.options.some((o) => o.id === p.optionId)) return true
       const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
@@ -44,6 +58,10 @@ function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
     default:
       return false
   }
+}
+
+export function reviewableProposals(proposals: Proposal[], bundle: DecisionBundle) {
+  return proposals.filter((proposal) => !rowInvalid(proposal, bundle))
 }
 
 function rowInvalidReason(p: Proposal, bundle: DecisionBundle): string | null {
@@ -190,7 +208,7 @@ export function DimensionFields({
                   : { ...dimension, kind, direction: undefined, unit: undefined },
               )
             }
-            className={`flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
+            className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
               dimension.kind === kind
                 ? 'bg-accent font-semibold text-on-accent'
                 : 'bg-hover text-ink-2 hover:bg-white/9'
@@ -209,7 +227,7 @@ export function DimensionFields({
                   key={direction}
                   type="button"
                   onClick={() => onChange({ ...dimension, direction })}
-                  className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                  className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
                     dimension.direction === direction
                       ? 'bg-accent font-semibold text-on-accent'
                       : 'bg-hover text-ink-2 hover:bg-white/9'
@@ -243,6 +261,7 @@ export default function ApprovalCard({
   onReject,
   outcomes,
   applying = false,
+  reviewRef,
 }: {
   bundle: DecisionBundle
   initial: Proposal[]
@@ -251,10 +270,13 @@ export default function ApprovalCard({
   /** Present once applied; the card then renders its result rows. */
   outcomes?: ApplyOutcome[]
   applying?: boolean
+  reviewRef?: Ref<() => Proposal[]>
 }) {
-  const prepared = sanitizeProposals(initial, bundle)
-  const [proposals, setProposals] = useState<Proposal[]>(prepared.proposals)
-  const [dropped] = useState(prepared.dropped)
+  const [{ proposals, dropped }, setReview] = useState(() => sanitizeProposals(initial, bundle))
+  const setProposals = (update: (rows: Proposal[]) => Proposal[]) =>
+    setReview((review) => ({ ...review, proposals: update(review.proposals) }))
+  const valid = reviewableProposals(proposals, bundle)
+  useImperativeHandle(reviewRef, () => () => outcomes || applying ? [] : valid)
 
   const update = (index: number, p: Proposal) =>
     setProposals((rows) => rows.map((r, i) => (i === index ? p : r)))
@@ -270,7 +292,7 @@ export default function ApprovalCard({
     const applied = outcomes.filter((o) => o.ok).length
     return (
       <div className="rounded-xl border border-hairline bg-surface p-3">
-        <p className="text-sm font-medium text-ink-2">
+        <p className="text-base font-semibold text-ink">
           {outcomes.length === 0
             ? 'Rejected — nothing changed'
             : applied === outcomes.length
@@ -280,7 +302,7 @@ export default function ApprovalCard({
         {outcomes.length > 0 && (
           <ul className="mt-2 space-y-1">
             {outcomes.map((o) => (
-              <li key={o.index} className="text-xs text-ink-2">
+              <li key={o.index} className="text-sm leading-relaxed text-ink-2">
                 <span className={o.ok ? 'text-accent-ink' : 'text-red-400'}>{o.ok ? '✓' : '✗'}</span>{' '}
                 {o.label}
                 {!o.ok && o.error && <span className="text-red-400"> — {o.error}</span>}
@@ -292,20 +314,15 @@ export default function ApprovalCard({
     )
   }
 
-  const invalid = proposals.some((p) => rowInvalid(p, bundle))
-  const invalidCount = proposals.filter((p) => rowInvalid(p, bundle)).length
+  const invalidCount = proposals.length - valid.length
+  const invalid = invalidCount > 0
   const setScoreCount = proposals.filter((p) => p.type === 'setScore').length
   const compactScores = setScoreCount >= 6 && setScoreCount === proposals.length
-
-  const approveValid = () => {
-    const valid = proposals.filter((p) => !rowInvalid(p, bundle))
-    onApply(valid)
-  }
 
   return (
     <div className="flex max-h-[min(70vh,36rem)] flex-col overflow-hidden rounded-xl border border-hairline bg-surface">
       <div className="shrink-0 px-3 pt-3">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
+        <p className="text-sm font-semibold text-ink">
           Proposed changes — edit before approving
         </p>
         {dropped > 0 && (
@@ -413,6 +430,14 @@ export default function ApprovalCard({
                 onChange={(dimension) => update(i, { ...p, dimension })}
               />
             )}
+            {p.type === 'renameDecision' && (
+              <input
+                className={inputClass}
+                aria-label="New decision name"
+                value={p.name}
+                onChange={(event) => update(i, { ...p, name: event.target.value })}
+              />
+            )}
             {p.type === 'updateDimension' && (
               <div className="space-y-2">
                 <p className="text-xs text-ink-3">“{nameOf.dimension(p.id)}”</p>
@@ -446,7 +471,7 @@ export default function ApprovalCard({
                                     },
                             })
                           }
-                          className={`flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
+                          className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
                             p.patch.kind === kind
                               ? 'bg-accent font-semibold text-on-accent'
                               : 'bg-hover text-ink-2 hover:bg-white/9'
@@ -478,7 +503,7 @@ export default function ApprovalCard({
                       <button
                         type="button"
                         onClick={() => update(i, { ...p, patch: { ...p.patch, direction } })}
-                        className={`flex-1 rounded-md px-2 py-2.5 text-sm ${
+                        className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
                           p.patch.direction === direction
                             ? 'bg-accent font-semibold text-on-accent'
                             : 'bg-hover text-ink-2 hover:bg-white/9'
@@ -529,6 +554,27 @@ export default function ApprovalCard({
                     update(i, { ...p, option: { ...p.option, notes: e.target.value.trim() || undefined } })
                   }
                 />
+              </div>
+            )}
+            {p.type === 'updateOption' && (
+              <div className="space-y-2">
+                <p className="text-sm text-ink-2">“{nameOf.option(p.id)}”</p>
+                {p.patch.name !== undefined && (
+                  <input
+                    className={inputClass}
+                    aria-label="New option name"
+                    value={p.patch.name}
+                    onChange={(event) => update(i, { ...p, patch: { ...p.patch, name: event.target.value } })}
+                  />
+                )}
+                {'notes' in p.patch && (
+                  <textarea
+                    className={inputClass}
+                    aria-label="Option notes"
+                    value={p.patch.notes ?? ''}
+                    onChange={(event) => update(i, { ...p, patch: { ...p.patch, notes: event.target.value || null } })}
+                  />
+                )}
               </div>
             )}
             {p.type === 'deleteOption' && (
@@ -583,9 +629,9 @@ export default function ApprovalCard({
         </div>
         <button
           type="button"
-          disabled={applying || proposals.length === 0 || (invalid && proposals.every((p) => rowInvalid(p, bundle)))}
+          disabled={applying || valid.length === 0}
           className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
-          onClick={() => (invalid ? approveValid() : onApply(proposals))}
+          onClick={() => onApply(valid)}
         >
           {applying ? 'Saving…' : invalid
             ? `Approve valid (${proposals.length - invalidCount})`

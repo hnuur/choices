@@ -34,7 +34,7 @@ export default function InstallHint() {
       </p>
       <button
         type="button"
-        className="shrink-0 text-xs font-medium text-accent-ink"
+        className="min-h-11 shrink-0 px-2 text-xs font-medium text-accent-ink"
         onClick={() => {
           localStorage.setItem(DISMISS_KEY, '1')
           setDismissed(true)

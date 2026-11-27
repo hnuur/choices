@@ -160,15 +160,16 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   }
 
   return (
-    <main className="mx-auto max-w-md px-4 py-6 pb-24">
+    <main className="page-content pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pt-10">
       <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-1.2px]">Choices</h1>
       <p className="mt-1 text-sm text-ink-3">
         Weigh what matters, then decide with the numbers in front of you.
       </p>
 
-      <div className="mt-5 flex items-center gap-2 rounded-2xl border border-hairline bg-surface py-1.5 pl-4 pr-1.5 focus-within:border-accent">
+      <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-surface p-1.5 focus-within:border-accent">
         <input
-          className="min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-4 focus:outline-none"
+          aria-label="What are you deciding?"
+          className="min-h-11 min-w-0 flex-1 basis-30 bg-transparent px-2.5 text-base text-ink placeholder:text-ink-4 focus:outline-none"
           placeholder="What are you deciding?"
           value={name}
           onChange={(e) => {
@@ -176,7 +177,7 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
             if (createError) setCreateError(null)
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') void create()
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void create()
           }}
         />
         <button
@@ -287,7 +288,7 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
               No decisions yet — create one above.
             </p>
           ) : (
-            <ul className="mt-3 space-y-3">
+            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
               {(sort === 'recent'
                 ? data.decisions
                 : [...data.decisions].sort((a, b) => a.name.localeCompare(b.name))

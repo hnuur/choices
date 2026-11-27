@@ -105,7 +105,6 @@ function looksLikePlaceList(text: string): boolean {
   const hits = [
     /utm_source=openai/i.test(text),
     POSTAL_RE.test(text) && STAR_RE.test(text),
-    (text.match(/\*\*[^*]+\*\*/g) ?? []).length >= 2,
     /open now|closed/i.test(text) && /restaurant/i.test(text),
   ].filter(Boolean).length
   if (hits === 0) return false

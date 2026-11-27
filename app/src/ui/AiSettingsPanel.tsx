@@ -105,11 +105,14 @@ export default function AiSettingsPanel({
 
   return (
     <div
-      className="min-h-0 flex-1 overflow-y-auto px-4"
+      className="sheet-content min-h-0 flex-1 overflow-y-auto overscroll-contain"
       style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 1rem))' }}
     >
       <h2 className="text-lg font-bold">AI settings</h2>
       <p className="mt-1 rounded-lg bg-hover p-3 text-xs text-ink-2">{disclosureFor(settings)}</p>
+      <p className="mt-2 text-sm text-ink-2">
+        Hands-free detects pauses on this device and sends completed turns to your speech-to-text provider.
+      </p>
 
       <p className={labelClass + ' mt-4'}>Provider</p>
       <div className="grid grid-cols-2 gap-1">

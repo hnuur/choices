@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { useBodyScrollLock, useVisualViewportBox } from './useVisualViewportBox'
 
 /**
@@ -7,19 +7,25 @@ import { useBodyScrollLock, useVisualViewportBox } from './useVisualViewportBox'
  */
 export default function SheetShell({
   children,
-  className = '',
+  label,
+  onClose,
 }: {
   children: ReactNode
-  className?: string
+  label: string
+  onClose: () => void
 }) {
-  const { top, height } = useVisualViewportBox(true)
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const { top, height, keyboardOpen } = useVisualViewportBox()
   useBodyScrollLock(true)
-  const layoutH = typeof window !== 'undefined' ? window.innerHeight : height
-  const keyboardOpen = height > 0 && layoutH > 0 && height < layoutH - 80
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current!
+    dialog.showModal()
+    return () => dialog.close()
+  }, [])
+
   const style: CSSProperties = {
     top,
-    height: height > 0 ? height : undefined,
-    maxHeight: height > 0 ? height : '100dvh',
+    height: height ?? '100dvh',
     paddingLeft: 'env(safe-area-inset-left)',
     paddingRight: 'env(safe-area-inset-right)',
     // When the keyboard has scrolled the visual viewport, skip status-bar /
@@ -32,11 +38,17 @@ export default function SheetShell({
       : 'calc(env(safe-area-inset-bottom) + 0.5rem)',
   }
   return (
-    <div
-      className={`fixed inset-x-0 z-40 flex flex-col overflow-hidden bg-bg [overflow-wrap:anywhere] ${className}`}
+    <dialog
+      ref={dialogRef}
+      aria-label={label}
+      className="fixed inset-x-0 bottom-auto m-0 w-full max-w-none max-h-none flex-col overflow-hidden bg-bg text-ink open:flex"
+      onCancel={(event) => {
+        event.preventDefault()
+        onClose()
+      }}
       style={style}
     >
       {children}
-    </div>
+    </dialog>
   )
 }

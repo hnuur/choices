@@ -55,7 +55,7 @@ grep -q 'saveSettings' "$C" || fail "voice toggle is not persisted"
 grep -Eq 'speak\((displayMessage\()?spokenText' "$C" || fail "replies are not spoken"
 sed -n "/if (state !== 'full') {/,/}/p" "$C" | grep -q 'stopSpeaking()' \
   || fail "speech does not stop when the sheet drops"
-grep -q 'Voice {voice' "$C" || fail "voice toggle missing from the chat header"
+grep -q 'Replies {voice' "$C" || fail "spoken-replies toggle missing from the chat header"
 ok "voice toggle + speak-on-reply + stop-on-close wired"
 
 # NT6: conversational context — prior turns forwarded, card outcomes included

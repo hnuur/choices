@@ -3,7 +3,7 @@
 // applies exactly what is on the card; Keep chatting leaves it open so the
 // sheet can refine it. Closing the sheet without filling in writes nothing.
 
-import { useState } from 'react'
+import { useImperativeHandle, useState, type Ref } from 'react'
 import type { DecisionSkeletonInput, SkeletonScoreInput } from '../types'
 import { dimensionScale, unitPresets } from '../units'
 import { DimensionFields } from './ApprovalCard'
@@ -24,6 +24,8 @@ export default function SkeletonCard({
   onKeepChatting,
   onChange,
   outcome,
+  reviewRef,
+  applying = false,
 }: {
   initial: DecisionSkeletonInput
   onApply: (skeleton: DecisionSkeletonInput) => void
@@ -31,14 +33,14 @@ export default function SkeletonCard({
   onChange?: (skeleton: DecisionSkeletonInput) => void
   /** Present after a failed apply (the card stays editable then). */
   outcome?: SkeletonOutcome
+  reviewRef?: Ref<() => DecisionSkeletonInput | null>
+  applying?: boolean
 }) {
   const [skeleton, setSkeleton] = useState<DecisionSkeletonInput>(initial)
   const patch = (next: DecisionSkeletonInput | ((s: DecisionSkeletonInput) => DecisionSkeletonInput)) => {
-    setSkeleton((s) => {
-      const resolved = typeof next === 'function' ? next(s) : next
-      onChange?.(resolved)
-      return resolved
-    })
+    const resolved = typeof next === 'function' ? next(skeleton) : next
+    setSkeleton(resolved)
+    onChange?.(resolved)
   }
 
   const scores = skeleton.scores ?? []
@@ -54,6 +56,7 @@ export default function SkeletonCard({
         ),
       }
     })
+
   const setOption = (index: number, option: DecisionSkeletonInput['options'][number]) =>
     patch((s) => {
       const prev = s.options[index]?.name
@@ -82,9 +85,11 @@ export default function SkeletonCard({
       return false
     })
 
+  useImperativeHandle(reviewRef, () => () => invalid || applying ? null : skeleton)
+
   return (
     <div className="rounded-xl border border-hairline bg-surface p-3">
-      <p className="font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
+      <p className="text-sm font-semibold text-ink">
         Proposed decision — edit before filling in
       </p>
 
@@ -317,11 +322,11 @@ export default function SkeletonCard({
       <div className="mt-3 space-y-2">
         <button
           type="button"
-          disabled={invalid}
+          disabled={invalid || applying}
           className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
           onClick={() => onApply(skeleton)}
         >
-          Fill in what you can
+          {applying ? 'Saving…' : 'Fill in what you can'}
         </button>
         <button
           type="button"

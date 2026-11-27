@@ -43,6 +43,26 @@ Locked product decisions (adopted 2026-08-07 with the Phase-2 amendment):
   biases rankings; a progress indicator shows instead. Genuinely unknown
   cells are resolved by deleting the dimension or the option (see Deferred).
 - **Mobile scoring is option-by-option cards**, not a spreadsheet grid.
+- **Device-aware UI follow-up (2026-11-27)**: adapt to available window
+  width, including iPad Split View, without changing the decision flow.
+  Keep single-column cards on compact screens and use the extra room for
+  decision summaries and option cards where they fit side by side. Keep
+  Ramble, Ask AI, and their settings fullscreen, with aligned,
+  readable-width content and controls that account for safe areas and the
+  on-screen keyboard. Both Ramble entry points accept typing on every
+  device. Gate recording inside the sheet by provider and browser
+  capability, with a reason when it is unavailable.
+- **Hands-free voice follow-up (2026-11-27)**: promote the guided voice flow.
+  One tap starts a foreground session in Ramble or Ask AI. With a supported
+  speech-to-text provider, pause detection sends each spoken turn and the
+  microphone waits during processing and spoken replies. Pause, dismissal,
+  settings, or backgrounding ends capture. Ask one question at a time
+  through options, dimensions, weights, scores, and the computed results.
+  The user can rename the current decision and edit options through typed
+  proposal payloads. Read back pending changes and accept explicit spoken
+  approval or rejection through the same review controls. Keep manual
+  recording and typing available. Preserve paragraph and list formatting
+  in the transcript and use readable text sizes and line lengths on iPad.
 - **Objective vs subjective is load-bearing**: objective dimensions carry a
   raw value + unit + direction (higher/lower better); subjective dimensions
   are 1–5 ratings. This split decides what Phase 7 shares (objective facts)
@@ -526,15 +546,9 @@ choices/                         git repo
   cadence.
 - **Purchased AI credits** / payment for relay usage — the relay is
   free-quota only in v1; payment infra is out of scope for a local-first v1.
-- **Guided "drunk mode"** (user idea 2026-08-11): a voice-first guided
-  flow — ramble in, the app walks you through creation → dimensions →
-  options → cell-by-cell scoring one question at a time, speaks its
-  prompts back (Phase 10 voice replies), and the approval card is the
-  sobriety checkpoint with an optional "sleep on it" deferred approval.
-  Voice-in where the provider has no STT: Web Speech API as the
-  no-setup default, relay transcription passthrough by amendment,
-  on-device Whisper (transformers.js) as a stretch. Promote via
-  amendment when scheduled.
+- **Additional voice engines and deferred approval**: Web Speech API,
+  relay or on-device transcription for providers without STT, and an
+  optional "sleep on it" deferred approval remain separate follow-ups.
 - **Preferred-label ranking** for nominal dimensions (user 2026-08-18):
   Genre and similar units record labels and fill the matrix but do not
   move the weighted total. Ranking by overlap with a preferred set, or
