@@ -269,6 +269,9 @@ choices/                         git repo
       install prompt), `apple-mobile-web-app-capable` + status-bar styling,
       `navigator.storage.persist()` on startup (iOS evicts non-persisted
       IndexedDB), precache for full offline; JSON export/import UI.
+      User follow-up (2026-11-27): replace the checkmark artwork with the
+      approved jade branching-path icon across standard, maskable and iOS
+      home-screen assets; retain the source artwork for regeneration.
       **Verify**: `checks/gate-phase5.sh` passes — build clean; checklist:
       offline reload, standalone display, export → wipe → import
       round-trip; doctor exits 0.
