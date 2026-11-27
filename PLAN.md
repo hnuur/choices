@@ -63,6 +63,16 @@ Locked product decisions (adopted 2026-08-07 with the Phase-2 amendment):
   approval or rejection through the same review controls. Keep manual
   recording and typing available. Preserve paragraph and list formatting
   in the transcript and use readable text sizes and line lengths on iPad.
+- **Apple mobile design follow-up (2026-11-27)**: the app follows system
+  light and dark appearance, uses platform typography and jade emphasis,
+  and improves text contrast, focus, tap targets, and field labels across
+  Home, decision sections, Results, AI settings, conversations, and
+  approval forms. Compact layouts use grouped controls and keep actions
+  above safe areas. Wider windows keep a readable content column and
+  present modal tasks in an inset sheet where space permits. This updates
+  the visual choices from Phases 8–12 without changing scoring, storage,
+  or provider behavior. Verify both appearances, compact and wide widths,
+  keyboard access, enlarged text, and the full decision and voice flows.
 - **Objective vs subjective is load-bearing**: objective dimensions carry a
   raw value + unit + direction (higher/lower better); subjective dimensions
   are 1–5 ratings. This split decides what Phase 7 shares (objective facts)
