@@ -339,17 +339,17 @@ async function chatInner(messages: ChatMessage[], settings: AiSettings): Promise
 }
 
 /** Cheap round-trip proving the credential works (settings-screen "Validate"). */
-export async function validateKey(settings: AiSettings): Promise<void> {
+async function fetchModelsPage(settings: AiSettings, cursor?: string): Promise<Response> {
   let res: Response
   switch (settings.mode) {
     case 'anthropic':
-      res = await fetch('https://api.anthropic.com/v1/models', {
-        headers: { 'x-api-key': settings.apiKey.trim(), 'anthropic-version': '2023-06-01' },
+      res = await fetch(`https://api.anthropic.com/v1/models${cursor ? `?after_id=${encodeURIComponent(cursor)}` : ''}`, {
+        headers: { 'x-api-key': settings.apiKey.trim(), 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       })
       break
     case 'gemini':
       res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(settings.apiKey.trim())}`,
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(settings.apiKey.trim())}${cursor ? `&pageToken=${encodeURIComponent(cursor)}` : ''}`,
       )
       break
     case 'openai':
@@ -371,4 +371,64 @@ export async function validateKey(settings: AiSettings): Promise<void> {
       throw new ProviderError('AI is not configured')
   }
   if (!res.ok) throw await errorFrom(res, settings.mode === 'relay' ? 'relay' : settings.mode)
+  return res
+}
+
+export async function validateKey(settings: AiSettings): Promise<void> {
+  await fetchModelsPage(settings)
+}
+
+
+export interface AvailableModel {
+  id: string
+  name: string
+}
+
+/** Native model catalogs validate the key without depending on a guessed model ID. */
+export async function listModels(settings: AiSettings): Promise<AvailableModel[]> {
+  if (settings.mode === 'relay') throw new ProviderError('The relay operator chooses the model.')
+  const models = new Map<string, AvailableModel>()
+  const cursors = new Set<string>()
+  let cursor: string | undefined
+  for (let page = 0; page < 50; page++) {
+    const res = await fetchModelsPage(settings, cursor)
+    const body = await res.json() as {
+      data?: { id?: string; display_name?: string }[]
+      models?: { name?: string; displayName?: string; supportedGenerationMethods?: string[] }[]
+      has_more?: boolean
+      last_id?: string
+      nextPageToken?: string
+    }
+    if (settings.mode === 'gemini') {
+      if (!Array.isArray(body.models)) throw new ProviderError('The provider returned an invalid model list.')
+      for (const model of body.models) {
+        if (!model.supportedGenerationMethods?.includes('generateContent') || typeof model.name !== 'string') continue
+        const id = model.name.replace(/^models\//, '')
+        if (id) models.set(id, { id, name: model.displayName || id })
+      }
+      cursor = body.nextPageToken || undefined
+    } else {
+      if (!Array.isArray(body.data)) throw new ProviderError('The provider returned an invalid model list.')
+      for (const model of body.data) {
+        if (typeof model.id !== 'string' || !model.id) continue
+        // OpenAI's catalog includes embeddings, images, speech and realtime models.
+        if (settings.mode === 'openai' && (
+          !/^(gpt-|chatgpt-|o\d)/.test(model.id) ||
+          /audio|realtime|transcri|tts|image|instruct/.test(model.id)
+        )) continue
+        models.set(model.id, { id: model.id, name: model.display_name || model.id })
+      }
+      cursor = settings.mode === 'anthropic' && body.has_more ? body.last_id : undefined
+      if (settings.mode === 'anthropic' && body.has_more && !cursor) {
+        throw new ProviderError('The provider returned an incomplete model list. Try again.')
+      }
+    }
+    if (!cursor) {
+      if (models.size === 0) throw new ProviderError('No compatible text models are available for this key.')
+      return [...models.values()].sort((a, b) => a.id.localeCompare(b.id))
+    }
+    if (cursors.has(cursor)) throw new ProviderError('The model list could not be completed. Try again.')
+    cursors.add(cursor)
+  }
+  throw new ProviderError('The model list is too long to load. Try again.')
 }

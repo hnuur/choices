@@ -2,10 +2,10 @@
 // presets + custom OpenAI-compatible endpoint + optional relay), keys stay
 // on-device, and this screen is the only disclosure surface.
 
-import { useState } from 'react'
-import { ProviderError, validateKey } from '../ai/providers'
+import { useEffect, useRef, useState } from 'react'
+import { listModels, ProviderError, validateKey, type AvailableModel } from '../ai/providers'
 import {
-  DEFAULT_MODELS,
+  effectiveModel,
   disclosureFor,
   isConfigured,
   loadSettings,
@@ -36,9 +36,17 @@ export default function AiSettingsPanel({
   const [error, setError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const [showKey, setShowKey] = useState(false)
+  const [models, setModels] = useState<AvailableModel[] | null>(null)
+  const requestId = useRef(0)
+  useEffect(() => () => { requestId.current++ }, [])
 
   const patch = (p: Partial<AiSettings>) => {
-    setSettings((s) => ({ ...s, ...p }))
+    if ('mode' in p || 'apiKey' in p || 'baseUrl' in p || 'relayUrl' in p || 'relayToken' in p) {
+      requestId.current++
+      setModels(null)
+      setValidating(false)
+    }
+    setSettings((s) => ({ ...s, ...p, ...('mode' in p && p.mode !== s.mode ? { model: '' } : {}) }))
     setStatus(null)
     setError(null)
   }
@@ -51,18 +59,32 @@ export default function AiSettingsPanel({
   const validate = async () => {
     setError(null)
     setStatus(null)
-    if (!isConfigured(settings)) {
+    if (settings.mode === null || (settings.mode === 'relay' ? !isConfigured(settings) :
+      !settings.apiKey.trim() || (settings.mode === 'custom' && !settings.baseUrl.trim()))) {
       setError('Pick a provider and fill in its fields first.')
       return
     }
+    const request = ++requestId.current
     setValidating(true)
     try {
-      await validateKey(settings)
-      setStatus('Connection OK — the key works.')
+      if (settings.mode === 'relay') {
+        await validateKey(settings)
+        if (request !== requestId.current) return
+        setStatus('Connection OK — the key works.')
+      } else {
+        const available = await listModels(settings)
+        if (request !== requestId.current) return
+        const selected = available.find((m) => m.id === effectiveModel(settings))?.id || ''
+        setModels(available)
+        setSettings((s) => ({ ...s, model: selected }))
+        setStatus(`Key validated · ${available.length} available models.${selected ? '' : ' Choose a model to continue.'}`)
+      }
     } catch (e) {
+      if (request !== requestId.current) return
+      setModels(null)
       setError(e instanceof ProviderError ? e.message : String(e))
     } finally {
-      setValidating(false)
+      if (request === requestId.current) setValidating(false)
     }
   }
 
@@ -117,17 +139,7 @@ export default function AiSettingsPanel({
               </button>
             </div>
           </div>
-          <div>
-            <label className={labelClass}>
-              Model (blank = {DEFAULT_MODELS[settings.mode as 'anthropic' | 'openai' | 'gemini']})
-            </label>
-            <input
-              className={inputClass}
-              placeholder={DEFAULT_MODELS[settings.mode as 'anthropic' | 'openai' | 'gemini']}
-              value={settings.model}
-              onChange={(e) => patch({ model: e.target.value })}
-            />
-          </div>
+
         </div>
       )}
 
@@ -161,15 +173,34 @@ export default function AiSettingsPanel({
               </button>
             </div>
           </div>
-          <div>
-            <label className={labelClass}>Model</label>
-            <input
-              className={inputClass}
-              placeholder="mixtral-8x7b"
-              value={settings.model}
-              onChange={(e) => patch({ model: e.target.value })}
-            />
-          </div>
+
+        </div>
+      )}
+
+      {(isPreset || settings.mode === 'custom') && (
+        <div className="mt-4">
+          <label htmlFor="ai-model" className={labelClass}>Model</label>
+          {settings.mode === 'custom' && models === null ? (
+            <input id="ai-model" className={inputClass} value={settings.model}
+              placeholder="Validate key to load models, or enter a model ID"
+              onChange={(e) => patch({ model: e.target.value })} />
+          ) : (
+            <select id="ai-model" className={inputClass} value={models ? settings.model : ''}
+              disabled={models === null || validating}
+              onChange={(e) => patch({ model: e.target.value })}>
+              <option value="" disabled>{models ? 'Choose an available model' : 'Validate key to load models'}</option>
+              {models?.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name === model.id ? model.id : `${model.name} (${model.id})`}
+                </option>
+              ))}
+            </select>
+          )}
+          <p className="mt-1 text-xs text-ink-3">
+            {models ? 'Models returned by this provider for your key. Choose one, then Save.' :
+              settings.mode === 'custom' ? 'Custom endpoints without model listing can use a manually entered model ID.' :
+              `Validate your API key to see available text models.${settings.model ? ` Saved model: ${settings.model}.` : ''}`}
+          </p>
         </div>
       )}
 
@@ -229,11 +260,12 @@ export default function AiSettingsPanel({
             disabled={validating}
             onClick={() => void validate()}
           >
-            {validating ? 'Checking…' : 'Validate key'}
+            {validating ? 'Loading models…' : 'Validate key'}
           </button>
           <button
             type="button"
             className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+            disabled={validating || (isPreset && models === null) || (models !== null && !models.some((m) => m.id === settings.model))}
             onClick={save}
           >
             Save
