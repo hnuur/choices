@@ -34,17 +34,16 @@ export default function ResultsTab({
 
   if (!results.complete || results.ranking.length === 0) {
     return (
-      <div className="rounded-xl border border-hairline bg-surface p-4">
-        <p className="font-medium">No results yet</p>
-        <p className="mt-1 text-xs text-ink-3">
-          Results appear when every option is scored on every dimension — a partial matrix would
-          silently bias the ranking.
+      <div className="surface-card">
+        <h3 className="section-title">No results yet</h3>
+        <p className="mt-2 max-w-prose text-sm text-ink-2">
+          Score each option on every dimension to see the ranking.
         </p>
         {results.totalCells > 0 && (
           <div className="mt-3">
-            <div className="mb-1 flex justify-between font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-3">
+            <div className="mb-2 text-sm text-ink-3">
               <span>
-                {results.scoredCells}/{results.totalCells} cells scored
+                {results.scoredCells} of {results.totalCells} scored
               </span>
             </div>
             <Progress value={results.scoredCells} total={results.totalCells} />
@@ -52,7 +51,7 @@ export default function ResultsTab({
         )}
         <button
           type="button"
-          className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+          className="primary-action mt-4"
           onClick={onGoScore}
         >
           Go to scoring
@@ -81,23 +80,18 @@ export default function ResultsTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-xl border border-accent/15 bg-accent/8 px-4 py-3">
-        <span className="shrink-0 font-mono text-[11px] font-medium uppercase tracking-[0.14em] text-accent-ink">
-          Winner
+      <div className="surface-card bg-accent-soft">
+        <span className="block text-sm font-semibold text-accent-ink">
+          {results.nearTie ? 'Near tie' : runnerUp ? 'Winner' : 'Only option'}
         </span>
-        <p className="min-w-0 truncate text-[15px] text-ink-2">{winnerLine}</p>
+        <p className="mt-1 text-base font-medium text-ink">{winnerLine}</p>
       </div>
 
-      <div className="rounded-2xl border border-hairline bg-surface p-4">
+      <div className="surface-card">
         <div className="flex items-center gap-2.5">
-          <span className="shrink-0 font-mono text-sm text-ink-4">1</span>
-          <h2 className="min-w-0 flex-1 truncate text-xl font-bold">{first.option.name}</h2>
-          {runnerUp !== undefined && (
-            <span className="shrink-0 rounded-md bg-accent px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] text-on-accent">
-              Win
-            </span>
-          )}
-          <span className="shrink-0 text-xl font-semibold text-accent-ink">
+          <span className="shrink-0 text-sm tabular-nums text-ink-3">1</span>
+          <h3 className="section-title min-w-0 flex-1">{first.option.name}</h3>
+          <span className="shrink-0 text-xl font-semibold tabular-nums text-accent-ink">
             {pct(first.total)}
           </span>
         </div>
@@ -108,7 +102,7 @@ export default function ResultsTab({
             const scale = dimensionScale(d)
             return (
               <div key={d.id}>
-                <div className="flex justify-between gap-3 text-[15px]">
+                <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-sm">
                   <span className="text-ink-2">{d.name}</span>
                   <span className="min-w-0 text-right text-ink-2">
                     {scale === 'nominal'
@@ -120,7 +114,9 @@ export default function ResultsTab({
                 </div>
                 {scale !== 'nominal' && (
                   <div
-                    className="mt-1.5 w-full overflow-hidden rounded-full bg-hairline"
+                    role="img"
+                    aria-label={`${d.name}: ${pct(barFraction(d, cell.raw, rawsByDim.get(d.id)!))} of best value. Importance ${d.importance} of 5.`}
+                    className="mt-1.5 w-full overflow-hidden rounded-full bg-divider"
                     style={{ height: `${1 + d.importance}px` }}
                   >
                     <div
@@ -137,20 +133,20 @@ export default function ResultsTab({
           })}
         </div>
 
-        <p className="mt-4 border-t border-hairline pt-3 font-mono text-[10.5px] uppercase tracking-[0.1em] text-ink-4">
-          Bar = score in dimension · thickness = weight
+        <p className="mt-4 border-t border-divider pt-3 text-xs text-ink-3">
+          Bar length shows the score relative to the best option. Thicker bars indicate more importance.
         </p>
       </div>
 
-      <ol className="space-y-2">
+      <ol aria-label="Other ranked options" className="space-y-2">
         {rest.map((r, i) => (
           <li
             key={r.option.id}
-            className="flex min-h-14 items-center gap-3 rounded-xl border border-hairline bg-surface-2 px-4"
+            className="surface-card flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1"
           >
-            <span className="w-4 shrink-0 font-mono text-sm text-ink-4">{i + 2}</span>
-            <span className="min-w-0 flex-1 truncate font-medium">{r.option.name}</span>
-            <span className="h-[3px] max-w-44 flex-1 overflow-hidden rounded-full bg-hairline">
+            <span className="w-4 shrink-0 text-sm tabular-nums text-ink-3">{i + 2}</span>
+            <span className="min-w-0 flex-1 font-medium">{r.option.name}</span>
+            <span aria-hidden="true" className="hidden h-1 max-w-44 flex-1 overflow-hidden rounded-full bg-divider sm:block">
               <span
                 className="block h-full rounded-full bg-bar-dim"
                 style={{ width: pct(r.total) }}
@@ -162,7 +158,7 @@ export default function ResultsTab({
       </ol>
 
       {results.categorical.length > 0 && (
-        <div className="rounded-xl border border-hairline bg-surface p-3 text-xs text-ink-2">
+        <div className="surface-card text-sm text-ink-2">
           <span className="font-medium text-ink">Recorded, not ranked:</span>{' '}
           {results.categorical.map((d) => d.name).join(', ')} — categories aren't a higher/lower
           scale, so they don't change the total.
@@ -170,7 +166,7 @@ export default function ResultsTab({
       )}
 
       {results.nonDiscriminating.length > 0 && (
-        <div className="rounded-xl border border-hairline bg-surface p-3 text-xs text-ink-2">
+        <div className="surface-card text-sm text-ink-2">
           <span className="font-medium text-ink">Doesn't separate any options:</span>{' '}
           {results.nonDiscriminating.map((d) => d.name).join(', ')} — every option scores equally
           on {results.nonDiscriminating.length === 1 ? 'it' : 'them'}.
@@ -178,14 +174,14 @@ export default function ResultsTab({
       )}
 
       {results.ranking.length > 1 && (
-        <div className="rounded-xl border border-hairline bg-surface p-3">
+        <div className="surface-card">
           <h3 className="text-sm font-medium">How fragile is this?</h3>
           {breakEvens.length === 0 && drops.length === 0 ? (
-            <p className="mt-1 text-xs text-ink-3">
+            <p className="mt-2 max-w-prose text-sm text-ink-2">
               No importance change within 1–5 and no single dropped dimension flips the winner.
             </p>
           ) : (
-            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-ink-2">
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-ink-2">
               {breakEvens.map((p) => {
                 const d = dimensionById.get(p.dimensionId)!
                 return (

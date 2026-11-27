@@ -14,7 +14,7 @@ import {
   type AiMode,
   type AiSettings,
 } from '../ai/settings'
-import { FieldError, inputClass } from './bits'
+import { Field, FieldError, inputClass } from './bits'
 import { APP_BUILD_ID, reloadIfStaleBuild } from '../buildId'
 
 const MODES: { id: AiMode; label: string }[] = [
@@ -25,7 +25,6 @@ const MODES: { id: AiMode; label: string }[] = [
   { id: 'relay', label: 'Relay (free quota)' },
 ]
 
-const labelClass = 'mb-1 block text-xs text-ink-3'
 
 export default function AiSettingsPanel({
   onDone,
@@ -105,207 +104,140 @@ export default function AiSettingsPanel({
 
   return (
     <div
-      className="sheet-content min-h-0 flex-1 overflow-y-auto overscroll-contain"
+      className="sheet-content min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pt-4"
       style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 1rem))' }}
     >
-      <h2 className="text-lg font-bold">AI settings</h2>
-      <p className="mt-1 rounded-lg bg-hover p-3 text-xs text-ink-2">{disclosureFor(settings)}</p>
-      <p className="mt-2 text-sm text-ink-2">
-        Hands-free detects pauses on this device and sends completed turns to your speech-to-text provider.
-      </p>
+      <section className="surface-card space-y-4" aria-labelledby="provider-settings">
+        <h3 id="provider-settings" className="section-title">Provider</h3>
+        <Field label="AI provider">
+          <select className={inputClass} value={settings.mode ?? ''}
+            onChange={(event) => patch({ mode: event.target.value as AiMode })}>
+            <option value="" disabled>Choose a provider</option>
+            {MODES.map((mode) => <option key={mode.id} value={mode.id}>{mode.label}</option>)}
+          </select>
+        </Field>
 
-      <p className={labelClass + ' mt-4'}>Provider</p>
-      <div className="grid grid-cols-2 gap-1">
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            onClick={() => patch({ mode: m.id })}
-            className={`min-h-11 rounded-lg px-2 py-2.5 text-sm font-medium ${
-              settings.mode === m.id
-                ? 'bg-accent font-semibold text-on-accent'
-                : 'border border-hairline bg-surface text-ink-2'
-            }`}
-          >
-            {m.label}
-          </button>
-        ))}
+        <p className="text-sm text-ink-2">{disclosureFor(settings)}</p>
+
+        {settings.mode === 'custom' && (
+          <Field label="Base URL">
+            <input className={inputClass} type="url" autoCapitalize="none"
+              placeholder="https://llm.example.com/v1" value={settings.baseUrl}
+              onChange={(event) => patch({ baseUrl: event.target.value })} />
+          </Field>
+        )}
+
+        {(isPreset || settings.mode === 'custom') && (
+          <>
+            <div>
+              <label className="field-label" htmlFor="ai-key">API key</label>
+              <div className="flex flex-wrap gap-2">
+                <input id="ai-key" className={`${inputClass} flex-1 basis-32`}
+                  type={showKey ? 'text' : 'password'} autoComplete="off" autoCapitalize="none" spellCheck={false}
+                  value={settings.apiKey} onChange={(event) => patch({ apiKey: event.target.value })} />
+                <button type="button" className="secondary-action"
+                  aria-label={showKey ? 'Hide API key' : 'Show API key'}
+                  onClick={() => setShowKey((value) => !value)}>
+                  {showKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="ai-model" className="field-label">Model</label>
+              {settings.mode === 'custom' && models === null ? (
+                <input id="ai-model" className={inputClass} value={settings.model} autoCapitalize="none" spellCheck={false}
+                  placeholder="Enter a model ID" aria-describedby="ai-model-help"
+                  onChange={(event) => patch({ model: event.target.value })} />
+              ) : (
+                <select id="ai-model" className={inputClass} value={models ? settings.model : ''}
+                  disabled={models === null || validating} aria-describedby="ai-model-help"
+                  onChange={(event) => patch({ model: event.target.value })}>
+                  <option value="" disabled>{models ? 'Choose an available model' : 'Validate key to load models'}</option>
+                  {models?.map((model) => (
+                    <option key={model.id} value={model.id}>
+                      {model.name === model.id ? model.id : `${model.name} (${model.id})`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <p id="ai-model-help" className="mt-2 text-sm text-ink-3">
+                {models ? 'Choose a model your provider returned for this key.' :
+                  settings.mode === 'custom' ? 'Validate the key to list models, or enter a model ID.' :
+                  `Validate your API key to see available text models.${settings.model ? ` Saved model: ${settings.model}.` : ''}`}
+              </p>
+            </div>
+          </>
+        )}
+
+        {settings.mode === 'relay' && (
+          <>
+            <Field label="Relay URL">
+              <input className={inputClass} type="url" autoCapitalize="none" value={settings.relayUrl}
+                placeholder="https://relay.example.com" onChange={(event) => patch({ relayUrl: event.target.value })} />
+            </Field>
+            <div>
+              <label className="field-label" htmlFor="relay-device-token">Device token</label>
+              <div className="flex flex-wrap gap-2">
+                <input id="relay-device-token" className={`${inputClass} flex-1 basis-32`} readOnly value={settings.relayToken} />
+                <button type="button" className="secondary-action" onClick={() => patch({ relayToken: newRelayToken() })}>
+                  New token
+                </button>
+              </div>
+              <p className="mt-2 text-sm text-ink-3">Identifies this device for the relay quota.</p>
+            </div>
+          </>
+        )}
+
+      </section>
+
+      {settings.mode && (
+        <section className="surface-card">
+          <label className="flex min-h-11 flex-wrap items-center justify-between gap-3">
+            <span className="font-semibold">Web lookup</span>
+            <input type="checkbox" role="switch" className="settings-switch" checked={settings.webLookup}
+              aria-describedby="web-lookup-help"
+              onChange={(event) => patch({ webLookup: event.target.checked })} />
+          </label>
+          <p id="web-lookup-help" className="text-sm text-ink-2">
+            {settings.mode === 'custom' || settings.mode === 'relay'
+              ? 'Works when this endpoint supports web search.'
+              : 'Lets Ask AI and Ramble look up objective facts.'}
+          </p>
+        </section>
+      )}
+
+      <div>
+        {settings.mode && (
+          <div className="flex flex-wrap gap-2 border-t border-divider pt-3">
+            <button type="button" className="secondary-action" disabled={validating} onClick={() => void validate()}>
+              {validating ? 'Loading models…' : 'Validate key'}
+            </button>
+            <button type="button" className="primary-action"
+              disabled={validating || (isPreset && models === null) || (models !== null && !models.some((m) => m.id === settings.model))}
+              onClick={save}>
+              Save
+            </button>
+          </div>
+        )}
+        {error && <FieldError message={error} />}
+        {status && <p role="status" className="text-sm text-accent-ink">{status}</p>}
       </div>
 
-      {isPreset && (
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className={labelClass}>API key (stored on this device only)</label>
-            <div className="flex gap-2">
-              <input
-                className={inputClass}
-                type={showKey ? 'text' : 'password'}
-                autoComplete="off"
-                placeholder={settings.mode === 'anthropic' ? 'sk-ant-…' : settings.mode === 'gemini' ? 'AIza…' : 'sk-…'}
-                value={settings.apiKey}
-                onChange={(e) => patch({ apiKey: e.target.value })}
-              />
-              <button
-                type="button"
-                className="shrink-0 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2"
-                onClick={() => setShowKey((v) => !v)}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {settings.mode === 'custom' && (
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className={labelClass}>Base URL (OpenAI-compatible)</label>
-            <input
-              className={inputClass}
-              placeholder="https://llm.example.com/v1"
-              value={settings.baseUrl}
-              onChange={(e) => patch({ baseUrl: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>API key</label>
-            <div className="flex gap-2">
-              <input
-                className={inputClass}
-                type={showKey ? 'text' : 'password'}
-                autoComplete="off"
-                value={settings.apiKey}
-                onChange={(e) => patch({ apiKey: e.target.value })}
-              />
-              <button
-                type="button"
-                className="shrink-0 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2"
-                onClick={() => setShowKey((v) => !v)}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {(isPreset || settings.mode === 'custom') && (
-        <div className="mt-4">
-          <label htmlFor="ai-model" className={labelClass}>Model</label>
-          {settings.mode === 'custom' && models === null ? (
-            <input id="ai-model" className={inputClass} value={settings.model}
-              placeholder="Validate key to load models, or enter a model ID"
-              onChange={(e) => patch({ model: e.target.value })} />
-          ) : (
-            <select id="ai-model" className={inputClass} value={models ? settings.model : ''}
-              disabled={models === null || validating}
-              onChange={(e) => patch({ model: e.target.value })}>
-              <option value="" disabled>{models ? 'Choose an available model' : 'Validate key to load models'}</option>
-              {models?.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name === model.id ? model.id : `${model.name} (${model.id})`}
-                </option>
-              ))}
-            </select>
-          )}
-          <p className="mt-1 text-xs text-ink-3">
-            {models ? 'Models returned by this provider for your key. Choose one, then Save.' :
-              settings.mode === 'custom' ? 'Custom endpoints without model listing can use a manually entered model ID.' :
-              `Validate your API key to see available text models.${settings.model ? ` Saved model: ${settings.model}.` : ''}`}
-          </p>
-        </div>
-      )}
-
-      {settings.mode === 'relay' && (
-        <div className="mt-4 space-y-3">
-          <div>
-            <label className={labelClass}>Relay URL</label>
-            <input
-              className={inputClass}
-              placeholder="https://relay.example.com"
-              value={settings.relayUrl}
-              onChange={(e) => patch({ relayUrl: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className={labelClass}>Device token (opaque; identifies this device for the quota)</label>
-            <div className="flex gap-2">
-              <input className={inputClass} readOnly value={settings.relayToken} />
-              <button
-                type="button"
-                className="shrink-0 rounded-xl border border-hairline bg-hover px-3 text-xs font-medium text-ink-2"
-                onClick={() => patch({ relayToken: newRelayToken() })}
-              >
-                New token
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {settings.mode && (
-        <div className="mt-4">
-          <button
-            type="button"
-            onClick={() => patch({ webLookup: !settings.webLookup })}
-            className={`min-h-11 rounded-xl px-4 text-sm font-medium ${
-              settings.webLookup
-                ? 'bg-accent font-semibold text-on-accent'
-                : 'border border-hairline bg-surface text-ink-2'
-            }`}
-          >
-            Web lookup {settings.webLookup ? 'on' : 'off'}
-          </button>
-          <p className="mt-1 text-xs text-ink-3">
-            {settings.mode === 'custom' || settings.mode === 'relay'
-              ? 'Off by default. Only works if this endpoint already supports web search.'
-              : 'Off by default. Ask AI and ramble may look up objective facts.'}
-          </p>
-        </div>
-      )}
-
-      {settings.mode && (
-        <div className="mt-4 flex gap-2">
-          <button
-            type="button"
-            className="min-h-11 rounded-xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 disabled:opacity-40"
-            disabled={validating}
-            onClick={() => void validate()}
-          >
-            {validating ? 'Loading models…' : 'Validate key'}
-          </button>
-          <button
-            type="button"
-            className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
-            disabled={validating || (isPreset && models === null) || (models !== null && !models.some((m) => m.id === settings.model))}
-            onClick={save}
-          >
-            Save
-          </button>
-        </div>
-      )}
-      {status && <p className="mt-2 text-xs text-accent-ink">{status}</p>}
-      {error && <FieldError message={error} />}
-      <div className="mt-8 border-t border-hairline pt-4">
-        <p className="text-xs text-ink-3">
-          Build <span className="font-mono text-ink-2">{APP_BUILD_ID}</span>
+      <section className="surface-card" aria-labelledby="voice-privacy">
+        <h3 id="voice-privacy" className="section-title">Voice privacy</h3>
+        <p className="mt-2 text-sm text-ink-2">
+          Hands-free detects pauses on this device and sends completed turns to your speech-to-text provider.
         </p>
-        <button
-          type="button"
-          className="mt-2 min-h-11 rounded-xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 disabled:opacity-40"
-          disabled={checkingUpdate}
-          onClick={() => void checkUpdate()}
-        >
+      </section>
+
+      <section className="surface-card" aria-labelledby="choices-updates">
+        <h3 id="choices-updates" className="section-title">App updates</h3>
+        <p className="mt-2 text-sm text-ink-3">Build <span className="tabular-nums">{APP_BUILD_ID}</span></p>
+        <button type="button" className="text-action -ml-2" disabled={checkingUpdate} onClick={() => void checkUpdate()}>
           {checkingUpdate ? 'Checking…' : 'Check for update'}
         </button>
-        <p className="mt-1 text-xs text-ink-3">
-          Home-screen installs can keep an old shell after a deploy. This clears
-          the service worker cache when a newer build is live.
-        </p>
-      </div>
+      </section>
     </div>
   )
 }

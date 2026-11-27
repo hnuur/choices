@@ -60,9 +60,8 @@ Serve the app, and for relay items start the relay (`cd relay &&
 RELAY_UPSTREAM=… RELAY_API_KEY=… RELAY_QUOTA=2 node server.js`). Work in a
 mobile-width viewport.
 
-- [ ] Tap Ask AI at the tab bar: the chat sheet opens full-screen with a
-      drag handle; the context chip shows the active tab, and tapping the
-      chip cycles the tab the AI looks at.
+- [ ] Tap Ask AI in the action bar. The context picker shows the active
+      section and can switch the section the AI uses.
 - [ ] With AI unconfigured the sheet offers "Set up AI"; the settings
       screen shows a disclosure line for the selected mode (who pays,
       where data flows).
@@ -152,91 +151,51 @@ Whisper-compatible endpoint) in AI settings for the round-trip items.
       proposals/approval card; approve applies to the current decision
       and the bar shows "Changes applied · HH:MM".
 - [ ] Home composer Ramble: type a decision into "What are you deciding?"
-      and tap Ramble (cyan-dot, next to Create) — the text is sent to AI
+      and tap Ramble next to Create — the text is sent to AI
       without the mic; the card can include best-effort scores; Fill in
       what you can creates it. Empty composer Ramble opens the same sheet
       for write-or-speak.
 - [ ] Home ramble still creates a whole new decision (createDecision card),
       never touching an existing decision's chat.
 
-## Phase 8 — dark redesign
+## Phase 8 — appearance and results
 
-Visual pass in a mobile-width viewport (simulator or phone too, if handy).
+- [ ] Home, the decision sections, conversations, approval cards, and AI
+      settings follow the system’s light or dark appearance. Platform
+      typography remains readable in both appearances and offline.
+- [ ] The decision header has a clearly labeled back action, an editable
+      title, and a More actions menu. “Edit dimensions” switches to Dimensions.
+      “Export backup (.json)” downloads the backup and shows the result
+      below the title. Escape or tapping outside closes the menu.
+- [ ] The four decision sections are reachable directly. The active section
+      is visually distinct and announced as current. The AI context picker
+      follows the active section.
+- [ ] Results distinguish a winner, a near tie, and the only-option case.
+      A partial score matrix shows progress and an action to resume scoring.
+- [ ] The leading option shows raw scores, its total, and bars normalized
+      against each dimension’s best value. Bar thickness reflects importance weight.
+      Other options show their ranks and totals.
+- [ ] Non-discriminating dimensions and “How fragile is this?” probes
+      remain readable with long dimension and option names.
+- [ ] The fixed decision action bar clears safe areas and leaves document
+      content reachable. Approving an AI card returns to the decision and
+      shows the update. Ask AI reopens the same conversation.
 
-- [ ] App renders dark everywhere: near-black background with a subtle top
-      glow, cards as dark surfaces separated by hairline borders instead of
-      shadows, no pure-white text and no pure-black surfaces; UI face is
-      Inter Tight; metadata (counts, ranks, badges, legends, matrix labels)
-      is JetBrains Mono, uppercase, letter-spaced.
-- [ ] Decision header: "← All decisions" back link; 34px bold title with a
-      38×38 ••• button at the right; mono "N DIMENSIONS · M OPTIONS" line
-      under it.
-- [ ] ••• menu opens as a 206px dark dropdown: "Edit dimensions" jumps to
-      the Dimensions tab; "Export backup (.json)" downloads the backup and a
-      mono BACKUP SAVED · HH:MM footer line appears (EXPORT FAILED on
-      error); tapping outside closes it. The old inline export row is gone.
-- [ ] Tabs are a plain underline row on a hairline divider: inactive grey,
-      active white with a 2px cyan underline; all four tabs still freely
-      jumpable, and the chat context chip follows the active tab.
-- [ ] Results: single-line winner banner — mono cyan WINNER plus
-      "X by 0.0N over Y" (near-tie wording when the margin ≤ 0.02;
-      only-option wording when alone) on a cyan-tinted banner, the only
-      colored card in the app.
-- [ ] Rank-1 card: mono rank, name, cyan WIN chip, cyan total at the right;
-      per-dimension bars normalized against the dimension's best value (the
-      best fills the width; objective lower-is-better inverts; subjective
-      reads /5) with raw values at the right; bar thickness and fill
-      intensity scale with importance and no ×weight labels remain; mono
-      legend "BAR = SCORE IN DIMENSION · THICKNESS = WEIGHT".
-- [ ] Ranks 2–N render as compact one-line rows: mono rank, name,
-      desaturated 3px mini bar, total at the right; only rank 1 expands.
-- [ ] Non-discriminating callout and the "How fragile is this?" probes
-      render as neutral dark cards.
-- [ ] Ask AI is a full-width cyan gradient button in a fixed bottom bar with
-      a top-fading blur; content scrolls clear of the bar; the safe-area /
-      home-indicator space is kept.
-- [ ] Approving a chat card drops the sheet to the bottom bar and shows
-      "Changes applied · HH:MM" above the button; tapping Ask AI reopens the
-      chat with its transcript intact.
-- [ ] Home, Dimensions/Options/Score tabs, chat sheet, approval cards,
-      ramble sheet and AI settings all carry the dark tokens; inputs stay
-      16px (no iOS focus zoom); tap targets ≥44px.
-- [ ] Offline reload (airplane mode): the shell and the self-hosted fonts
-      load from the precache — Inter Tight / JetBrains Mono render, not
-      system fallbacks.
+## Phase 9 — Home
 
-## Phase 9 — home redesign (landing)
-
-Landing pass in a mobile-width viewport, against the 2026-08-11 mock.
-
-- [ ] Composer is one rounded field: "What are you deciding?" input with
-      the Create pill inside at the right (cyan gradient with a soft
-      glow); Enter and Create both create and open the decision.
-- [ ] Tapping a starter prompt (Next camera / Where to live / Which
-      offer) seeds the input without creating; chips are dashed pills.
-- [ ] Composer Ramble (cyan-dot, next to Create) is the only Home ramble
-      entry; Import backup is a small footer control; import errors still
-      surface.
-- [ ] Mono section header reads "YOUR DECISIONS · N"; the RECENT ▾ menu
-      offers Recent and A–Z and re-sorts the list live; tapping outside
-      closes it.
-- [ ] A fully-scored decision's row: full cyan progress bar, cyan WINNER
-      chip, leading "Name · NN%" line, mono "N DIM · M OPT" at the bar's
-      end, mono uppercase timestamp at the right.
-- [ ] A partially-scored row: partial cyan bar, grey SCORING chip, "X of
-      Y scored"; a draft row: grey stub bar, grey DRAFT chip, "Add
-      options to start" (or "Add dimensions to start").
-- [ ] Timestamps read JUST NOW / NM AGO / NH AGO / YESTERDAY / ND AGO,
-      and MON D (e.g. MAR 4) once a week old.
-- [ ] Row Delete is muted grey, reddens on hover, and still requires the
-      two-step confirm; the same muted style shows in the edit tabs.
-- [ ] Dashed footer note reads "Decisions stay on this device. Export a
-      backup to keep them." and closes the screen — no dead space below
-      the list.
-- [ ] Rows open from a full-card tap (Delete sits above the tap layer);
-      controls ≥44px across composer, starter chips, secondaries, sort
-      and Delete; the composer input stays 16px and its field shows an
-      accent border on focus.
+- [ ] The composer has a persistent Decision name label and distinct Create
+      and Ramble buttons. Enter and Create both open the new decision.
+- [ ] A starter prompt seeds the input without creating a decision.
+- [ ] Ramble opens from the composer. Import backup opens from the footer.
+      An invalid backup shows an error.
+- [ ] Your decisions shows the count and offers Recent and A–Z sorting
+      when there is more than one decision.
+- [ ] A fully scored row names the winner and total. A partial scoring row
+      has a progress bar and completed-cell count. A draft shows the next step.
+- [ ] Each row shows dimension and option counts and the last edit time.
+      Delete takes a separate confirmation. Tapping the decision name opens it.
+- [ ] The footer explains where decisions are stored. Buttons and fields
+      retain visible keyboard focus and their touch targets at narrow widths.
 
 ## Phase 10 — voice replies & conversational context
 
@@ -280,11 +239,9 @@ Mobile-width viewport, against the 2026-08-14 review.
 - [ ] Tapping Create with an empty composer shows
       "Name the decision first." instead of doing nothing; typing clears
       the error.
-- [ ] Chat and ramble sheets have no drag handle (full-screen, not a
-      half-sheet).
-- [ ] The decision-view bottom bar ramble control is a cyan-dot quiet
-      button labeled Ramble (same mark as Home), not an emoji; it still
-      greys out without STT / on an insecure page.
+- [ ] Chat and Ramble have a visible Close control and dismiss with Escape.
+- [ ] The decision action bar has a labeled Ramble button. Inside the sheet,
+      the recording control is disabled with an explanation when unavailable.
 - [ ] Export backup still lives in the ••• menu; after export,
       "Backup saved · HH:MM" shows under the title row and remains after
       the menu closes.
@@ -401,3 +358,28 @@ turn it on. Live lookup items need a model that can search.
 - [ ] Confirm typed messages, manual recording, and the spoken-replies
       preference still work. Confirm a text-only provider reports why its
       microphone is unavailable.
+
+## Apple mobile appearance follow-up
+
+Review against Apple’s guidance for
+[iOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-ios),
+[iPadOS](https://developer.apple.com/design/human-interface-guidelines/designing-for-ipados),
+[layout](https://developer.apple.com/design/human-interface-guidelines/layout), and
+[accessibility](https://developer.apple.com/design/human-interface-guidelines/accessibility).
+
+- [ ] In light and dark appearance, review Home (empty and populated),
+      Dimensions, Options, Score, Results (partial and complete),
+      Ask AI, Ramble, AI settings, and both editable proposal cards.
+      Labels and primary actions remain readable, including errors.
+- [ ] At iPhone and iPad widths, including a narrow iPad window, rotate
+      the device and enlarge text to 200%. Content reflows, long option
+      names wrap, and the decision action bar keeps its controls reachable.
+- [ ] With the keyboard open, scroll through a proposal and reach Save
+      or Approve. On a roomy iPad, the conversation appears as an inset sheet.
+      With less space, the composer remains inside the visual viewport.
+- [ ] Use Tab and Escape with a physical keyboard. Check visible focus,
+      named controls, the AI context picker, selected ratings, and progress.
+      Read the results and chart values with VoiceOver.
+- [ ] In Settings, switch providers, validate and choose a model, toggle
+      Web lookup, and save. Confirm labels stay visible after typing.
+      Check the compact and enlarged-text layouts with reduced motion.

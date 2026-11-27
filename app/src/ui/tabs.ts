@@ -1,5 +1,5 @@
 // Tab definitions shared by the decision view and the chat sheet (the sheet
-// shows the active tab as its context chip). Opening a decision lands on the
+// shows the active tab in its context picker). Opening a decision lands on the
 // tab that matches the home-row status (Phase 12 pass 2).
 
 import { rankOptions } from '../scoring'

@@ -40,48 +40,39 @@ ok "vitest green incl. scoring and mutation suites"
 
 H="$APP/src/ui/Home.tsx"
 
-# NT4: composer is one rounded unit and starter prompts seed the input
-# (a detached Create button or create-on-tap starters would fail these)
+# NT4: the composer keeps its label and starter prompts seed the input.
+grep -q 'htmlFor="choice-name"' "$H" || fail "decision label missing"
 grep -q 'What are you deciding?' "$H" || fail "composer placeholder missing"
-grep -q 'rounded-2xl border border-hairline bg-surface py-1.5 pl-4 pr-1.5' "$H" \
-  || fail "composer is not one rounded field"
 grep -q 'const STARTERS' "$H" || fail "starter prompts missing"
 grep -q 'setName(starter)' "$H" || fail "starter taps do not seed the input"
-ok "composer unit + tappable starter seeds"
+ok "labeled composer and tappable starter seeds"
 
-# NT5: Ramble lives in the composer; Import backup is a footer control
+# NT5: the form exposes a primary create action, Ramble, and footer import.
 grep -q 'aria-label="Ramble"' "$H" || fail "composer lacks Ramble"
-if grep -q 'Ramble it' "$H"; then fail "Ramble it secondary is still on Home"; fi
 grep -q 'Import backup' "$H" || fail "Import backup missing"
-grep -q 'bg-gradient-to-b from-accent-ink to-accent' "$H" \
-  || fail "Create is not the single accent pill"
-if grep -q 'grid grid-cols-2 gap-3' "$H"; then fail "equal-width secondaries row is still on Home"; fi
-ok "composer Ramble + footer import with a single accent CTA"
+grep -q 'type="submit" className="primary-action' "$H" || fail "Create is not the primary action"
+ok "primary create, Ramble and footer import"
 
-# NT6: list structure — mono section header, sort menu, dashed footer
-grep -q 'Your decisions · ' "$H" || fail "mono section header missing"
+# NT6: decisions can be sorted and the footer explains local storage.
+grep -q 'Your decisions' "$H" || fail "decision section header missing"
+grep -q 'aria-label="Sort decisions"' "$H" || fail "sort control missing"
 grep -q "id: 'recent'" "$H" || fail "Recent sort missing"
 grep -q "id: 'alpha'" "$H" || fail "A–Z sort missing"
-grep -q 'border-dashed border-divider' "$H" || fail "dashed footer note missing"
-grep -q 'Decisions stay on this device. Export a backup to keep them.' "$H" \
-  || fail "local-only footer copy missing"
-ok "section header + sort menu + dashed local-only footer"
+grep -q 'Decisions are stored on this device.' "$H" || fail "local-only footer copy missing"
+ok "decision section, sort and local storage note"
 
-# NT7: rows carry real state — status model, progress, mono counts, timestamp
+# NT7: rows carry a meaningful state and scoring progress.
 grep -q "'winner' | 'scoring' | 'draft'" "$H" || fail "row status model missing"
-grep -q 'dim · ' "$H" || fail "mono dimension/option counts missing"
+grep -q 'dimensions.length' "$H" || fail "dimension counts missing"
 grep -q 'results.scoredCells' "$H" || fail "row progress not derived from scored cells"
-grep -q 'bg-bar-dim' "$H" || fail "draft bar stub missing"
 grep -q 'yesterday' "$APP/src/ui/format.ts" || fail "timeAgo lacks yesterday form"
-grep -q "month: 'short', day: 'numeric'" "$APP/src/ui/format.ts" \
-  || fail "timeAgo lacks the Mon-day form"
-ok "stateful rows (chips, progress, counts, timestamps)"
+grep -q "month: 'short', day: 'numeric'" "$APP/src/ui/format.ts" || fail "timeAgo lacks the Mon-day form"
+ok "stateful rows with progress, counts and timestamps"
 
-# NT8: delete is a muted tertiary that only reddens on hover; confirm kept
-grep -q 'text-ink-4 hover:bg-hover hover:text-red-400' "$APP/src/ui/bits.tsx" \
-  || fail "delete is not muted-until-hover"
+# NT8: delete stays secondary and requires confirmation.
+grep -q 'text-action text-danger' "$APP/src/ui/bits.tsx" || fail "destructive action styling missing"
 grep -q 'arming' "$APP/src/ui/bits.tsx" || fail "two-step confirm lost"
-ok "muted delete with two-step confirm"
+ok "two-step delete confirmation"
 
 # NT9: checklist carries the landing criteria
 CL="$APP/MANUAL-CHECKLIST.md"

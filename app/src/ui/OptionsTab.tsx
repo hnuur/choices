@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { ValidationError, addOption, deleteOption, updateOption } from '../mutations'
 import type { DecisionBundle } from '../queries'
 import type { Option, OptionInput } from '../types'
-import { ConfirmButton, FieldError, inputClass } from './bits'
+import { ConfirmButton, Field, FieldError, inputClass } from './bits'
 
 function OptionForm({
   initial,
@@ -17,51 +17,63 @@ function OptionForm({
 }) {
   const [form, setForm] = useState(initial)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const submit = async () => {
+    if (saving) return
+    setSaving(true)
     try {
       setError('')
       await onSubmit({ name: form.name, notes: form.notes.trim() || undefined })
     } catch (e) {
       setError(e instanceof ValidationError ? e.message : String(e))
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
-      <input
-        className={inputClass}
-        placeholder="Option name — e.g. Sony A7C II"
-        value={form.name}
-        onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-      />
-      <textarea
-        className={inputClass}
-        placeholder="Notes (optional)"
-        rows={2}
-        value={form.notes}
-        onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-      />
+    <form className="surface-card space-y-4" onSubmit={(event) => {
+      event.preventDefault()
+      void submit()
+    }}>
+      <Field label="Option name">
+        <input
+          className={inputClass}
+          placeholder="For example, Sony A7C II"
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        />
+      </Field>
+      <Field label="Notes (optional)">
+        <textarea
+          className={inputClass}
+          placeholder="Add details about this option"
+          rows={2}
+          value={form.notes}
+          onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+        />
+      </Field>
       {error && <FieldError message={error} />}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
-          type="button"
-          className="min-h-11 min-w-0 flex-1 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
-          onClick={() => void submit()}
+          type="submit"
+          className="primary-action"
+          disabled={saving}
         >
-          {submitLabel}
+          {saving ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
           <button
             type="button"
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline text-sm font-medium text-ink-3 hover:bg-hover"
+            className="text-action" disabled={saving}
             onClick={onCancel}
           >
             Cancel
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -75,7 +87,7 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
   return (
     <div className="space-y-2">
       {bundle.options.map((o) => (
-        <div key={o.id} className="rounded-xl border border-hairline bg-surface p-3">
+        <div key={o.id} className="surface-card">
           {editing === o.id ? (
             <OptionForm
               initial={formOf(o)}
@@ -87,16 +99,16 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
               onCancel={() => setEditing(null)}
             />
           ) : (
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{o.name}</div>
+            <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+              <div className="min-w-0 flex-1 basis-36">
+                <div className="text-lg leading-snug font-semibold">{o.name}</div>
                 {o.notes && (
-                  <p className="mt-0.5 whitespace-pre-wrap text-xs text-ink-3">{o.notes}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-ink-2">{o.notes}</p>
                 )}
               </div>
               <button
                 type="button"
-                className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
+                className="text-action"
                 onClick={() => setEditing(o.id)}
               >
                 Edit
@@ -121,7 +133,7 @@ export default function OptionsTab({ bundle }: { bundle: DecisionBundle }) {
       ) : (
         <button
           type="button"
-          className="w-full rounded-xl border border-dashed border-hairline py-3 text-sm text-ink-3 hover:bg-hover"
+          className="secondary-action"
           onClick={() => setAdding(true)}
         >
           + Add option

@@ -9,7 +9,7 @@ import { coerceSetScore, sanitizeProposals } from '../ai/sanitizeProposals'
 import type { DecisionBundle } from '../queries'
 import type { DimensionInput } from '../types'
 import { dimensionScale, unitPresets } from '../units'
-import { ImportancePicker, LabelPicker, inputClass } from './bits'
+import { Field, ImportancePicker, LabelPicker, inputClass } from './bits'
 
 const TYPE_LABEL: Record<Proposal['type'], string> = {
   renameDecision: 'Rename decision',
@@ -23,9 +23,6 @@ const TYPE_LABEL: Record<Proposal['type'], string> = {
   // Ramble scope only — decision-bound cards never render this row.
   createDecision: 'Create decision',
 }
-
-const smallSelect =
-  'min-w-0 w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-base text-ink focus:border-accent focus:outline-none'
 
 function rowInvalid(p: Proposal, bundle: DecisionBundle): boolean {
   switch (p.type) {
@@ -105,56 +102,61 @@ function SetScoreFields({
     : []
   return (
     <div className="space-y-2">
-      <select
-        className={smallSelect}
-        value={bundle.options.some((o) => o.id === p.optionId) ? p.optionId : ''}
-        onChange={(e) => {
-          const optionId = e.target.value
-          const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
-          onChange(dim ? coerceSetScore({ ...p, optionId }, dim) : { ...p, optionId })
-        }}
-      >
-        {!bundle.options.some((o) => o.id === p.optionId) && (
-          <option value="" disabled>
-            Pick an option
-          </option>
-        )}
-        {bundle.options.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.name}
-          </option>
-        ))}
-      </select>
-      <select
-        className={smallSelect}
-        value={bundle.dimensions.some((d) => d.id === p.dimensionId) ? p.dimensionId : ''}
-        onChange={(e) => {
-          const dimensionId = e.target.value
-          const next = bundle.dimensions.find((d) => d.id === dimensionId)
-          if (next) onChange(coerceSetScore({ ...p, dimensionId }, next))
-          else onChange({ ...p, dimensionId, value: undefined, labels: undefined })
-        }}
-      >
-        {!bundle.dimensions.some((d) => d.id === p.dimensionId) && (
-          <option value="" disabled>
-            Pick a dimension
-          </option>
-        )}
-        {bundle.dimensions.map((d) => (
-          <option key={d.id} value={d.id}>
-            {d.name}
-            {dimensionScale(d) === 'rating'
-              ? ' (1–5)'
-              : dimensionScale(d) === 'nominal'
-                ? ` (${d.unit || 'labels'})`
-                : d.unit
-                  ? ` (${d.unit})`
-                  : ''}
-          </option>
-        ))}
-      </select>
+      <Field label="Option">
+        <select
+          className={inputClass}
+          value={bundle.options.some((o) => o.id === p.optionId) ? p.optionId : ''}
+          onChange={(e) => {
+            const optionId = e.target.value
+            const dim = bundle.dimensions.find((d) => d.id === p.dimensionId)
+            onChange(dim ? coerceSetScore({ ...p, optionId }, dim) : { ...p, optionId })
+          }}
+        >
+          {!bundle.options.some((o) => o.id === p.optionId) && (
+            <option value="" disabled>
+              Pick an option
+            </option>
+          )}
+          {bundle.options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Dimension">
+        <select
+          className={inputClass}
+          value={bundle.dimensions.some((d) => d.id === p.dimensionId) ? p.dimensionId : ''}
+          onChange={(e) => {
+            const dimensionId = e.target.value
+            const next = bundle.dimensions.find((d) => d.id === dimensionId)
+            if (next) onChange(coerceSetScore({ ...p, dimensionId }, next))
+            else onChange({ ...p, dimensionId, value: undefined, labels: undefined })
+          }}
+        >
+          {!bundle.dimensions.some((d) => d.id === p.dimensionId) && (
+            <option value="" disabled>
+              Pick a dimension
+            </option>
+          )}
+          {bundle.dimensions.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.name}
+              {dimensionScale(d) === 'rating'
+                ? ' (1–5)'
+                : dimensionScale(d) === 'nominal'
+                  ? ` (${d.unit || 'labels'})`
+                  : d.unit
+                    ? ` (${d.unit})`
+                    : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
       {scale === 'rating' ? (
         <ImportancePicker
+          label="Rating from 1 to 5"
           value={p.value && Number.isInteger(p.value) && p.value >= 1 && p.value <= 5 ? p.value : 3}
           onChange={(value) => onChange({ ...p, value, labels: undefined })}
         />
@@ -171,6 +173,8 @@ function SetScoreFields({
             className={inputClass}
             type="number"
             step="any"
+            inputMode="decimal"
+            aria-label={dim?.unit ? `Score in ${dim.unit}` : 'Score'}
             value={p.value ?? ''}
             onChange={(e) => onChange({ ...p, value: e.target.value === '' ? undefined : Number(e.target.value), labels: undefined })}
           />
@@ -190,13 +194,15 @@ export function DimensionFields({
 }) {
   return (
     <div className="space-y-2">
-      <input
-        className={inputClass}
-        placeholder="Dimension name"
-        value={dimension.name}
-        onChange={(e) => onChange({ ...dimension, name: e.target.value })}
-      />
-      <div className="flex gap-1">
+      <Field label="Dimension name">
+        <input
+          className={inputClass}
+          placeholder="Dimension name"
+          value={dimension.name}
+          onChange={(e) => onChange({ ...dimension, name: e.target.value })}
+        />
+      </Field>
+      <div className="segmented" role="group" aria-label="Dimension type">
         {(['objective', 'subjective'] as const).map((kind) => (
           <button
             key={kind}
@@ -208,42 +214,36 @@ export function DimensionFields({
                   : { ...dimension, kind, direction: undefined, unit: undefined },
               )
             }
-            className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
-              dimension.kind === kind
-                ? 'bg-accent font-semibold text-on-accent'
-                : 'bg-hover text-ink-2 hover:bg-white/9'
-            }`}
+            aria-pressed={dimension.kind === kind}
           >
-            {kind}
+            {kind === 'objective' ? 'Objective' : 'Subjective'}
           </button>
         ))}
       </div>
       {dimension.kind === 'objective' && (
         <>
           {dimensionScale(dimension) === 'numeric' && (
-            <div className="flex gap-1">
+            <div className="segmented" role="group" aria-label="Preferred direction">
               {(['higher', 'lower'] as const).map((direction) => (
                 <button
                   key={direction}
                   type="button"
                   onClick={() => onChange({ ...dimension, direction })}
-                  className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
-                    dimension.direction === direction
-                      ? 'bg-accent font-semibold text-on-accent'
-                      : 'bg-hover text-ink-2 hover:bg-white/9'
-                  }`}
+                  aria-pressed={dimension.direction === direction}
                 >
-                  {direction} is better
+                  {direction === 'higher' ? 'Higher' : 'Lower'} is better
                 </button>
               ))}
             </div>
           )}
-          <input
-            className={inputClass}
-            placeholder="Unit (optional) — e.g. g, €, genre"
-            value={dimension.unit ?? ''}
-            onChange={(e) => onChange({ ...dimension, unit: e.target.value.trim() || undefined })}
-          />
+          <Field label="Unit (optional)">
+            <input
+              className={inputClass}
+              placeholder="For example, hours"
+              value={dimension.unit ?? ''}
+              onChange={(e) => onChange({ ...dimension, unit: e.target.value.trim() || undefined })}
+            />
+          </Field>
         </>
       )}
       <ImportancePicker
@@ -291,7 +291,7 @@ export default function ApprovalCard({
   if (outcomes) {
     const applied = outcomes.filter((o) => o.ok).length
     return (
-      <div className="rounded-xl border border-hairline bg-surface p-3">
+      <div className="surface-card">
         <p className="text-base font-semibold text-ink">
           {outcomes.length === 0
             ? 'Rejected — nothing changed'
@@ -303,9 +303,9 @@ export default function ApprovalCard({
           <ul className="mt-2 space-y-1">
             {outcomes.map((o) => (
               <li key={o.index} className="text-sm leading-relaxed text-ink-2">
-                <span className={o.ok ? 'text-accent-ink' : 'text-red-400'}>{o.ok ? '✓' : '✗'}</span>{' '}
+                <span className={o.ok ? 'text-accent-ink' : 'text-danger'}>{o.ok ? '✓' : '✗'}</span>{' '}
                 {o.label}
-                {!o.ok && o.error && <span className="text-red-400"> — {o.error}</span>}
+                {!o.ok && o.error && <span className="text-danger"> — {o.error}</span>}
               </li>
             ))}
           </ul>
@@ -320,19 +320,19 @@ export default function ApprovalCard({
   const compactScores = setScoreCount >= 6 && setScoreCount === proposals.length
 
   return (
-    <div className="flex max-h-[min(70vh,36rem)] flex-col overflow-hidden rounded-xl border border-hairline bg-surface">
+    <div className="approval-card flex flex-col overflow-hidden rounded-xl border border-divider bg-surface">
       <div className="shrink-0 px-3 pt-3">
-        <p className="text-sm font-semibold text-ink">
+        <p className="section-title">
           Proposed changes — edit before approving
         </p>
         {dropped > 0 && (
-          <p className="mt-2 text-xs text-amber-300">
+          <p className="mt-2 text-sm text-warning">
             Dropped {dropped} unusable score {dropped === 1 ? 'row' : 'rows'} (unknown id or empty
             cell). The rest can be approved.
           </p>
         )}
         {invalid && (
-          <p className="mt-2 text-xs text-amber-300">
+          <p className="mt-2 text-sm text-warning">
             {invalidCount} {invalidCount === 1 ? 'row needs' : 'rows need'} a fix — remove{' '}
             {invalidCount === 1 ? 'it' : 'them'}, or Approve the valid rows only.
           </p>
@@ -357,26 +357,24 @@ export default function ApprovalCard({
               <div
                 key={i}
                 className={`flex flex-wrap items-start gap-2 rounded-lg border bg-surface-2 p-2 ${
-                  bad ? 'border-amber-400/40' : 'border-hairline'
+                  bad ? 'border-warning/65' : 'border-hairline'
                 }`}
               >
                 <div className="min-w-0 flex-1 basis-[calc(100%-4rem)] py-1.5">
-                  <p className="truncate text-sm font-medium text-ink">{opt?.name ?? 'Option'}</p>
-                  <p className="truncate text-xs text-ink-3">
+                  <p className="text-sm font-medium text-ink">{opt?.name ?? 'Option'}</p>
+                  <p className="text-sm text-ink-3">
                     {dim?.name ?? 'Dimension'}
                     {dim?.unit ? ` · ${dim.unit}` : ''} · {summary}
                   </p>
-                  {reason && <p className="mt-1 text-xs text-amber-300">{reason}</p>}
+                  {reason && <p className="mt-1 text-sm text-warning">{reason}</p>}
                 </div>
                 {scale === 'rating' && (
-                  <div className="order-last flex w-full gap-1">
+                  <div className="segmented order-last w-full" role="group" aria-label="Rating from 1 to 5">
                     {[1, 2, 3, 4, 5].map((n) => (
                       <button
                         key={n}
                         type="button"
-                        className={`h-11 min-w-0 flex-1 rounded-md text-sm font-medium ${
-                          p.value === n ? 'bg-accent text-on-accent' : 'bg-hover text-ink-2'
-                        }`}
+                        aria-pressed={p.value === n}
                         onClick={() => update(i, { ...p, value: n, labels: undefined })}
                       >
                         {n}
@@ -386,7 +384,9 @@ export default function ApprovalCard({
                 )}
                 {scale === 'numeric' && (
                   <input
-                    className="order-last h-11 min-w-0 w-full rounded-md border border-hairline bg-bg px-2 text-base text-ink"
+                    className={`${inputClass} order-last`}
+                    aria-label={`${opt?.name ?? 'Option'} · ${dim?.name ?? 'Score'}`}
+                    inputMode="decimal"
                     type="number"
                     step="any"
                     value={p.value ?? ''}
@@ -398,7 +398,7 @@ export default function ApprovalCard({
                 <button
                   type="button"
                   aria-label="Remove row"
-                  className="h-11 w-11 shrink-0 rounded-md text-lg text-ink-4 hover:bg-hover"
+                  className="icon-action shrink-0 text-lg text-danger"
                   onClick={() => remove(i)}
                 >
                   ×
@@ -410,15 +410,15 @@ export default function ApprovalCard({
           <div
             key={i}
             className={`rounded-lg border bg-surface-2 p-2.5 ${
-              bad ? 'border-amber-400/40' : 'border-hairline'
+              bad ? 'border-warning/65' : 'border-hairline'
             }`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-ink-3">{TYPE_LABEL[p.type]}</span>
+              <span className="text-sm font-semibold text-ink">{TYPE_LABEL[p.type]}</span>
               <button
                 type="button"
                 aria-label="Remove row"
-                className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
+                className="icon-action shrink-0 text-lg text-danger"
                 onClick={() => remove(i)}
               >
                 ×
@@ -431,26 +431,29 @@ export default function ApprovalCard({
               />
             )}
             {p.type === 'renameDecision' && (
-              <input
-                className={inputClass}
-                aria-label="New decision name"
-                value={p.name}
-                onChange={(event) => update(i, { ...p, name: event.target.value })}
-              />
+              <Field label="New decision name">
+                <input
+                  className={inputClass}
+                  value={p.name}
+                  onChange={(event) => update(i, { ...p, name: event.target.value })}
+                />
+              </Field>
             )}
             {p.type === 'updateDimension' && (
               <div className="space-y-2">
                 <p className="text-xs text-ink-3">“{nameOf.dimension(p.id)}”</p>
                 {p.patch.name !== undefined && (
+                  <Field label="New dimension name">
                   <input
                     className={inputClass}
                     value={p.patch.name}
                     onChange={(e) => update(i, { ...p, patch: { ...p.patch, name: e.target.value } })}
                   />
+                  </Field>
                 )}
                 {p.patch.kind !== undefined && (
                   <>
-                    <div className="flex gap-1">
+                    <div className="segmented" role="group" aria-label="Dimension type">
                       {(['objective', 'subjective'] as const).map((kind) => (
                         <button
                           key={kind}
@@ -471,18 +474,14 @@ export default function ApprovalCard({
                                     },
                             })
                           }
-                          className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
-                            p.patch.kind === kind
-                              ? 'bg-accent font-semibold text-on-accent'
-                              : 'bg-hover text-ink-2 hover:bg-white/9'
-                          }`}
+                          aria-pressed={p.patch.kind === kind}
                         >
-                          {kind}
+                          {kind === 'objective' ? 'Objective' : 'Subjective'}
                         </button>
                       ))}
                     </div>
                     {bundle.dimensions.find((d) => d.id === p.id)?.kind !== p.patch.kind && (
-                      <p className="text-xs text-amber-300">
+                      <p className="text-sm text-warning">
                         Changing the kind clears this dimension's scores.
                       </p>
                     )}
@@ -498,34 +497,33 @@ export default function ApprovalCard({
                         ? undefined
                         : (p.patch.unit ?? bundle.dimensions.find((d) => d.id === p.id)?.unit),
                   }) === 'numeric' && (
-                  <div className="flex gap-1">
+                  <div className="segmented" role="group" aria-label="Preferred direction">
                     {(['higher', 'lower'] as const).map((direction) => (
                       <button
+                        key={direction}
                         type="button"
                         onClick={() => update(i, { ...p, patch: { ...p.patch, direction } })}
-                        className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
-                          p.patch.direction === direction
-                            ? 'bg-accent font-semibold text-on-accent'
-                            : 'bg-hover text-ink-2 hover:bg-white/9'
-                        }`}
+                        aria-pressed={p.patch.direction === direction}
                       >
-                        {direction} is better
+                        {direction === 'higher' ? 'Higher' : 'Lower'} is better
                       </button>
                     ))}
                   </div>
                 )}
                 {p.patch.unit !== undefined && (
-                  <input
-                    className={inputClass}
-                    placeholder="Unit (empty clears)"
-                    value={p.patch.unit ?? ''}
-                    onChange={(e) =>
-                      update(i, {
-                        ...p,
-                        patch: { ...p.patch, unit: e.target.value.trim() === '' ? null : e.target.value.trim() },
-                      })
-                    }
-                  />
+                  <Field label="Unit (empty clears)">
+                    <input
+                      className={inputClass}
+                      placeholder="Unit (empty clears)"
+                      value={p.patch.unit ?? ''}
+                      onChange={(e) =>
+                        update(i, {
+                          ...p,
+                          patch: { ...p.patch, unit: e.target.value.trim() === '' ? null : e.target.value.trim() },
+                        })
+                      }
+                    />
+                  </Field>
                 )}
                 {p.patch.importance !== undefined && (
                   <ImportancePicker
@@ -540,40 +538,46 @@ export default function ApprovalCard({
             )}
             {p.type === 'addOption' && (
               <div className="space-y-2">
-                <input
-                  className={inputClass}
-                  placeholder="Option name"
-                  value={p.option.name}
-                  onChange={(e) => update(i, { ...p, option: { ...p.option, name: e.target.value } })}
-                />
-                <input
-                  className={inputClass}
-                  placeholder="Notes (optional)"
-                  value={p.option.notes ?? ''}
-                  onChange={(e) =>
-                    update(i, { ...p, option: { ...p.option, notes: e.target.value.trim() || undefined } })
-                  }
-                />
+                <Field label="Option name">
+                  <input
+                    className={inputClass}
+                    placeholder="Option name"
+                    value={p.option.name}
+                    onChange={(e) => update(i, { ...p, option: { ...p.option, name: e.target.value } })}
+                  />
+                </Field>
+                <Field label="Notes (optional)">
+                  <input
+                    className={inputClass}
+                    placeholder="Notes (optional)"
+                    value={p.option.notes ?? ''}
+                    onChange={(e) =>
+                      update(i, { ...p, option: { ...p.option, notes: e.target.value.trim() || undefined } })
+                    }
+                  />
+                </Field>
               </div>
             )}
             {p.type === 'updateOption' && (
               <div className="space-y-2">
                 <p className="text-sm text-ink-2">“{nameOf.option(p.id)}”</p>
                 {p.patch.name !== undefined && (
-                  <input
-                    className={inputClass}
-                    aria-label="New option name"
-                    value={p.patch.name}
-                    onChange={(event) => update(i, { ...p, patch: { ...p.patch, name: event.target.value } })}
-                  />
+                  <Field label="New option name">
+                    <input
+                      className={inputClass}
+                      value={p.patch.name}
+                      onChange={(event) => update(i, { ...p, patch: { ...p.patch, name: event.target.value } })}
+                    />
+                  </Field>
                 )}
                 {'notes' in p.patch && (
-                  <textarea
-                    className={inputClass}
-                    aria-label="Option notes"
-                    value={p.patch.notes ?? ''}
-                    onChange={(event) => update(i, { ...p, patch: { ...p.patch, notes: event.target.value || null } })}
-                  />
+                  <Field label="Option notes">
+                    <textarea
+                      className={inputClass}
+                      value={p.patch.notes ?? ''}
+                      onChange={(event) => update(i, { ...p, patch: { ...p.patch, notes: event.target.value || null } })}
+                    />
+                  </Field>
                 )}
               </div>
             )}
@@ -583,7 +587,7 @@ export default function ApprovalCard({
             {p.type === 'setScore' && (
               <SetScoreFields p={p} bundle={bundle} onChange={(next) => update(i, next)} />
             )}
-            {reason && <p className="mt-2 text-xs text-amber-300">{reason}</p>}
+            {reason && <p className="mt-2 text-sm text-warning">{reason}</p>}
           </div>
           )
         })}
@@ -593,7 +597,7 @@ export default function ApprovalCard({
         <div className="flex flex-wrap gap-1">
           <button
             type="button"
-            className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+            className="text-action"
             onClick={() =>
               add({
                 type: 'addDimension',
@@ -605,7 +609,7 @@ export default function ApprovalCard({
           </button>
           <button
             type="button"
-            className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+            className="text-action"
             onClick={() => add({ type: 'addOption', option: { name: '' } })}
           >
             + option
@@ -613,7 +617,7 @@ export default function ApprovalCard({
           {bundle.dimensions.length > 0 && bundle.options.length > 0 && (
             <button
               type="button"
-              className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+              className="text-action"
               onClick={() =>
                 add({
                   type: 'setScore',
@@ -630,7 +634,7 @@ export default function ApprovalCard({
         <button
           type="button"
           disabled={applying || valid.length === 0}
-          className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
+          className="primary-action w-full"
           onClick={() => onApply(valid)}
         >
           {applying ? 'Saving…' : invalid
@@ -639,7 +643,7 @@ export default function ApprovalCard({
         </button>
         <button
           type="button"
-          className="w-full rounded-xl py-3 text-sm font-medium text-ink-3 hover:bg-hover"
+          className="text-action w-full"
           onClick={onReject}
           disabled={applying}
         >

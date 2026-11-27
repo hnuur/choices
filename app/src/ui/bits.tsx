@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 
 /** Two-step destructive action: first tap arms, second tap confirms. */
 export function ConfirmButton({
@@ -13,7 +13,7 @@ export function ConfirmButton({
     return (
       <button
         type="button"
-        className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-4 hover:bg-hover hover:text-red-400"
+        className="text-action text-danger"
         onClick={() => setArming(true)}
       >
         {label}
@@ -21,17 +21,18 @@ export function ConfirmButton({
     )
   }
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex flex-wrap items-center gap-1">
       <button
         type="button"
-        className="min-h-11 rounded-md bg-red-500 px-3 text-xs font-medium text-ink"
+        className="secondary-action bg-danger-soft text-danger"
+        aria-label="Confirm delete"
         onClick={onConfirm}
       >
         Confirm
       </button>
       <button
         type="button"
-        className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
+        className="text-action"
         onClick={() => setArming(false)}
       >
         Cancel
@@ -40,10 +41,11 @@ export function ConfirmButton({
   )
 }
 
-export function Progress({ value, total }: { value: number; total: number }) {
+export function Progress({ value, total, label = 'Scoring progress' }: { value: number; total: number; label?: string }) {
   const percent = total === 0 ? 0 : Math.round((value / total) * 100)
   return (
-    <div className="h-1 w-full overflow-hidden rounded-full bg-hairline">
+    <div role="progressbar" aria-label={label} aria-valuenow={percent} aria-valuetext={`${value} of ${total} scored`}
+      className="h-1.5 w-full overflow-hidden rounded-full bg-divider">
       <div
         className="h-full rounded-full bg-accent transition-all"
         style={{ width: `${percent}%` }}
@@ -54,7 +56,7 @@ export function Progress({ value, total }: { value: number; total: number }) {
 
 export function Badge({ children }: { children: ReactNode }) {
   return (
-    <span className="rounded-full border border-hairline bg-hover px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-2">
+    <span className="rounded-md bg-hover px-2 py-0.5 text-xs font-medium text-ink-2">
       {children}
     </span>
   )
@@ -63,20 +65,21 @@ export function Badge({ children }: { children: ReactNode }) {
 export function ImportancePicker({
   value,
   onChange,
+  label = 'Importance',
 }: {
   value: number
   onChange: (importance: number) => void
+  label?: string
 }) {
   return (
-    <div className="flex gap-1">
+    <div className="segmented" role="group" aria-label={label}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           type="button"
+          aria-pressed={n === value}
           onClick={() => onChange(n)}
-          className={`h-11 min-w-0 flex-1 rounded-lg text-sm font-medium ${
-            n === value ? 'bg-accent font-semibold text-on-accent' : 'bg-hover text-ink-2 hover:bg-white/9'
-          }`}
+          className="tabular-nums"
         >
           {n}
         </button>
@@ -85,12 +88,16 @@ export function ImportancePicker({
   )
 }
 
-export function FieldError({ message }: { message: string }) {
-  return <p className="mt-2 text-xs text-red-400">{message}</p>
+export function FieldError({ message, id }: { message: string; id?: string }) {
+  return <p id={id} role="alert" className="mt-2 text-sm text-danger">{message}</p>
 }
 
 export const inputClass =
-  'min-w-0 w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none'
+  'min-h-11 min-w-0 w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-3 focus:border-accent'
+
+export function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <label className="block"><span className="field-label">{label}</span>{children}</label>
+}
 
 /** Multi-select: type a new value or pick from the dropdown. */
 export function LabelPicker({
@@ -106,6 +113,7 @@ export function LabelPicker({
 }) {
   const [text, setText] = useState('')
   const [open, setOpen] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
   const selectedKeys = new Set(value.map((v) => v.toLowerCase()))
   const q = text.trim().toLowerCase()
   const choices = suggestions.filter((s) => {
@@ -117,6 +125,7 @@ export function LabelPicker({
     if (!t || selectedKeys.has(t.toLowerCase())) return
     onChange([...value, t])
     setText('')
+    setOpen(false)
   }
 
   return (
@@ -137,9 +146,14 @@ export function LabelPicker({
           ))}
         </div>
       )}
-      <div className="relative">
+      <div className="relative"
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false)
+        }}>
         <input
+          ref={input}
           className={inputClass}
+          aria-label={placeholder}
           placeholder={placeholder}
           value={text}
           onChange={(e) => {
@@ -147,11 +161,12 @@ export function LabelPicker({
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
-          onBlur={() => {
-            window.setTimeout(() => setOpen(false), 150)
-          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === 'Escape' && open) {
+              e.preventDefault()
+              e.stopPropagation()
+              setOpen(false)
+            } else if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
               e.preventDefault()
               if (choices.length === 1 && q) add(choices[0])
               else add(text)
@@ -166,7 +181,10 @@ export function LabelPicker({
                   type="button"
                   className="flex min-h-11 w-full items-center px-3 text-left text-sm text-ink hover:bg-hover"
                   onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => add(s)}
+                  onClick={() => {
+                    input.current?.focus()
+                    add(s)
+                  }}
                 >
                   {s}
                 </button>

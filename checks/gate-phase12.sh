@@ -62,11 +62,10 @@ fi
 ok "chat and ramble sheets have no fake drag handle"
 
 # NT7: pass 1 — decision-bar ramble matches Home's cyan-dot control, not an emoji
-grep -q 'size-1.5 rounded-full bg-accent' "$D" || fail "decision-bar ramble lacks the cyan-dot mark"
 grep -q 'aria-label="Ramble"' "$D" || fail "decision-bar ramble control missing"
 grep -qE '^[[:space:]]+Ramble$' "$D" || fail "decision-bar ramble visible label missing"
 if grep -q '🎤' "$D"; then fail "decision-bar ramble is still an emoji"; fi
-ok "decision-bar ramble matches Home's cyan-dot button"
+ok "decision-bar Ramble has a visible text label"
 
 # NT8: pass 1 — backup-saved note lives under the title row, not in the menu
 grep -A6 'dimensions · ' "$D" | grep -q 'exportNote' \
@@ -98,7 +97,7 @@ CL="$APP/MANUAL-CHECKLIST.md"
 [ -f "$CL" ] || fail "manual checklist missing"
 items=$(grep -c '^- \[' "$CL" || true)
 [ "$items" -ge 88 ] || fail "checklist too thin ($items items)"
-for kw in renameDecision 'Name the decision first' 'drag handle' 'cyan-dot' 'Backup saved' 'WINNER row' 'Objective dimensions'; do
+for kw in renameDecision 'Name the decision first' 'Close control' 'labeled Ramble' 'Backup saved' 'WINNER row' 'Objective dimensions'; do
   grep -q "$kw" "$CL" || fail "checklist missing polish criterion: $kw"
 done
 ok "manual checklist carries the polish items ($items items)"

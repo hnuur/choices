@@ -3,7 +3,7 @@ import { ValidationError, addDimension, deleteDimension, updateDimension } from 
 import type { DecisionBundle } from '../queries'
 import type { Dimension, DimensionInput } from '../types'
 import { dimensionScale } from '../units'
-import { Badge, ConfirmButton, FieldError, ImportancePicker, inputClass } from './bits'
+import { Badge, ConfirmButton, Field, FieldError, ImportancePicker, inputClass } from './bits'
 
 interface FormState {
   name: string
@@ -54,75 +54,79 @@ function DimensionForm({
 }) {
   const [form, setForm] = useState(initial)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
   const patch = (p: Partial<FormState>) => setForm((f) => ({ ...f, ...p }))
 
   const submit = async () => {
+    if (saving) return
+    setSaving(true)
     try {
       setError('')
       await onSubmit(inputOf(form))
     } catch (e) {
       setError(e instanceof ValidationError ? e.message : String(e))
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-hairline bg-surface-2 p-3">
+    <form className="surface-card space-y-4" onSubmit={(event) => {
+      event.preventDefault()
+      void submit()
+    }}>
       {hint && (
-        <p className="text-xs leading-relaxed text-ink-3">
+        <p className="text-sm leading-relaxed text-ink-2">
           Objective dimensions are facts with a unit (price, weight); a unit
           like genre is picked from a list, not typed as a number. Subjective
           ones are 1–5 ratings. Importance 1–5 is how much the ranking should
           care.
         </p>
       )}
-      <input
-        className={inputClass}
-        placeholder="Dimension name — e.g. weight, sexiness"
-        value={form.name}
-        onChange={(e) => patch({ name: e.target.value })}
-      />
-      <div className="flex gap-1">
+      <Field label="Dimension name">
+        <input
+          className={inputClass}
+          placeholder="For example, battery life"
+          value={form.name}
+          onChange={(e) => patch({ name: e.target.value })}
+        />
+      </Field>
+      <div className="segmented" role="group" aria-label="Dimension type">
         {(['objective', 'subjective'] as const).map((kind) => (
           <button
             key={kind}
             type="button"
             onClick={() => patch({ kind })}
-            className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm font-medium ${
-              form.kind === kind
-                ? 'bg-accent font-semibold text-on-accent'
-                : 'bg-hover text-ink-2 hover:bg-white/9'
-            }`}
+            aria-pressed={form.kind === kind}
           >
-            {kind}
+            {kind === 'objective' ? 'Objective' : 'Subjective'}
           </button>
         ))}
       </div>
       {form.kind === 'objective' && (
         <>
           {dimensionScale({ kind: 'objective', name: form.name, unit: form.unit }) === 'numeric' && (
-            <div className="flex gap-1">
+            <div className="segmented" role="group" aria-label="Preferred direction">
               {(['higher', 'lower'] as const).map((direction) => (
                 <button
                   key={direction}
                   type="button"
                   onClick={() => patch({ direction })}
-                  className={`min-h-11 flex-1 rounded-md px-2 py-2.5 text-sm ${
-                    form.direction === direction
-                      ? 'bg-accent font-semibold text-on-accent'
-                      : 'bg-hover text-ink-2 hover:bg-white/9'
-                  }`}
+                  aria-pressed={form.direction === direction}
                 >
-                  {direction} is better
+                  {direction === 'higher' ? 'Higher' : 'Lower'} is better
                 </button>
               ))}
             </div>
           )}
-          <input
-            className={inputClass}
-            placeholder="Unit (optional) — e.g. g, €, genre"
-            value={form.unit}
-            onChange={(e) => patch({ unit: e.target.value })}
-          />
+          <Field label="Unit (optional)">
+            <input
+              className={inputClass}
+              placeholder="For example, hours"
+              value={form.unit}
+              onChange={(e) => patch({ unit: e.target.value })}
+            />
+          </Field>
           {dimensionScale({ kind: 'objective', name: form.name, unit: form.unit }) === 'nominal' && (
             <p className="text-xs text-ink-3">
               Score by typing or picking one or more values — not a 1–5 rating.
@@ -131,32 +135,32 @@ function DimensionForm({
         </>
       )}
       <div>
-        <p className="mb-1 text-xs text-ink-3">Importance</p>
+        <p className="field-label">Importance</p>
         <ImportancePicker value={form.importance} onChange={(importance) => patch({ importance })} />
       </div>
-      {initial.kind !== form.kind && (
-        <p className="text-xs text-amber-300">Changing the kind clears this dimension's scores.</p>
+      {submitLabel === 'Save' && initial.kind !== form.kind && (
+        <p className="text-sm text-warning">Changing the kind clears this dimension's scores.</p>
       )}
       {error && <FieldError message={error} />}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
-          type="button"
-          className="min-h-11 min-w-0 flex-1 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
-          onClick={() => void submit()}
+          type="submit"
+          className="primary-action"
+          disabled={saving}
         >
-          {submitLabel}
+          {saving ? 'Saving…' : submitLabel}
         </button>
         {onCancel && (
           <button
             type="button"
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline text-sm font-medium text-ink-3 hover:bg-hover"
+            className="text-action" disabled={saving}
             onClick={onCancel}
           >
             Cancel
           </button>
         )}
       </div>
-    </div>
+    </form>
   )
 }
 
@@ -169,7 +173,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
   return (
     <div className="space-y-2">
       {bundle.dimensions.map((d) => (
-        <div key={d.id} className="rounded-xl border border-hairline bg-surface p-3">
+        <div key={d.id} className="surface-card">
           {editing === d.id ? (
             <DimensionForm
               initial={formOf(d)}
@@ -185,9 +189,9 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
               onCancel={() => setEditing(null)}
             />
           ) : (
-            <div className="flex items-start gap-2">
-              <div className="min-w-0 flex-1">
-                <div className="font-medium">{d.name}</div>
+            <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+              <div className="min-w-0 flex-1 basis-36">
+                <div className="text-lg leading-snug font-semibold">{d.name}</div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   <Badge>{d.kind}</Badge>
                   {dimensionScale(d) === 'numeric' && <Badge>{d.direction} is better</Badge>}
@@ -198,7 +202,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
               </div>
               <button
                 type="button"
-                className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
+                className="text-action"
                 onClick={() => setEditing(d.id)}
               >
                 Edit
@@ -224,7 +228,7 @@ export default function DimensionsTab({ bundle }: { bundle: DecisionBundle }) {
       ) : (
         <button
           type="button"
-          className="w-full rounded-xl border border-dashed border-hairline py-3 text-sm text-ink-3 hover:bg-hover"
+          className="secondary-action"
           onClick={() => setAdding(true)}
         >
           + Add dimension

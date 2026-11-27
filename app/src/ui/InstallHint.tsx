@@ -26,15 +26,14 @@ export default function InstallHint() {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(DISMISS_KEY) === '1')
   if (dismissed || !isIOS() || isStandalone()) return null
   return (
-    <div className="mt-4 flex items-start gap-2 rounded-xl border border-hairline bg-hover p-3 text-sm text-ink-2">
-      <p className="flex-1">
-        Install Choices: open the Share menu and tap{' '}
-        <span className="font-medium text-ink">Add to Home Screen</span>. The app then
-        runs offline and standalone.
+    <div className="mt-3 flex flex-wrap items-start gap-x-2 border-t border-divider pt-3 text-sm text-ink-2">
+      <p className="flex-1 basis-36">
+        For quick access, open Safari’s Share menu and tap{' '}
+        <strong>Add to Home Screen</strong>.
       </p>
       <button
         type="button"
-        className="min-h-11 shrink-0 px-2 text-xs font-medium text-accent-ink"
+        className="text-action"
         onClick={() => {
           localStorage.setItem(DISMISS_KEY, '1')
           setDismissed(true)

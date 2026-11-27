@@ -12,9 +12,9 @@ export default function ConversationMessage({
   label?: string
 }) {
   const tone = {
-    user: 'ml-auto w-fit bg-accent text-on-accent',
+    user: 'ml-auto w-fit bg-accent-soft text-ink',
     assistant: 'mr-auto w-fit bg-surface text-ink',
-    error: 'border border-red-400/30 bg-red-400/10 text-red-200',
+    error: 'border border-danger/30 bg-danger-soft text-danger',
   }[kind]
 
   return (

@@ -38,29 +38,24 @@ grep -q 'scoring.test.ts' "$VITEST_OUT" || fail "scoring suite did not run"
 grep -q 'mutations.test.ts' "$VITEST_OUT" || fail "mutation suite did not run"
 ok "vitest green incl. scoring and mutation suites"
 
-# NT4: fonts self-hosted — no CDN font source anywhere, bundled woff2 in
-# dist, and the service worker precaches them (offline redesign).
+# NT4: platform typography remains available offline without a font download.
 grep -Rqi 'fonts\.googleapis\.com\|fonts\.gstatic\.com' "$APP/index.html" "$APP/src" \
-  && fail "external font source found (plan: self-hosted)"
-ls "$APP"/dist/assets/*latin*.woff2 >/dev/null 2>&1 || fail "no self-hosted latin woff2 in dist"
-grep -q 'woff2' "$APP/dist/sw.js" || fail "service worker does not precache the fonts"
-grep -q '@fontsource' "$APP/src/main.tsx" || fail "main.tsx does not import the self-hosted fonts (guard would pass vacuously)"
-ok "fonts self-hosted and precached"
+  && fail "external font source found"
+grep -q -- '--font-ui: -apple-system' "$APP/src/index.css" || fail "platform font stack missing"
+ok "platform typography is available offline"
 
-# NT5: dark tokens live in the built stylesheet
+# NT5: both appearances and contrast preferences are present in the build.
 CSS=$(ls "$APP"/dist/assets/index-*.css)
-for tok in 08090b 12151a 101317 171b21 5ad0f0 8ddcf2 04161d; do
-  grep -qi "$tok" "$CSS" || fail "token #$tok missing from built css"
+for tok in 'prefers-color-scheme:dark' 'prefers-contrast:more' f1f4f2 111915 14664e 80dfb5; do
+  grep -qi "$tok" "$CSS" || fail "appearance token $tok missing from built css"
 done
-ok "dark tokens present in built css"
+ok "light, dark, and increased-contrast styles present"
 
-# NT6: the light Phase-4 skin is gone from the components (negative test —
-# semantic red/amber stays allowed; bg-white/9 hover fills are dark-theme
-# tokens, solid bg-white cards are the light skin)
-offenders=$(grep -REl 'bg-white($|[^/])|bg-slate|text-slate|border-slate|shadow-sm|bg-sky-|bg-emerald' \
+# NT6: shared colors are resolved by appearance rather than hardcoded in components.
+offenders=$(grep -REl 'bg-white($|[^/])|bg-slate|text-slate|border-slate|bg-sky-|bg-emerald|text-red-|text-amber-' \
   "$APP/src/App.tsx" "$APP/src/ui" || true)
-[ -z "$offenders" ] || fail "light-skin classes remain: $offenders"
-ok "light skin removed from components"
+[ -z "$offenders" ] || fail "hardcoded appearance classes remain: $offenders"
+ok "components use appearance-aware colors"
 
 # NT7: results bars normalized against the dimension best, weight encoded as
 # thickness + opacity, ×weight labels gone
@@ -74,7 +69,7 @@ ok "results bar normalization + weight encoding in place"
 # otherwise, so the wiring itself is asserted)
 grep -q 'Edit dimensions' "$APP/src/ui/DecisionView.tsx" || fail "••• menu lacks Edit dimensions"
 grep -q 'Export backup (.json)' "$APP/src/ui/DecisionView.tsx" || fail "••• menu lacks Export backup"
-grep -q 'border-accent' "$APP/src/ui/DecisionView.tsx" || fail "underline tab row missing"
+grep -q 'className="segmented' "$APP/src/ui/DecisionView.tsx" || fail "grouped decision sections missing"
 grep -q 'fixed inset-x-0 bottom-0' "$APP/src/ui/DecisionView.tsx" || fail "fixed bottom Ask-AI bar missing"
 grep -q 'onApplied' "$APP/src/ui/DecisionView.tsx" || fail "bottom bar lacks the AI status line wiring"
 grep -q "state !== 'full'" "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet no longer drops to the bar (peek)"
@@ -86,7 +81,7 @@ CL="$APP/MANUAL-CHECKLIST.md"
 [ -f "$CL" ] || fail "manual checklist missing"
 items=$(grep -c '^- \[' "$CL" || true)
 [ "$items" -ge 50 ] || fail "checklist too thin ($items items)"
-for kw in dark menu underline winner banner thickness weight offline fonts; do
+for kw in dark menu winner thickness weight offline typography; do
   grep -qi "$kw" "$CL" || fail "checklist missing redesign criterion: $kw"
 done
 ok "manual checklist covers the redesign ($items items)"

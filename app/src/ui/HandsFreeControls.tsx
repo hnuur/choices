@@ -14,12 +14,12 @@ export default function HandsFreeControls({
       <button
         type="button"
         disabled={session.status === null && (busy || !!unavailable)}
-        className="min-h-11 rounded-xl border border-accent/40 px-3 text-sm font-semibold text-accent-ink hover:bg-hover disabled:opacity-50"
+        className={session.status ? 'secondary-action' : 'text-action'}
         onClick={session.status ? session.stop : () => void session.start()}
       >
         {session.status ? 'Pause hands-free' : 'Hands-free'}
       </button>
-      <p role="status" className="min-w-0 flex-1 text-sm leading-snug text-ink-2">
+      <p role="status" className="min-w-0 flex-1 basis-36 text-sm leading-snug text-ink-2">
         {session.status === 'Listening…'
           ? 'Listening… Say “pause listening” to stop.'
           : session.status ?? (session.error || unavailable || 'Talk, then pause to send.')}

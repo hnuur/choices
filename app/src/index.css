@@ -1,43 +1,122 @@
 @import 'tailwindcss';
 
-/* Phase-8 dark design language. Borders do the separating, not shadows;
-   no pure-white text, no pure-black surfaces. */
-@theme {
-  --font-ui: 'Inter Tight', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', monospace;
+@theme inline {
+  --font-ui: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", monospace;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --color-bg: var(--app-background);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-field);
+  --color-menu: var(--app-menu);
+  --color-hairline: var(--app-border);
+  --color-divider: var(--app-divider);
+  --color-hover: var(--app-hover);
+  --color-ink: var(--app-text);
+  --color-ink-2: var(--app-secondary);
+  --color-ink-3: var(--app-muted);
+  --color-ink-4: var(--app-muted);
+  --color-accent: var(--app-accent);
+  --color-accent-ink: var(--app-link);
+  --color-on-accent: var(--app-on-accent);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-bar-dim: var(--app-meter);
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-warning: var(--app-warning);
+}
 
-  --color-bg: #08090b;
-  --color-surface: #12151a;
-  --color-surface-2: #101317;
-  --color-menu: #171b21;
-  --color-hairline: rgb(255 255 255 / 0.06);
-  --color-divider: rgb(255 255 255 / 0.07);
-  --color-hover: rgb(255 255 255 / 0.08);
-  --color-ink: #f4f7fa;
-  --color-ink-2: #aab4c1;
-  --color-ink-3: #7b8695;
-  --color-ink-4: #5d6875;
-  --color-accent: #5ad0f0;
-  --color-accent-ink: #8ddcf2;
-  --color-on-accent: #04161d;
-  --color-bar-dim: #4a6273;
+:root {
+  color-scheme: light dark;
+  --app-background: #f1f4f2;
+  --app-surface: #ffffff;
+  --app-field: #f3f6f4;
+  --app-menu: #ffffff;
+  --app-border: #788c80;
+  --app-divider: #d5ddd7;
+  --app-hover: #e6eee9;
+  --app-text: #182821;
+  --app-secondary: #344940;
+  --app-muted: #50675b;
+  --app-accent: #14664e;
+  --app-link: #0e6047;
+  --app-on-accent: #ffffff;
+  --app-accent-soft: #ddf2e7;
+  --app-meter: #5d8473;
+  --app-danger: #a12b32;
+  --app-danger-soft: #fff0f0;
+  --app-warning: #79500a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-background: #111915;
+    --app-surface: #1b2620;
+    --app-field: #141e18;
+    --app-menu: #233229;
+    --app-border: #6d8476;
+    --app-divider: #394a40;
+    --app-hover: #2b3d32;
+    --app-text: #eff9f2;
+    --app-secondary: #c4d8ca;
+    --app-muted: #a7bdb0;
+    --app-accent: #80dfb5;
+    --app-link: #93e9c1;
+    --app-on-accent: #0f3021;
+    --app-accent-soft: #233e31;
+    --app-meter: #86aa98;
+    --app-danger: #ffb0b1;
+    --app-danger-soft: #44272a;
+    --app-warning: #f2cb89;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --app-muted: var(--app-text);
+    --app-secondary: var(--app-text);
+    --app-border: var(--app-text);
+    --app-divider: var(--app-text);
+  }
 }
 
 @layer base {
   html {
     font-family: var(--font-ui);
+    scroll-padding-block-end: 8rem;
   }
+
   body {
-    background-color: var(--color-bg);
-    color: var(--color-ink);
+    background-color: var(--app-background);
+    color: var(--app-text);
+    font-size: var(--text-base);
+  }
+
+  :where(button, input, select, textarea, a):focus-visible {
+    outline: 2px solid var(--app-link);
+    outline-offset: 3px;
+  }
+
+  :where(button, select) {
+    touch-action: manipulation;
+  }
+
+  @supports (font: -apple-system-body) {
+    html { font: -apple-system-body; }
   }
 }
 
 .app-bg {
-  /* Include the standalone status-bar inset within the viewport height. */
   padding-top: env(safe-area-inset-top);
-  background-color: var(--color-bg);
-  background-image: radial-gradient(120% 80% at 50% 0%, #14171c, #08090b 60%);
+  background: var(--app-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer components {
@@ -112,5 +191,202 @@
   .conversation-message pre {
     white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+}
+
+@layer components {
+  .page-title {
+    font-size: clamp(1.85rem, 4vw, 2.55rem);
+    line-height: 1.12;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+  }
+
+  .section-title {
+    font-size: 1.25rem;
+    line-height: 1.25;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+
+  .surface-card {
+    min-width: 0;
+    border: 1px solid var(--app-divider);
+    border-radius: 1rem;
+    background: var(--app-surface);
+    padding: clamp(0.875rem, 2.6vw, 1.25rem);
+  }
+
+  .primary-action,
+  .secondary-action,
+  .text-action,
+  .icon-action {
+    display: inline-flex;
+    min-block-size: max(44px, 2.75rem);
+    min-inline-size: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    border-radius: 0.75rem;
+    padding: 0.5em 0.85em;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .primary-action { background: var(--app-accent); color: var(--app-on-accent); }
+  .secondary-action { border: 1px solid var(--app-divider); background: var(--app-hover); color: var(--app-text); }
+  .text-action { color: var(--app-link); }
+  .icon-action { padding-inline: 0.5rem; color: var(--app-link); }
+  .primary-action:disabled, .secondary-action:disabled, .text-action:disabled, .icon-action:disabled {
+    background: var(--app-field);
+    color: var(--app-muted);
+  }
+
+  @media (hover: hover) {
+    .primary-action:enabled:hover { filter: brightness(0.92); }
+    .secondary-action:enabled:hover,
+    .text-action:enabled:hover,
+    .icon-action:enabled:hover { background: var(--app-accent-soft); }
+  }
+
+  .field-label {
+    display: block;
+    margin-block-end: 0.35rem;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--app-text);
+  }
+
+  .segmented {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    background: var(--app-hover);
+    border-radius: 0.875rem;
+  }
+
+  .segmented > button {
+    flex: 1 1 auto;
+    min-block-size: 44px;
+    min-inline-size: 44px;
+    padding: 0.35em 0.6em;
+    border: 1px solid transparent;
+    border-radius: 0.65rem;
+    font-size: var(--text-sm);
+    line-height: 1.25;
+    color: var(--app-secondary);
+  }
+
+  .segmented > button[aria-current],
+  .segmented > button[aria-pressed="true"] {
+    color: var(--app-text);
+    background: var(--app-surface);
+    border-color: var(--app-border);
+    font-weight: 700;
+  }
+
+  .action-bar {
+    background: var(--app-surface);
+    border-top: 1px solid var(--app-divider);
+  }
+
+  .sheet-shell {
+    --sheet-inset: 0px;
+    width: 100%;
+    top: calc(var(--sheet-top) + var(--sheet-inset));
+    height: calc(var(--sheet-height) - var(--sheet-inset) * 2);
+  }
+
+  .sheet-shell::backdrop { background: rgb(10 23 16 / 0.45); }
+
+  @media (min-width: 48rem) and (min-height: 35rem) {
+    .sheet-shell:not([data-keyboard-open]) {
+      --sheet-inset: max(1.25rem, env(safe-area-inset-top), env(safe-area-inset-bottom));
+      width: min(45rem, calc(100% - 3rem));
+      margin-inline: auto;
+      border: 1px solid var(--app-border);
+      border-radius: 1.5rem;
+    }
+  }
+
+  .sheet-header {
+    border-bottom: 1px solid var(--app-divider);
+    background: var(--app-surface);
+  }
+
+  .sheet-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 0.5rem;
+  }
+
+  .sheet-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .sheet-close { grid-row: 1; grid-column: 2; }
+
+  @media (min-width: 40rem) {
+    .sheet-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; }
+    .sheet-tools { grid-column: 2; grid-row: 1; }
+    .sheet-close { grid-column: 3; }
+  }
+
+  .approval-card { max-block-size: min(70dvh, 36rem); }
+
+  .sheet-shell[data-keyboard-open] .approval-card {
+    max-block-size: none;
+  }
+
+  @media (max-width: 30rem), (max-height: 35rem) {
+    .approval-card { max-block-size: none; }
+  }
+}
+
+@layer components {
+  .settings-switch {
+    position: relative;
+    appearance: none;
+    flex: none;
+    width: 3.125rem;
+    height: 1.875rem;
+    margin: 0;
+    border: 1px solid var(--app-border);
+    border-radius: 2rem;
+    background: var(--app-field);
+  }
+
+  .settings-switch::before {
+    position: absolute;
+    inset-block-start: 0.1875rem;
+    inset-inline-start: 0.1875rem;
+    width: 1.375rem;
+    height: 1.375rem;
+    border-radius: 50%;
+    background: var(--app-muted);
+    content: "";
+  }
+
+  .settings-switch:checked {
+    border-color: var(--app-accent);
+    background: var(--app-accent);
+  }
+
+  .settings-switch:checked::before {
+    inset-inline-start: 1.4375rem;
+    background: var(--app-on-accent);
+  }
+
+  @media (forced-colors: active) {
+    .settings-switch { appearance: auto; }
+    .settings-switch::before { content: none; }
   }
 }

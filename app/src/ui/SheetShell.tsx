@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'rea
 import { useBodyScrollLock, useVisualViewportBox } from './useVisualViewportBox'
 
 /**
- * Fullscreen overlay pinned to the visual viewport so iOS keyboard focus
- * cannot scroll the header/compose off-screen.
+ * Keep the modal inside the visual viewport, including while iOS animates
+ * the keyboard. CSS presents it as an inset sheet where the window allows.
  */
 export default function SheetShell({
   children,
@@ -22,10 +22,13 @@ export default function SheetShell({
     dialog.showModal()
     return () => dialog.close()
   }, [])
+  useLayoutEffect(() => {
+    dialogRef.current?.querySelector<HTMLElement>('[data-sheet-title]')?.focus({ preventScroll: true })
+  }, [label])
 
   const style: CSSProperties = {
-    top,
-    height: height ?? '100dvh',
+    ['--sheet-top' as string]: `${top}px`,
+    ['--sheet-height' as string]: height ? `${height}px` : '100dvh',
     paddingLeft: 'env(safe-area-inset-left)',
     paddingRight: 'env(safe-area-inset-right)',
     // When the keyboard has scrolled the visual viewport, skip status-bar /
@@ -41,7 +44,8 @@ export default function SheetShell({
     <dialog
       ref={dialogRef}
       aria-label={label}
-      className="fixed inset-x-0 bottom-auto m-0 w-full max-w-none max-h-none flex-col overflow-hidden bg-bg text-ink open:flex"
+      data-keyboard-open={keyboardOpen || top > 0 ? '' : undefined}
+      className="sheet-shell fixed inset-x-0 bottom-auto my-0 max-h-none max-w-none flex-col overflow-hidden bg-bg text-ink open:flex"
       onCancel={(event) => {
         event.preventDefault()
         onClose()

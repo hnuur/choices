@@ -10,7 +10,7 @@ import OptionsTab from './OptionsTab'
 import RambleSheet from './RambleSheet'
 import ResultsTab from './ResultsTab'
 import ScoreTab from './ScoreTab'
-import { FieldError } from './bits'
+import { Field, FieldError, inputClass } from './bits'
 import { TABS, type Tab } from './tabs'
 
 function DecisionTitle({ id, name }: { id: string; name: string }) {
@@ -45,43 +45,47 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
 
   if (!editing) {
     return (
-      <button
-        type="button"
-        aria-label={`Rename ${name}`}
-        className="min-h-11 min-w-0 flex-1 line-clamp-2 text-left text-[34px] font-bold leading-[1.15] tracking-[-1.2px]"
-        onClick={() => {
-          setDraft(name)
-          setError('')
-          setEditing(true)
-        }}
-      >
-        {name}
-      </button>
+      <h1 className="min-w-0 flex-1">
+        <button
+          type="button"
+          aria-label={`Rename ${name}`}
+          className="page-title min-h-11 w-full rounded-lg text-left"
+          onClick={() => {
+            skipSave.current = false
+            setDraft(name)
+            setError('')
+            setEditing(true)
+          }}
+        >
+          {name}
+        </button>
+      </h1>
     )
   }
 
   return (
     <div className="min-w-0 flex-1">
-      <input
-        aria-label="Decision name"
-        className="w-full min-h-11 border-b border-accent bg-transparent text-[34px] font-bold leading-[1.15] tracking-[-1.2px] text-ink focus:outline-none"
-        value={draft}
-        autoFocus
-        onChange={(e) => {
-          setDraft(e.target.value)
-          if (error) setError('')
-        }}
-        onBlur={() => void save()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
-          if (e.key === 'Escape') {
-            skipSave.current = true
-            setDraft(name)
-            setError('')
-            setEditing(false)
-          }
-        }}
-      />
+      <Field label="Decision name">
+        <input
+          className={inputClass}
+          value={draft}
+          autoFocus
+          onChange={(e) => {
+            setDraft(e.target.value)
+            if (error) setError('')
+          }}
+          onBlur={() => void save()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              skipSave.current = true
+              setDraft(name)
+              setError('')
+              setEditing(false)
+            }
+          }}
+        />
+      </Field>
       {error && <FieldError message={error} />}
     </div>
   )
@@ -103,16 +107,11 @@ export default function DecisionView({
   const [tab, setTab] = useState<Tab>(initialTab)
   const [exportNote, setExportNote] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
   const [chatState, setChatState] = useState<ChatState>('closed')
   const [aiStatus, setAiStatus] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
   const [injection, setInjection] = useState<{ text: string; nonce: number } | null>(null)
-
-  // The chip in the sheet header cycles the tab the AI is looking at.
-  const cycleTab = () => {
-    const index = TABS.findIndex((t) => t.id === tab)
-    setTab(TABS[(index + 1) % TABS.length].id)
-  }
 
   const exportBackup = async () => {
     if (!bundle) return
@@ -147,126 +146,129 @@ export default function DecisionView({
 
   return (
     <main className="page-content pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3 sm:pt-6">
-      <button
-        type="button"
-        className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
-        onClick={onBack}
-      >
-        ← All decisions
-      </button>
+      <header className="mb-5">
+        <button
+          type="button"
+          className="text-action -ml-2.5"
+          onClick={onBack}
+        >
+          ← All decisions
+        </button>
 
-      <div className="flex items-start justify-between gap-3">
-        <DecisionTitle id={id} name={bundle.decision.name} />
-        <div className="relative shrink-0">
-          {/* 38×38 visual inside a 44×44 hit area */}
-          <button
-            type="button"
-            aria-label="More actions"
-            className="flex h-11 w-11 items-center justify-center"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <span className="flex h-[38px] w-[38px] items-center justify-center rounded-xl border border-hairline bg-hover text-sm tracking-[0.14em] text-ink-2">
-              •••
-            </span>
-          </button>
-          {menuOpen && (
-            <>
-              <button
-                type="button"
-                aria-label="Close menu"
-                tabIndex={-1}
-                className="fixed inset-0 z-30 cursor-default"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="absolute right-0 z-40 mt-1 w-[206px] rounded-[14px] border border-hairline bg-menu p-1.5">
+        <div className="mt-1 flex items-start justify-between gap-3">
+          <DecisionTitle id={id} name={bundle.decision.name} />
+          <div className="relative shrink-0" onKeyDown={(event) => {
+            if (event.key === 'Escape' && menuOpen) {
+              setMenuOpen(false)
+              menuButton.current?.focus()
+            }
+          }}>
+            <button
+              type="button"
+              ref={menuButton}
+              aria-label="More actions"
+              aria-expanded={menuOpen}
+              className="secondary-action icon-action"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <span aria-hidden="true">•••</span>
+            </button>
+            {menuOpen && (
+              <>
                 <button
                   type="button"
-                  className="block w-full rounded-lg px-3 py-3 text-left text-sm text-ink-2 hover:bg-hover"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    setTab('dimensions')
-                  }}
-                >
-                  Edit dimensions
-                </button>
-                <button
-                  type="button"
-                  className="block w-full rounded-lg px-3 py-3 text-left text-sm text-ink-2 hover:bg-hover"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    void exportBackup()
-                  }}
-                >
-                  Export backup (.json)
-                </button>
-              </div>
-            </>
-          )}
+                  aria-label="Close menu"
+                  tabIndex={-1}
+                  className="fixed inset-0 z-30 cursor-default"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 z-40 mt-1 w-52 max-w-[calc(100vw-2rem)] rounded-xl border border-hairline bg-menu p-1.5">
+                  <button
+                    type="button"
+                    className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-hover"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setTab('dimensions')
+                    }}
+                  >
+                    Edit dimensions
+                  </button>
+                  <button
+                    type="button"
+                    className="block min-h-11 w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-hover"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      void exportBackup()
+                    }}
+                  >
+                    Export backup (.json)
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
-      <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
-        {bundle.dimensions.length} dimensions · {bundle.options.length} options
-      </p>
-      {exportNote && (
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink-4">
-          {exportNote}
+        <p className="mt-2 text-sm text-ink-3">
+          {bundle.dimensions.length} dimensions · {bundle.options.length} options
         </p>
-      )}
+        {exportNote && (
+          <p role="status" className="mt-1 text-sm text-ink-3">
+            {exportNote}
+          </p>
+        )}
+      </header>
 
-      <nav aria-label="Decision sections" className="mt-4 flex flex-wrap gap-x-3 border-b border-divider sm:gap-x-6">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            aria-current={tab === t.id ? 'true' : undefined}
-            onClick={() => setTab(t.id)}
-            className={`-mb-px min-h-11 min-w-11 border-b-2 px-0.5 text-[15px] ${
-              tab === t.id
-                ? 'border-accent font-semibold text-ink'
-                : 'border-transparent font-medium text-ink-3 hover:text-ink-2'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <div className="grid items-start gap-4 lg:grid-cols-[11rem_minmax(0,1fr)] lg:gap-6">
+        <nav aria-label="Decision sections" className="segmented lg:flex-col lg:[&>button]:text-left">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-current={tab === t.id ? 'true' : undefined}
+              onClick={() => setTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
 
-      <div className="mt-4">
-        {tab === 'dimensions' && <DimensionsTab bundle={bundle} />}
-        {tab === 'options' && <OptionsTab bundle={bundle} />}
-        {tab === 'score' && <ScoreTab bundle={bundle} />}
-        {tab === 'results' && <ResultsTab bundle={bundle} onGoScore={() => setTab('score')} />}
+        <section aria-labelledby="decision-section">
+          <h2 id="decision-section" className="section-title mb-3">{TABS.find((item) => item.id === tab)?.label}</h2>
+          {tab === 'dimensions' && <DimensionsTab bundle={bundle} />}
+          {tab === 'options' && <OptionsTab bundle={bundle} />}
+          {tab === 'score' && <ScoreTab bundle={bundle} />}
+          {tab === 'results' && <ResultsTab bundle={bundle} onGoScore={() => setTab('score')} />}
+        </section>
       </div>
 
       {/* Fixed action bar: Ask AI entry point + AI status line; doubles as
           the chat sheet's peek surface after approve. */}
-      <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-bg via-bg/80 to-transparent backdrop-blur-xl">
+      <div className="action-bar fixed inset-x-0 bottom-0 z-30">
         <div
-          className="page-content pt-8"
+          className="page-content flex flex-wrap items-center justify-end gap-2 pt-2"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
         >
-          {aiStatus && <p className="pb-2 text-center text-xs text-ink-3">{aiStatus}</p>}
-          <div className="flex gap-2">
+          {aiStatus && <p role="status" className="mr-auto text-sm text-ink-3">{aiStatus}</p>}
+          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
             <button
               type="button"
               aria-label="Ramble"
-              className="flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 hover:bg-white/9"
+              className="secondary-action flex-1 sm:flex-none"
               onClick={() => {
                 if (loadSettings().voiceReplies) unlockSpeech()
                 setRambleOpen(true)
               }}
             >
-              <span className="size-1.5 rounded-full bg-accent" />
               Ramble
             </button>
             <button
               type="button"
               aria-label="Ask AI"
-              className="flex h-[52px] min-w-0 flex-1 items-center justify-center rounded-2xl bg-gradient-to-b from-accent-ink to-accent text-[15.5px] font-semibold text-on-accent"
+              className="primary-action flex-1 sm:flex-none"
               onClick={() => setChatState('full')}
             >
-              AI
+              Ask AI
             </button>
           </div>
         </div>
@@ -288,7 +290,7 @@ export default function DecisionView({
         tab={tab}
         state={chatState}
         onStateChange={setChatState}
-        onCycleTab={cycleTab}
+        onChangeTab={setTab}
         onApplied={() => setAiStatus(`Changes applied · ${stamp()}`)}
         injection={injection}
         onInjectionConsumed={() => setInjection(null)}

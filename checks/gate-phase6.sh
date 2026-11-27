@@ -80,16 +80,16 @@ ok "relay battery green incl. quota enforcement"
 # NT10: disclosure and sheet wiring present
 grep -q 'disclosureFor' "$APP/src/ui/AiSettingsPanel.tsx" || fail "AI settings lack the disclosure lines"
 grep -q 'peek' "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet lacks the peek state"
-grep -q 'onCycleTab' "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet lacks the context chip"
+grep -q 'aria-label="AI context"' "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet lacks the context picker"
 grep -q 'Ask AI' "$APP/src/ui/DecisionView.tsx" || fail "decision view lacks the Ask AI entry point"
-ok "disclosure lines + sheet lifecycle (peek, chip, entry point) wired"
+ok "disclosure lines + sheet lifecycle (peek, context picker, entry point) wired"
 
 # NT11: checklist covers the Phase-6 lifecycle
 CL="$APP/MANUAL-CHECKLIST.md"
 [ -f "$CL" ] || fail "manual checklist missing"
 items=$(grep -c '^- \[' "$CL" || true)
 [ "$items" -ge 25 ] || fail "checklist too thin ($items items)"
-for kw in 'Validate key' 'OpenAI' 'Anthropic' 'Gemini' 'custom endpoint' quota 'Approve' 'Reject' peek chip 'Ask AI' malformed dismiss; do
+for kw in 'Validate key' 'OpenAI' 'Anthropic' 'Gemini' 'custom endpoint' quota 'Approve' 'Reject' peek context 'Ask AI' malformed dismiss; do
   grep -qi "$kw" "$CL" || fail "checklist missing Phase-6 step: $kw"
 done
 ok "manual checklist covers the Phase-6 lifecycle ($items items)"

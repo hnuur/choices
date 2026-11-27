@@ -6,7 +6,7 @@ import { queryHome, type HomeData } from '../queries'
 import { rankOptions } from '../scoring'
 import type { Decision, DecisionExport } from '../types'
 import { useLiveQuery } from '../useLiveQuery'
-import { ConfirmButton, FieldError } from './bits'
+import { ConfirmButton, FieldError, inputClass, Progress } from './bits'
 import { pct, timeAgo } from './format'
 import InstallHint from './InstallHint'
 import RambleSheet from './RambleSheet'
@@ -39,11 +39,6 @@ function Row({
   const winner = results.complete ? results.winner : undefined
   const status: RowStatus =
     winner ? 'winner' : results.totalCells > 0 ? 'scoring' : 'draft'
-  const percent =
-    results.totalCells === 0
-      ? 0
-      : Math.round((results.scoredCells / results.totalCells) * 100)
-
   const leading = winner
     ? `${winner.option.name} · ${pct(winner.total)}`
     : status === 'scoring'
@@ -53,57 +48,36 @@ function Row({
         : 'Add dimensions to start'
 
   return (
-    <li className="relative rounded-2xl border border-hairline bg-surface p-4">
-      {/* full-card tap target; Delete sits above it */}
+    <li className="surface-card">
       <button
         type="button"
         aria-label={`Open ${decision.name}`}
-        className="absolute inset-0 z-0 rounded-2xl"
+        className="block min-h-11 w-full rounded-lg text-left"
         onClick={() => onOpen(decision.id, entryTab(dimensions, options, scores))}
-      />
-      <div className="flex items-baseline justify-between gap-3">
-        <div className="min-w-0 flex-1 truncate text-[17px] font-bold tracking-[-0.3px]">
-          {decision.name}
-        </div>
-        <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-4">
-          {timeAgo(decision.updatedAt)}
+      >
+        <span className="flex items-start justify-between gap-3">
+          <span className="text-lg leading-snug font-semibold">{decision.name}</span>
+          <span aria-hidden="true" className="shrink-0 text-accent-ink">›</span>
         </span>
+        <span className="mt-1 block text-sm text-ink-3">
+          {dimensions.length} {dimensions.length === 1 ? 'dimension' : 'dimensions'} ·{' '}
+          {options.length} {options.length === 1 ? 'option' : 'options'}
+        </span>
+      </button>
+      {status === 'scoring' && (
+        <div className="mt-3">
+          <Progress value={results.scoredCells} total={results.totalCells} label="Scoring progress" />
+        </div>
+      )}
+      <div className="mt-3 flex flex-wrap items-baseline gap-x-2 border-t border-divider pt-3 text-sm">
+        <span className={`font-semibold ${winner ? 'text-accent-ink' : 'text-ink'}`}>
+          {winner ? 'Winner' : status === 'scoring' ? 'Scoring' : 'Draft'}
+        </span>
+        <span className="min-w-0 text-ink-2">{leading}</span>
       </div>
-      <div className="mt-3 flex items-center gap-3">
-        <div className="h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-hairline">
-          <div
-            className={`h-full rounded-full ${status === 'draft' ? 'bg-bar-dim' : 'bg-accent'}`}
-            style={{ width: status === 'draft' ? '24px' : `${percent}%` }}
-          />
-        </div>
-        <span className="shrink-0 font-mono text-[11px] uppercase tracking-[0.12em] text-ink-3">
-          {dimensions.length} dim · {options.length} opt
-        </span>
-      </div>
-      <div className="mt-3 flex items-center gap-2">
-        <span
-          className={`shrink-0 rounded-md px-2 py-1 font-mono text-[10px] uppercase tracking-[0.08em] ${
-            status === 'winner'
-              ? 'bg-accent font-semibold text-on-accent'
-              : 'bg-hover text-ink-3'
-          }`}
-        >
-          {status}
-        </span>
-        <div
-          className={`min-w-0 flex-1 truncate text-sm ${
-            status === 'winner'
-              ? 'font-medium text-ink'
-              : status === 'scoring'
-                ? 'text-ink-2'
-                : 'text-ink-3'
-          }`}
-        >
-          {leading}
-        </div>
-        <div className="relative z-10">
-          <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
-        </div>
+      <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2">
+        <span className="text-xs text-ink-3">Edited {timeAgo(decision.updatedAt)}</span>
+        <ConfirmButton onConfirm={() => void deleteDecision(decision.id)} />
       </div>
     </li>
   )
@@ -113,11 +87,11 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   const data = useLiveQuery(queryHome, [])
   const [name, setName] = useState('')
   const [createError, setCreateError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
   const [rambleSeed, setRambleSeed] = useState<string | undefined>()
   const [sort, setSort] = useState<(typeof SORTS)[number]['id']>('recent')
-  const [sortOpen, setSortOpen] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const openRamble = () => {
@@ -130,15 +104,23 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   }
 
   const create = async () => {
+    if (creating) return
     const trimmed = name.trim()
     if (!trimmed) {
       setCreateError('Name the decision first.')
       return
     }
-    const decision = await createDecision(trimmed)
-    setName('')
-    setCreateError(null)
-    onOpen(decision.id, 'dimensions')
+    setCreating(true)
+    try {
+      const decision = await createDecision(trimmed)
+      setName('')
+      setCreateError(null)
+      onOpen(decision.id, 'dimensions')
+    } catch (error) {
+      setCreateError(error instanceof ValidationError ? error.message : 'Could not save this decision. Try again.')
+    } finally {
+      setCreating(false)
+    }
   }
 
   const onImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -160,66 +142,93 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
   }
 
   return (
-    <main className="page-content pt-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pt-10">
-      <h1 className="text-[34px] font-bold leading-[1.15] tracking-[-1.2px]">Choices</h1>
-      <p className="mt-1 text-sm text-ink-3">
-        Weigh what matters, then decide with the numbers in front of you.
-      </p>
+    <main className="page-content py-6 pb-[calc(2rem+env(safe-area-inset-bottom))] sm:pt-10">
+      <header className="mb-6">
+        <h1 className="page-title">Choices</h1>
+        <p className="mt-2 max-w-prose text-ink-2">Compare your options and weigh what matters.</p>
+      </header>
 
-      <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-hairline bg-surface p-1.5 focus-within:border-accent">
-        <input
-          aria-label="What are you deciding?"
-          className="min-h-11 min-w-0 flex-1 basis-30 bg-transparent px-2.5 text-base text-ink placeholder:text-ink-4 focus:outline-none"
-          placeholder="What are you deciding?"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value)
-            if (createError) setCreateError(null)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.nativeEvent.isComposing) void create()
-          }}
-        />
-        <button
-          type="button"
-          aria-label="Ramble"
-          className="flex min-h-[46px] shrink-0 items-center justify-center gap-2 rounded-xl px-3 text-sm font-medium text-ink-2 hover:bg-hover"
-          onClick={openRamble}
-        >
-          <span className="size-1.5 rounded-full bg-accent" />
-          Ramble
-        </button>
-        <button
-          type="button"
-          className="min-h-[46px] shrink-0 rounded-xl bg-gradient-to-b from-accent-ink to-accent px-5 text-[15px] font-semibold text-on-accent shadow-[0_0_24px_rgb(90_208_240/0.35)]"
-          onClick={() => void create()}
-        >
-          Create
-        </button>
-      </div>
-      {createError && <FieldError message={createError} />}
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {STARTERS.map((starter) => (
-          <button
-            key={starter}
-            type="button"
-            className="min-h-11 rounded-full border border-dashed border-divider px-4 text-sm text-ink-2 hover:bg-hover"
-            onClick={() => setName(starter)}
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(16rem,0.85fr)_minmax(0,1.3fr)] lg:gap-8">
+        <section className="surface-card" aria-labelledby="new-decision">
+          <h2 id="new-decision" className="section-title">New decision</h2>
+          <form
+            className="mt-4"
+            onSubmit={(event) => {
+              event.preventDefault()
+              void create()
+            }}
           >
-            {starter}
-          </button>
-        ))}
-      </div>
+            <label className="field-label" htmlFor="choice-name">Decision name</label>
+            <input
+              id="choice-name"
+              className={inputClass}
+              placeholder="What are you deciding?"
+              value={name}
+              aria-invalid={!!createError}
+              aria-describedby={createError ? 'choice-name-error' : undefined}
+              onChange={(event) => {
+                setName(event.target.value)
+                if (createError) setCreateError(null)
+              }}
+            />
+            {createError && <FieldError id="choice-name-error" message={createError} />}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="submit" className="primary-action flex-1" disabled={creating}>{creating ? 'Saving…' : 'Create'}</button>
+              <button type="button" aria-label="Ramble" className="secondary-action" disabled={creating} onClick={openRamble}>
+                Ramble
+              </button>
+            </div>
+          </form>
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={(e) => void onImportFile(e)}
-      />
-      {importError && <FieldError message={importError} />}
+          <div className="mt-4 flex flex-wrap gap-1 border-t border-divider pt-2" aria-label="Decision starters">
+            {STARTERS.map((starter) => (
+              <button key={starter} type="button" className="text-action text-xs" onClick={() => setName(starter)}>
+                {starter}
+              </button>
+            ))}
+          </div>
+          <InstallHint />
+        </section>
+
+        <section className="min-w-0" aria-labelledby="saved-decisions">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <h2 id="saved-decisions" className="section-title">Your decisions{data ? ` · ${data.decisions.length}` : ''}</h2>
+            {data && data.decisions.length > 1 && (
+              <select
+                aria-label="Sort decisions"
+                className="min-h-11 max-w-full rounded-xl border border-hairline bg-surface px-3 text-sm text-ink"
+                value={sort}
+                onChange={(event) => setSort(event.target.value as typeof sort)}
+              >
+                {SORTS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            )}
+          </div>
+          {data === undefined ? (
+            <p role="status" className="surface-card text-ink-3">Loading decisions…</p>
+          ) : data.decisions.length === 0 ? (
+            <p className="surface-card text-ink-2">Your saved decisions will appear here.</p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              {(sort === 'recent'
+                ? data.decisions
+                : [...data.decisions].sort((a, b) => a.name.localeCompare(b.name))
+              ).map((decision) => (
+                <Row key={decision.id} decision={decision} data={data} onOpen={onOpen} />
+              ))}
+            </ul>
+          )}
+          <footer className="mt-4 flex flex-wrap items-center justify-between gap-x-3 border-t border-divider pt-2">
+            <p className="text-sm text-ink-3">Decisions are stored on this device.</p>
+            <button type="button" className="text-action" onClick={() => fileRef.current?.click()}>
+              Import backup
+            </button>
+            <input ref={fileRef} type="file" accept="application/json,.json" className="hidden"
+              onChange={(event) => void onImportFile(event)} />
+            {importError && <FieldError message={importError} />}
+          </footer>
+        </section>
+      </div>
 
       {rambleOpen && (
         <RambleSheet
@@ -234,83 +243,6 @@ export default function Home({ onOpen }: { onOpen: (id: string, tab: Tab) => voi
             onOpen(id, tab)
           }}
         />
-      )}
-
-      <InstallHint />
-
-      {data === undefined ? (
-        <p className="mt-8 text-center text-sm text-ink-3">Loading…</p>
-      ) : (
-        <>
-          <div className="mt-8 flex items-center justify-between">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">
-              Your decisions · {data.decisions.length}
-            </h2>
-            <div className="relative">
-              <button
-                type="button"
-                className="min-h-11 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3 hover:text-ink-2"
-                onClick={() => setSortOpen((v) => !v)}
-              >
-                {SORTS.find((s) => s.id === sort)?.label} ▾
-              </button>
-              {sortOpen && (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Close sort menu"
-                    tabIndex={-1}
-                    className="fixed inset-0 z-30 cursor-default"
-                    onClick={() => setSortOpen(false)}
-                  />
-                  <div className="absolute right-0 z-40 mt-1 w-[140px] rounded-[14px] border border-hairline bg-menu p-1.5">
-                    {SORTS.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className="block w-full rounded-lg px-3 py-3 text-left text-sm text-ink-2 hover:bg-hover"
-                        onClick={() => {
-                          setSort(s.id)
-                          setSortOpen(false)
-                        }}
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {data.decisions.length === 0 ? (
-            <p className="mt-6 text-center text-sm text-ink-3">
-              No decisions yet — create one above.
-            </p>
-          ) : (
-            <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-              {(sort === 'recent'
-                ? data.decisions
-                : [...data.decisions].sort((a, b) => a.name.localeCompare(b.name))
-              ).map((decision) => (
-                <Row key={decision.id} decision={decision} data={data} onOpen={onOpen} />
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-6 rounded-2xl border border-dashed border-divider px-6 py-5 text-center">
-            <p className="text-sm leading-relaxed text-ink-3">
-              Decisions stay on this device. Export a backup to keep them.
-            </p>
-            <button
-              type="button"
-              className="mt-1 min-h-11 text-xs text-ink-4 hover:text-ink-3"
-              onClick={() => fileRef.current?.click()}
-            >
-              Import backup
-            </button>
-          </div>
-        </>
       )}
     </main>
   )

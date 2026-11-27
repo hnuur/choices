@@ -7,12 +7,9 @@ import { useImperativeHandle, useState, type Ref } from 'react'
 import type { DecisionSkeletonInput, SkeletonScoreInput } from '../types'
 import { dimensionScale, unitPresets } from '../units'
 import { DimensionFields } from './ApprovalCard'
-import { ImportancePicker, LabelPicker, inputClass } from './bits'
+import { Field, ImportancePicker, LabelPicker, inputClass } from './bits'
 
 export type SkeletonOutcome = { error: string }
-
-const smallSelect =
-  'min-w-0 w-full rounded-lg border border-hairline bg-surface-2 px-2 py-2.5 text-base text-ink focus:border-accent focus:outline-none'
 
 function dimOf(skeleton: DecisionSkeletonInput, name: string) {
   return skeleton.dimensions.find((d) => d.name.trim().toLowerCase() === name.trim().toLowerCase())
@@ -88,32 +85,34 @@ export default function SkeletonCard({
   useImperativeHandle(reviewRef, () => () => invalid || applying ? null : skeleton)
 
   return (
-    <div className="rounded-xl border border-hairline bg-surface p-3">
-      <p className="text-sm font-semibold text-ink">
+    <div className="surface-card">
+      <p className="section-title">
         Proposed decision — edit before filling in
       </p>
 
       <div className="mt-2">
-        <input
-          className={inputClass}
-          placeholder="Decision name"
-          value={skeleton.name}
-          onChange={(e) => patch((s) => ({ ...s, name: e.target.value }))}
-        />
+        <Field label="Decision name">
+          <input
+            className={inputClass}
+            placeholder="Decision name"
+            value={skeleton.name}
+            onChange={(e) => patch((s) => ({ ...s, name: e.target.value }))}
+          />
+        </Field>
       </div>
 
       {skeleton.dimensions.length > 0 && (
-        <p className="mt-3 text-xs font-semibold text-ink-3">Dimensions</p>
+        <p className="mt-3 text-sm font-semibold text-ink">Dimensions</p>
       )}
       <div className="mt-1 space-y-3">
         {skeleton.dimensions.map((d, i) => (
-          <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
+          <div key={i} className="rounded-xl border border-divider bg-bg p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-ink-3">Dimension {i + 1}</span>
+              <span className="text-sm font-semibold text-ink">Dimension {i + 1}</span>
               <button
                 type="button"
                 aria-label="Remove dimension"
-                className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
+                className="icon-action shrink-0 text-lg text-danger"
                 onClick={() =>
                   patch((s) => ({
                     ...s,
@@ -131,17 +130,17 @@ export default function SkeletonCard({
       </div>
 
       {skeleton.options.length > 0 && (
-        <p className="mt-3 text-xs font-semibold text-ink-3">Options</p>
+        <p className="mt-3 text-sm font-semibold text-ink">Options</p>
       )}
       <div className="mt-1 space-y-3">
         {skeleton.options.map((o, i) => (
-          <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
+          <div key={i} className="rounded-xl border border-divider bg-bg p-3">
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold text-ink-3">Option {i + 1}</span>
+              <span className="text-sm font-semibold text-ink">Option {i + 1}</span>
               <button
                 type="button"
                 aria-label="Remove option"
-                className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
+                className="icon-action shrink-0 text-lg text-danger"
                 onClick={() =>
                   patch((s) => ({
                     ...s,
@@ -154,38 +153,42 @@ export default function SkeletonCard({
               </button>
             </div>
             <div className="space-y-2">
-              <input
-                className={inputClass}
-                placeholder="Option name"
-                value={o.name}
-                onChange={(e) => setOption(i, { ...o, name: e.target.value })}
-              />
-              <input
-                className={inputClass}
-                placeholder="Notes (optional)"
-                value={o.notes ?? ''}
-                onChange={(e) =>
-                  setOption(i, { ...o, notes: e.target.value.trim() || undefined })
-                }
-              />
+              <Field label="Option name">
+                <input
+                  className={inputClass}
+                  placeholder="Option name"
+                  value={o.name}
+                  onChange={(e) => setOption(i, { ...o, name: e.target.value })}
+                />
+              </Field>
+              <Field label="Notes (optional)">
+                <input
+                  className={inputClass}
+                  placeholder="Notes (optional)"
+                  value={o.notes ?? ''}
+                  onChange={(e) =>
+                    setOption(i, { ...o, notes: e.target.value.trim() || undefined })
+                  }
+                />
+              </Field>
             </div>
           </div>
         ))}
       </div>
 
-      {scores.length > 0 && <p className="mt-3 text-xs font-semibold text-ink-3">Scores</p>}
+      {scores.length > 0 && <p className="mt-3 text-sm font-semibold text-ink">Scores</p>}
       <div className="mt-1 space-y-3">
         {scores.map((cell, i) => {
           const dim = dimOf(skeleton, cell.dimension)
           const scale = dim ? dimensionScale(dim) : undefined
           return (
-            <div key={i} className="rounded-lg border border-hairline bg-surface-2 p-2.5">
+            <div key={i} className="rounded-xl border border-divider bg-bg p-3">
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold text-ink-3">Score {i + 1}</span>
+                <span className="text-sm font-semibold text-ink">Score {i + 1}</span>
                 <button
                   type="button"
                   aria-label="Remove score"
-                  className="h-11 w-11 rounded-md text-lg text-ink-4 hover:bg-hover"
+                  className="icon-action shrink-0 text-lg text-danger"
                   onClick={() =>
                     patch((s) => ({
                       ...s,
@@ -197,40 +200,45 @@ export default function SkeletonCard({
                 </button>
               </div>
               <div className="space-y-2">
-                <select
-                  className={smallSelect}
-                  value={cell.option}
-                  onChange={(e) => setScore(i, { ...cell, option: e.target.value })}
-                >
-                  {skeleton.options.map((o) => (
-                    <option key={o.name} value={o.name}>
-                      {o.name || 'Option'}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className={smallSelect}
-                  value={cell.dimension}
-                  onChange={(e) => {
-                    const next = dimOf(skeleton, e.target.value)
-                    const nextScale = next ? dimensionScale(next) : undefined
-                    setScore(i, {
-                      option: cell.option,
-                      dimension: e.target.value,
-                      ...(nextScale === 'nominal'
-                        ? { labels: [] }
-                        : { value: nextScale === 'rating' ? 3 : 0 }),
-                    })
-                  }}
-                >
-                  {skeleton.dimensions.map((d) => (
-                    <option key={d.name} value={d.name}>
-                      {d.name || 'Dimension'}
-                    </option>
-                  ))}
-                </select>
+                <Field label="Option">
+                  <select
+                    className={inputClass}
+                    value={cell.option}
+                    onChange={(e) => setScore(i, { ...cell, option: e.target.value })}
+                  >
+                    {skeleton.options.map((o) => (
+                      <option key={o.name} value={o.name}>
+                        {o.name || 'Option'}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Dimension">
+                  <select
+                    className={inputClass}
+                    value={cell.dimension}
+                    onChange={(e) => {
+                      const next = dimOf(skeleton, e.target.value)
+                      const nextScale = next ? dimensionScale(next) : undefined
+                      setScore(i, {
+                        option: cell.option,
+                        dimension: e.target.value,
+                        ...(nextScale === 'nominal'
+                          ? { labels: [] }
+                          : { value: nextScale === 'rating' ? 3 : 0 }),
+                      })
+                    }}
+                  >
+                    {skeleton.dimensions.map((d) => (
+                      <option key={d.name} value={d.name}>
+                        {d.name || 'Dimension'}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
                 {scale === 'rating' ? (
                   <ImportancePicker
+                    label="Rating from 1 to 5"
                     value={
                       Number.isInteger(cell.value) && (cell.value ?? 0) >= 1 && (cell.value ?? 0) <= 5
                         ? cell.value!
@@ -252,6 +260,8 @@ export default function SkeletonCard({
                     className={inputClass}
                     type="number"
                     step="any"
+                    inputMode="decimal"
+                    aria-label={dim?.unit ? `Score in ${dim.unit}` : 'Score'}
                     value={cell.value ?? ''}
                     onChange={(e) =>
                       setScore(i, {
@@ -271,7 +281,7 @@ export default function SkeletonCard({
       <div className="mt-2 flex flex-wrap gap-1">
         <button
           type="button"
-          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+          className="text-action"
           onClick={() =>
             patch((s) => ({
               ...s,
@@ -283,7 +293,7 @@ export default function SkeletonCard({
         </button>
         <button
           type="button"
-          className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+          className="text-action"
           onClick={() => patch((s) => ({ ...s, options: [...s.options, { name: '' }] }))}
         >
           + option
@@ -291,7 +301,7 @@ export default function SkeletonCard({
         {skeleton.dimensions.length > 0 && skeleton.options.length > 0 && (
           <button
             type="button"
-            className="min-h-11 rounded-md border border-dashed border-hairline px-2.5 text-xs text-ink-3 hover:bg-hover"
+            className="text-action"
             onClick={() =>
               patch((s) => ({
                 ...s,
@@ -314,7 +324,7 @@ export default function SkeletonCard({
       </div>
 
       {outcome && (
-        <p className="mt-2 rounded-md border border-red-400/30 bg-red-400/10 px-2 py-1.5 text-xs text-red-300">
+        <p className="mt-2 rounded-md border border-danger/30 bg-danger-soft px-2 py-1.5 text-sm text-danger">
           Couldn't create the decision: {outcome.error}
         </p>
       )}
@@ -323,14 +333,14 @@ export default function SkeletonCard({
         <button
           type="button"
           disabled={invalid || applying}
-          className="w-full rounded-xl bg-accent py-3 text-sm font-semibold text-on-accent disabled:opacity-40"
+          className="primary-action w-full"
           onClick={() => onApply(skeleton)}
         >
           {applying ? 'Saving…' : 'Fill in what you can'}
         </button>
         <button
           type="button"
-          className="w-full rounded-xl py-3 text-sm font-medium text-ink-3 hover:bg-hover"
+          className="text-action w-full"
           onClick={onKeepChatting}
         >
           Keep chatting

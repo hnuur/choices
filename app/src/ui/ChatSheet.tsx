@@ -63,7 +63,7 @@ export default function ChatSheet({
   tab,
   state,
   onStateChange,
-  onCycleTab,
+  onChangeTab,
   onApplied,
   injection,
   onInjectionConsumed,
@@ -72,7 +72,7 @@ export default function ChatSheet({
   tab: Tab
   state: ChatState
   onStateChange: (s: ChatState) => void
-  onCycleTab: () => void
+  onChangeTab: (tab: Tab) => void
   onApplied?: () => void
   /** Ramble-everywhere: a transcript to enter as if typed (nonce re-triggers). */
   injection?: { text: string; nonce: number } | null
@@ -476,18 +476,15 @@ export default function ChatSheet({
   if (view === 'settings') {
     return (
       <SheetShell label="AI settings" onClose={() => setView('chat')}>
-        <div
-          className="sheet-content shrink-0"
-          style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.5rem))' }}
-        >
-          <button
-            type="button"
-            className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
-            onClick={() => setView('chat')}
-          >
-            ← Back to chat
-          </button>
-        </div>
+        <header className="sheet-header shrink-0">
+          <div className="sheet-content pb-3 pt-[var(--sheet-pad-top)]">
+            <button type="button" className="text-action -ml-2.5"
+              onClick={() => setView('chat')}>
+              ← Back to chat
+            </button>
+            <h2 tabIndex={-1} data-sheet-title className="section-title">AI settings</h2>
+          </div>
+        </header>
         <AiSettingsPanel onDone={() => setView('chat')} />
       </SheetShell>
     )
@@ -495,47 +492,49 @@ export default function ChatSheet({
 
   return (
     <SheetShell label="Ask AI" onClose={() => onStateChange('closed')}>
-      <header className="shrink-0 border-b border-hairline">
-        <div className="sheet-content flex flex-wrap items-center gap-1 pb-2 pt-[var(--sheet-pad-top)]">
-          <h2 className="mr-auto text-base font-semibold text-ink sm:text-lg">Ask AI</h2>
-          <button
-            type="button"
-            className="min-h-11 shrink-0 rounded-full bg-hover px-3 text-sm font-medium text-ink-2"
-            onClick={onCycleTab}
-            aria-label={`AI context: ${TABS.find((t) => t.id === tab)?.label}. Switch to the next section.`}
-          >
-            {TABS.find((t) => t.id === tab)?.label} ▾
-          </button>
-          <button
-            type="button"
-            aria-pressed={voice || !!handsFree.status}
-            disabled={!!handsFree.status}
-            className={`min-h-11 shrink-0 rounded-md px-2 text-sm font-medium ${
-              voice || handsFree.status ? 'text-accent-ink' : 'text-ink-2'
-            }`}
-            onClick={toggleVoice}
-          >
-            Replies {voice || handsFree.status ? 'on' : 'off'}
-          </button>
-          <button
-            type="button"
-            disabled={rec === 'recording'}
-            className="min-h-11 shrink-0 rounded-md px-2 text-sm font-medium text-ink-2 hover:bg-hover disabled:opacity-40"
-            onClick={() => {
-              handsFree.stop()
-              pendingMic.current?.abort()
-              setView('settings')
-            }}
-          >
-            Settings
-          </button>
+      <header className="sheet-header shrink-0">
+        <div className="sheet-content sheet-toolbar pb-2 pt-[var(--sheet-pad-top)]">
+          <h2 tabIndex={-1} data-sheet-title className="section-title">Ask AI</h2>
+          <div className="sheet-tools">
+            <select
+              className="min-h-11 max-w-full rounded-xl border border-hairline bg-surface-2 px-2 text-sm"
+              value={tab}
+              aria-label="AI context"
+              onChange={(event) => onChangeTab(event.target.value as Tab)}
+            >
+              {TABS.map((section) => <option key={section.id} value={section.id}>{section.label}</option>)}
+            </select>
+            <button
+              type="button"
+              aria-pressed={voice || !!handsFree.status}
+              disabled={!!handsFree.status}
+              className={`text-action ${
+                voice || handsFree.status ? 'text-accent-ink' : 'text-ink-2'
+              }`}
+              onClick={toggleVoice}
+            >
+              Replies {voice || handsFree.status ? 'on' : 'off'}
+            </button>
+            <button
+              type="button"
+              disabled={rec === 'recording'}
+              className="text-action"
+              onClick={() => {
+                handsFree.stop()
+                pendingMic.current?.abort()
+                setView('settings')
+              }}
+            >
+              Settings
+            </button>
+          </div>
           <button
             type="button"
             aria-label="Close"
-            className="h-11 w-11 shrink-0 rounded-md text-ink-3 hover:bg-hover"
+            className="sheet-close secondary-action"
             onClick={() => onStateChange('closed')}
           >
-            ✕
+            Close
           </button>
         </div>
       </header>
@@ -548,18 +547,18 @@ export default function ChatSheet({
         className="sheet-content min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-3"
       >
         {configured && entries.length === 0 && rec === 'idle' && (
-          <p className="mt-6 rounded-xl border border-hairline bg-surface p-4 text-sm text-ink-2">
+          <p className="surface-card text-sm text-ink-2">
             Ask about your decision or describe a change you’d like to make.
           </p>
         )}
         {!configured && entries.length === 0 && (
-          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
+          <div className="surface-card">
             <p className="text-sm text-ink-2">
               Ask about dimensions, options, scores or results — but set up AI first.
             </p>
             <button
               type="button"
-              className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
+              className="primary-action mt-3"
               onClick={() => setView('settings')}
             >
               Set up AI
@@ -594,7 +593,7 @@ export default function ChatSheet({
         )}
       </div>
 
-      <footer className="shrink-0 border-t border-hairline bg-menu">
+      <footer className="action-bar shrink-0">
         <div className="sheet-content pt-2 pb-[var(--sheet-pad-bottom)]">
           {rec !== 'recording' && (
             <HandsFreeControls
@@ -605,11 +604,11 @@ export default function ChatSheet({
           )}
           {rec === 'recording' ? (
             <div
-              className="flex items-center justify-center gap-4"
+              className="flex flex-wrap items-center justify-between gap-2"
             >
               <button
                 type="button"
-                className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
+                className="text-action"
                 onClick={() => {
                   cancelledRef.current = true
                   recorderRef.current?.stop()
@@ -618,12 +617,13 @@ export default function ChatSheet({
                 Cancel
               </button>
               <div className="flex items-center gap-2">
-                <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-danger" />
+                <span className="text-sm text-danger">Recording</span>
                 <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
               </div>
               <button
                 type="button"
-                className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
+                className="primary-action"
                 onClick={() => {
                   if (voiceRef.current) unlockSpeech()
                   recorderRef.current?.stop()
@@ -634,7 +634,7 @@ export default function ChatSheet({
             </div>
           ) : (
             <form
-              className="flex items-center gap-2"
+              className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"
               onSubmit={(e) => {
                 e.preventDefault()
                 handsFree.stop()
@@ -645,14 +645,14 @@ export default function ChatSheet({
                 type="button"
                 disabled={!canRecord || busy || rec !== 'idle' || !!handsFree.status}
                 aria-label="Record a ramble"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
+                className="secondary-action"
                 onClick={() => void startRecording()}
               >
-                <span className="size-1.5 rounded-full bg-accent" />
+                Record
               </button>
               <input
                 aria-label="Ask AI message"
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
+                className="min-h-11 min-w-0 w-full rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-3 focus:border-accent"
                 placeholder={canRecord ? 'Write or speak…' : 'Type a message…'}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -660,7 +660,7 @@ export default function ChatSheet({
               <button
                 type="submit"
                 disabled={busy || rec !== 'idle' || input.trim() === ''}
-                className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent enabled:hover:bg-accent-ink disabled:opacity-40"
+                className="primary-action"
               >
                 Send
               </button>
