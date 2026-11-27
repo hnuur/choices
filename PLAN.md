@@ -107,6 +107,24 @@ Score     { optionId, dimensionId, value?: number, labels?: string[] }
 
 ## Governance rules (non-negotiable)
 
+Phase-6 follow-up (user 2026-11-27): validating a BYO API key also loads
+the provider's available text/chat models into a native model picker.
+Reason: free-text model IDs can be invalid or inaccessible to that key.
+Read paginated provider-native model lists directly from the device;
+Gemini models must support generateContent. Clear validation and model
+lists when the provider, credential, or custom endpoint changes, and ignore
+outdated responses. Keep model selection explicit if the saved model is
+unavailable. Custom endpoints without model-list support may still use
+manual entry with a visible error. Relay model selection remains operator
+controlled. No key or model catalog is sent to an app server or added to
+the decision database. Verify with provider-list fixtures, stale-response
+and selection browser checks, the Phase-6 gate, and the manual checklist.
+Release integration preserves the already-deployed build stamp and Check
+for update flow from c98b0a5; that source was missing from main. This is
+needed so the new picker reaches existing iOS installations without
+removing their update control. Publish the tested /choices/ build to the
+existing gh-pages branch.
+
 - **Frozen improver**: artifacts that author or judge other artifacts are
   human-edited only, versioned in git; automation may NEVER propose changes to
   them. *None are designated yet.* When one is created, its paths are wired

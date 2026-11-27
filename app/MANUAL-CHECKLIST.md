@@ -323,6 +323,17 @@ turn it on. Live lookup items need a model that can search.
 
 ## Phone usability regression checks (Phase-6/7 follow-up)
 
+- [ ] In AI settings, Validate key loads available text models into Model.
+      Choose an available model and Save; reopen settings and verify it persists.
+- [ ] An unavailable saved model prompts a new choice; Save stays disabled
+      until a model from the returned list is selected.
+- [ ] Changing key, provider, or custom URL clears the catalog and validation;
+      a slow response for the previous key must not repopulate the picker.
+- [ ] Anthropic/Gemini catalogs include later pages. Gemini embedding-only
+      models and OpenAI speech/image/embedding models are absent.
+- [ ] A custom endpoint without /models shows an error and still allows a
+      manually entered model ID. Relay model choice stays operator controlled.
+
 - [ ] Simulate a failed database write while approving AI changes: the
       sheet stays open, shows the save error, and offers only failed rows
       for retry. Retrying must not duplicate already-saved options.
