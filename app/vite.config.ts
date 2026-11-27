@@ -1,7 +1,7 @@
 /// <reference types="vitest/config" />
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // GitHub Pages serves the project site at /choices/; local and any
@@ -9,13 +9,39 @@ import { VitePWA } from 'vite-plugin-pwa'
 declare const process: { env: Record<string, string | undefined> }
 const base = process.env.GITHUB_PAGES === 'true' ? '/choices/' : '/'
 
+// Stamp each production build so sticky iOS PWAs can detect drift via
+// network-only build.json (json is intentionally outside the SW precache).
+const appBuildId =
+  process.env.VITE_APP_BUILD_ID ||
+  new Date().toISOString().replace(/\W/g, '').slice(0, 15)
+
+function emitBuildJson(): Plugin {
+  return {
+    name: 'emit-build-json',
+    apply: 'build',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'build.json',
+        source: JSON.stringify({ id: appBuildId }) + '\n',
+      })
+    },
+  }
+}
+
 export default defineConfig({
   base,
+  define: {
+    'import.meta.env.VITE_APP_BUILD_ID': JSON.stringify(appBuildId),
+  },
   plugins: [
     react(),
     tailwindcss(),
+    emitBuildJson(),
     VitePWA({
       registerType: 'autoUpdate',
+      // main.tsx owns registration so we can ping update + build.json drift.
+      injectRegister: false,
       manifest: {
         name: 'Choices',
         short_name: 'Choices',
@@ -36,7 +62,7 @@ export default defineConfig({
         // Precache the whole shell for full offline; the plugin adds the
         // manifest and its icons to the precache automatically. Fonts are
         // self-hosted (Phase 8) and must ride along or offline falls back
-        // to system faces.
+        // to system faces. build.json stays OFF this list on purpose.
         globPatterns: ['**/*.{js,css,html,woff,woff2}'],
         navigateFallback: `${base}index.html`,
       },

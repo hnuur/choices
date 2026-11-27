@@ -15,6 +15,7 @@ import {
   type AiSettings,
 } from '../ai/settings'
 import { FieldError, inputClass } from './bits'
+import { APP_BUILD_ID, reloadIfStaleBuild } from '../buildId'
 
 const MODES: { id: AiMode; label: string }[] = [
   { id: 'anthropic', label: 'Anthropic' },
@@ -36,6 +37,7 @@ export default function AiSettingsPanel({
   const [error, setError] = useState<string | null>(null)
   const [validating, setValidating] = useState(false)
   const [showKey, setShowKey] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [models, setModels] = useState<AvailableModel[] | null>(null)
   const requestId = useRef(0)
   useEffect(() => () => { requestId.current++ }, [])
@@ -90,6 +92,16 @@ export default function AiSettingsPanel({
 
   const isPreset =
     settings.mode === 'anthropic' || settings.mode === 'openai' || settings.mode === 'gemini'
+
+  const checkUpdate = async () => {
+    setCheckingUpdate(true)
+    try {
+      const reloading = await reloadIfStaleBuild()
+      if (!reloading) setStatus('Already on the latest build.')
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
 
   return (
     <div
@@ -274,6 +286,23 @@ export default function AiSettingsPanel({
       )}
       {status && <p className="mt-2 text-xs text-accent-ink">{status}</p>}
       {error && <FieldError message={error} />}
+      <div className="mt-8 border-t border-hairline pt-4">
+        <p className="text-xs text-ink-3">
+          Build <span className="font-mono text-ink-2">{APP_BUILD_ID}</span>
+        </p>
+        <button
+          type="button"
+          className="mt-2 min-h-11 rounded-xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 disabled:opacity-40"
+          disabled={checkingUpdate}
+          onClick={() => void checkUpdate()}
+        >
+          {checkingUpdate ? 'Checking…' : 'Check for update'}
+        </button>
+        <p className="mt-1 text-xs text-ink-3">
+          Home-screen installs can keep an old shell after a deploy. This clears
+          the service worker cache when a newer build is live.
+        </p>
+      </div>
     </div>
   )
 }
