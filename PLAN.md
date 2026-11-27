@@ -119,6 +119,11 @@ manual entry with a visible error. Relay model selection remains operator
 controlled. No key or model catalog is sent to an app server or added to
 the decision database. Verify with provider-list fixtures, stale-response
 and selection browser checks, the Phase-6 gate, and the manual checklist.
+Release integration preserves the already-deployed build stamp and Check
+for update flow from c98b0a5; that source was missing from main. This is
+needed so the new picker reaches existing iOS installations without
+removing their update control. Publish the tested /choices/ build to the
+existing gh-pages branch.
 
 - **Frozen improver**: artifacts that author or judge other artifacts are
   human-edited only, versioned in git; automation may NEVER propose changes to
