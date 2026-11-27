@@ -85,14 +85,15 @@ grep -q 'MediaRecorder' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lack
 grep -q 'isTypeSupported' "$APP/src/ai/recordingMime.ts" || fail "recording mime probe lacks isTypeSupported (Safari AAC/mp4)"
 grep -q 'pickRecordingMimeType' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet does not use the recording mime probe"
 grep -q 'getUserMedia' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks getUserMedia"
-grep -qi 'https' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the insecure-context message"
+grep -qi 'https' "$APP/src/ai/stt.ts" || fail "recording availability lacks the insecure-context message"
 grep -q 'aria-label="Ramble"' "$APP/src/ui/Home.tsx" || fail "home lacks the composer ramble entry"
 grep -q 'RambleSheet' "$APP/src/ui/Home.tsx" || fail "home lacks the ramble entry point"
 ok "recorder + sheet wiring (mimeType probe, insecure message, greyed mic) present"
 
 # NT10: ramble-everywhere wiring (decision-view mic → chat injection)
 grep -q 'aria-label="Ramble"' "$APP/src/ui/DecisionView.tsx" || fail "decision bottom bar lacks the mic button"
-grep -q 'supportsStt' "$APP/src/ui/DecisionView.tsx" || fail "decision mic lacks the greyed-STT guard"
+grep -q 'recordingUnavailableReason(settings)' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the recording capability guard"
+grep -q 'disabled={!canRecord' "$APP/src/ui/RambleSheet.tsx" || fail "ramble mic lacks the disabled state"
 grep -q 'onTranscript' "$APP/src/ui/DecisionView.tsx" || fail "decision view does not hand the transcript to the chat"
 grep -q 'onTranscript' "$APP/src/ui/RambleSheet.tsx" || fail "ramble sheet lacks the transcript hand-off mode"
 grep -q 'injection' "$APP/src/ui/ChatSheet.tsx" || fail "chat sheet lacks transcript injection"

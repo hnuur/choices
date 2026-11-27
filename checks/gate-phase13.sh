@@ -61,8 +61,8 @@ grep -q 'unsupported custom lookup surfaces a visible error' "$APP/src/ai/provid
 ok "provider-native search loop + unsupported custom/relay error"
 
 # NT6: sheets pass the flag and show Looking up… only when on
-grep -q 'systemPrompt(tabRef.current, ai.webLookup)' "$C" || fail "chat does not pass webLookup"
-grep -q 'rambleSystemPrompt(ai.webLookup)' "$R" || fail "ramble does not pass webLookup"
+grep -Eq 'systemPrompt\(tabRef\.current, ai\.webLookup[,)]' "$C" || fail "chat does not pass webLookup"
+grep -Eq 'rambleSystemPrompt\(ai\.webLookup[,)]' "$R" || fail "ramble does not pass webLookup"
 grep -q "webLookup ? 'Looking up…' : 'Thinking…'" "$C" || fail "chat Looking up… missing"
 grep -q "webLookup ? 'Looking up…' : 'Thinking…'" "$R" || fail "ramble Looking up… missing"
 grep -q 'Web lookup' "$APP/src/ui/AiSettingsPanel.tsx" || fail "settings toggle missing"

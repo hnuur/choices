@@ -108,9 +108,9 @@ export default function ResultsTab({
             const scale = dimensionScale(d)
             return (
               <div key={d.id}>
-                <div className="flex justify-between text-[15px]">
+                <div className="flex justify-between gap-3 text-[15px]">
                   <span className="text-ink-2">{d.name}</span>
-                  <span className="text-ink-2">
+                  <span className="min-w-0 text-right text-ink-2">
                     {scale === 'nominal'
                       ? formatLabels(cell.labels ?? [])
                       : scale === 'numeric'

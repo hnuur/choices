@@ -10,10 +10,12 @@ import {
   createDecisionSkeleton,
   deleteDimension,
   deleteOption,
+  renameDecision,
   setScore,
   updateDimension,
+  updateOption,
 } from '../mutations'
-import { queryDecision } from '../queries'
+import { queryDecision, type DecisionBundle } from '../queries'
 import type { Decision, DecisionSkeletonInput } from '../types'
 import type { Proposal } from './proposals'
 import { coerceSetScore } from './sanitizeProposals'
@@ -37,6 +39,8 @@ export function summarizeApplyOutcomes(outcomes: ApplyOutcome[]): string {
 
 export function describeProposal(p: Proposal): string {
   switch (p.type) {
+    case 'renameDecision':
+      return `Rename decision to “${p.name}”`
     case 'addDimension':
       return `Add dimension “${p.dimension.name}”`
     case 'updateDimension':
@@ -45,12 +49,40 @@ export function describeProposal(p: Proposal): string {
       return 'Delete dimension'
     case 'addOption':
       return `Add option “${p.option.name}”`
+    case 'updateOption':
+      return 'Update option'
     case 'deleteOption':
       return 'Delete option'
     case 'setScore':
       return 'Set score'
     case 'createDecision':
       return `Create decision “${p.decision.name}”`
+  }
+}
+
+/** Read the values on the review card without relying on the model's summary. */
+export function describeVoiceProposal(p: Proposal, bundle: DecisionBundle): string {
+  const option = (id: string) => bundle.options.find((row) => row.id === id)?.name ?? 'an unavailable option'
+  const dimension = (id: string) => bundle.dimensions.find((row) => row.id === id)?.name ?? 'an unavailable dimension'
+  switch (p.type) {
+    case 'addDimension':
+      return `Add ${p.dimension.name} as ${p.dimension.kind}, with importance ${p.dimension.importance} out of 5${p.dimension.unit ? `, measured in ${p.dimension.unit}` : ''}${p.dimension.direction ? `, ${p.dimension.direction} is better` : ''}`
+    case 'updateDimension': {
+      const fields = Object.entries(p.patch).map(([name, value]) => `${name} to ${value ?? 'empty'}`).join(', ')
+      return `Change ${dimension(p.id)}: ${fields}`
+    }
+    case 'deleteDimension':
+      return `Remove ${dimension(p.id)} and its scores`
+    case 'addOption':
+      return `Add option ${p.option.name}${p.option.notes ? `, with notes: ${p.option.notes}` : ''}`
+    case 'updateOption':
+      return `Edit ${option(p.id)}${p.patch.name ? `, rename it to ${p.patch.name}` : ''}${'notes' in p.patch ? `, ${p.patch.notes ? `set notes to ${p.patch.notes}` : 'clear the notes'}` : ''}`
+    case 'deleteOption':
+      return `Remove ${option(p.id)} and its scores`
+    case 'setScore':
+      return `Set ${dimension(p.dimensionId)} for ${option(p.optionId)} to ${p.labels?.join(', ') ?? p.value}`
+    default:
+      return describeProposal(p)
   }
 }
 
@@ -93,12 +125,24 @@ export async function applyProposals(
       const optionIds = new Set(bundle.options.map((o) => o.id))
 
       switch (p.type) {
+        case 'renameDecision':
+          await renameDecision(decisionId, p.name)
+          break
         case 'addDimension':
           await addDimension(decisionId, p.dimension)
           break
         case 'addOption':
           await addOption(decisionId, p.option)
           break
+        case 'updateOption': {
+          if (!optionIds.has(p.id)) throw new Error('option is not in this decision')
+          const { notes, ...patch } = p.patch
+          await updateOption(p.id, {
+            ...patch,
+            ...('notes' in p.patch ? { notes: notes ?? undefined } : {}),
+          })
+          break
+        }
         case 'updateDimension':
           if (!dimensionIds.has(p.id)) throw new Error('dimension is not in this decision')
           await updateDimension(p.id, p.patch)

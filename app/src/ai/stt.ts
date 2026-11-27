@@ -17,6 +17,15 @@ export function supportsStt(settings: AiSettings): boolean {
   return settings.mode === 'openai' || settings.mode === 'custom' || settings.mode === 'gemini'
 }
 
+export function recordingUnavailableReason(settings: AiSettings): string | null {
+  if (!supportsStt(settings)) return 'Voice input needs OpenAI, Gemini, or a compatible custom provider.'
+  if (!window.isSecureContext) return 'Open Choices over HTTPS to use the microphone.'
+  if (typeof navigator.mediaDevices?.getUserMedia !== 'function' || typeof MediaRecorder === 'undefined') {
+    return 'This browser cannot record audio. You can still type.'
+  }
+  return null
+}
+
 const stripTrailingSlash = (url: string) => url.replace(/\/+$/, '')
 
 /** True for containers Safari records that Whisper frequently rejects. */
@@ -109,6 +118,7 @@ async function whisperTranscribe(
   apiKey: string,
   audio: Blob,
   mimeType: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   const prepared = await prepareForWhisper(audio, mimeType)
   const form = new FormData()
@@ -116,6 +126,7 @@ async function whisperTranscribe(
   form.append('model', 'whisper-1')
   const res = await fetch(`${stripTrailingSlash(baseUrl)}/audio/transcriptions`, {
     method: 'POST',
+    ...(signal ? { signal } : {}),
     headers: { authorization: `Bearer ${apiKey}` },
     body: form,
   })
@@ -140,6 +151,7 @@ async function geminiTranscribe(
   apiKey: string,
   audio: Blob,
   mimeType: string,
+  signal?: AbortSignal,
 ): Promise<string> {
   // Same Safari containers trip Gemini; prefer WAV when we can re-encode.
   let payload = audio
@@ -157,6 +169,7 @@ async function geminiTranscribe(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
+      ...(signal ? { signal } : {}),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         contents: [
@@ -186,6 +199,7 @@ export async function transcribe(
   audio: Blob,
   mimeType: string,
   settings: AiSettings,
+  signal?: AbortSignal,
 ): Promise<string> {
   switch (settings.mode) {
     case 'openai':
@@ -194,6 +208,7 @@ export async function transcribe(
         settings.apiKey.trim(),
         audio,
         mimeType,
+        signal,
       )
     case 'custom':
       return whisperTranscribe(
@@ -201,9 +216,10 @@ export async function transcribe(
         settings.apiKey.trim(),
         audio,
         mimeType,
+        signal,
       )
     case 'gemini':
-      return geminiTranscribe(effectiveModel(settings), settings.apiKey.trim(), audio, mimeType)
+      return geminiTranscribe(effectiveModel(settings), settings.apiKey.trim(), audio, mimeType, signal)
     case 'anthropic':
     case 'relay':
     default:

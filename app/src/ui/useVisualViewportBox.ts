@@ -3,53 +3,75 @@ import { useEffect, useState } from 'react'
 export interface VisualViewportBox {
   /** Offset of the visual viewport from the layout viewport top (iOS keyboard). */
   top: number
-  height: number
+  height: number | undefined
+  keyboardOpen: boolean
 }
+
+export function measureViewport(
+  layoutHeight: number,
+  viewport?: Pick<VisualViewport, 'offsetTop' | 'height' | 'scale'> | null,
+): VisualViewportBox {
+  // Keep the original layout while the user pinches or pans around it.
+  if (!viewport || Math.abs(viewport.scale - 1) > 0.01 || viewport.height <= 0) {
+    return { top: 0, height: undefined, keyboardOpen: false }
+  }
+  const height = Math.min(layoutHeight, viewport.height)
+  return {
+    top: Math.max(0, viewport.offsetTop),
+    height,
+    keyboardOpen: layoutHeight - height > 80,
+  }
+}
+
+const readViewport = () => measureViewport(window.innerHeight, window.visualViewport)
 
 /**
  * Tracks the visible viewport so fixed fullscreen sheets stay above the iOS
  * keyboard. Without this, focusing an input scrolls the layout viewport and
  * the sheet's header/compose leave the screen (black void + keyboard only).
  */
-export function useVisualViewportBox(active = true): VisualViewportBox {
-  const [box, setBox] = useState<VisualViewportBox>(() => ({
-    top: 0,
-    height: typeof window !== 'undefined' ? window.innerHeight : 0,
-  }))
+export function useVisualViewportBox(): VisualViewportBox {
+  const [box, setBox] = useState(readViewport)
 
   useEffect(() => {
-    if (!active || typeof window === 'undefined') return
-
-    const read = (): VisualViewportBox => {
-      const vv = window.visualViewport
-      if (!vv) return { top: 0, height: window.innerHeight }
-      return { top: vv.offsetTop, height: vv.height }
+    let frame = 0
+    let focusTimer = 0
+    const update = () => {
+      frame = 0
+      const next = readViewport()
+      setBox((previous) =>
+        previous.top === next.top && previous.height === next.height &&
+        previous.keyboardOpen === next.keyboardOpen ? previous : next,
+      )
     }
-
-    const update = () => setBox(read())
+    const scheduleUpdate = () => {
+      if (!frame) frame = window.requestAnimationFrame(update)
+    }
     update()
 
     const vv = window.visualViewport
-    vv?.addEventListener('resize', update)
-    vv?.addEventListener('scroll', update)
-    window.addEventListener('resize', update)
-    // iOS fires orientation / keyboard changes after a frame.
+    vv?.addEventListener('resize', scheduleUpdate)
+    vv?.addEventListener('scroll', scheduleUpdate)
+    window.addEventListener('resize', scheduleUpdate)
+    // Re-read after the keyboard animation settles in iPadOS Safari.
     const focusKick = () => {
-      window.requestAnimationFrame(update)
-      window.setTimeout(update, 50)
-      window.setTimeout(update, 300)
+      scheduleUpdate()
+      window.clearTimeout(focusTimer)
+      focusTimer = window.setTimeout(scheduleUpdate, 300)
     }
     window.addEventListener('focusin', focusKick)
     window.addEventListener('focusout', focusKick)
 
     return () => {
-      vv?.removeEventListener('resize', update)
-      vv?.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(focusTimer)
+      vv?.removeEventListener('resize', scheduleUpdate)
+      vv?.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener('resize', scheduleUpdate)
       window.removeEventListener('focusin', focusKick)
       window.removeEventListener('focusout', focusKick)
     }
-  }, [active])
+  }, [])
 
   return box
 }
@@ -59,7 +81,7 @@ export function useBodyScrollLock(locked: boolean): void {
   useEffect(() => {
     if (!locked || typeof document === 'undefined') return
     const { body, documentElement } = document
-    const prevBody = body.style.overflow
+    const { overflow, position, top, left, right } = body.style
     const prevHtml = documentElement.style.overflow
     const scrollY = window.scrollY
     body.style.overflow = 'hidden'
@@ -70,12 +92,8 @@ export function useBodyScrollLock(locked: boolean): void {
     body.style.left = '0'
     body.style.right = '0'
     return () => {
-      body.style.overflow = prevBody
+      Object.assign(body.style, { overflow, position, top, left, right })
       documentElement.style.overflow = prevHtml
-      body.style.position = ''
-      body.style.top = ''
-      body.style.left = ''
-      body.style.right = ''
       window.scrollTo(0, scrollY)
     }
   }, [locked])

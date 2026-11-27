@@ -10,15 +10,19 @@ import { formatPlaceReply } from '../ai/formatPlaceReply'
 import { chat, ProviderError, type ChatMessage } from '../ai/providers'
 import { parseReply, ProposalParseError } from '../ai/proposals'
 import { isConfigured, loadSettings, saveSettings } from '../ai/settings'
-import { supportsStt, transcribe } from '../ai/stt'
+import { recordingUnavailableReason, transcribe } from '../ai/stt'
 import { speak, stopSpeaking, unlockSpeech } from '../ai/tts'
+import { voiceReviewCommand } from '../ai/voiceCapture'
 import { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recordingMime'
 import { queryDecision } from '../queries'
 import type { DecisionSkeletonInput } from '../types'
 import AiSettingsPanel from './AiSettingsPanel'
+import ConversationMessage from './ConversationMessage'
+import HandsFreeControls from './HandsFreeControls'
 import SheetShell from './SheetShell'
 import SkeletonCard, { type SkeletonOutcome } from './SkeletonCard'
 import { entryTab, type Tab } from './tabs'
+import { handsFreeUnavailableReason, useHandsFree } from './useHandsFree'
 
 type Phase = 'idle' | 'recording' | 'transcribing' | 'thinking'
 
@@ -30,19 +34,6 @@ let entrySeq = 0
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never
 type NewEntry = DistributiveOmit<Entry, 'id'>
-
-/** getUserMedia and MediaRecorder both need a secure context (or polyfills). */
-export function micUnavailable(): boolean {
-  return !(
-    typeof navigator !== 'undefined' &&
-    navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === 'function' &&
-    typeof MediaRecorder !== 'undefined'
-  )
-}
-
-// Re-export so ChatSheet can keep importing mic helpers from one place.
-export { pickRecordingMimeType, resolveRecordingMimeType } from '../ai/recordingMime'
 
 const formatElapsed = (s: number) =>
   `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
@@ -65,12 +56,17 @@ export default function RambleSheet({
   const [phase, setPhase] = useState<Phase>('idle')
   const [elapsed, setElapsed] = useState(0)
   const [input, setInput] = useState('')
+  const [saving, setSaving] = useState(false)
+  const applying = useRef(false)
+  const reviewRef = useRef<(() => DecisionSkeletonInput | null) | null>(null)
+  const voicedReview = useRef<string | null>(null)
   const [voice, setVoice] = useState(() => loadSettings().voiceReplies)
   // Mirror so a reply finishing mid-toggle re-checks the setting.
   const voiceRef = useRef(voice)
   voiceRef.current = voice
   const [view, setView] = useState<'ramble' | 'settings'>('ramble')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const pendingMic = useRef<AbortController | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const cancelledRef = useRef(false)
@@ -79,6 +75,12 @@ export default function RambleSheet({
   entriesRef.current = entries
   const seededRef = useRef(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const available = useRef(false)
+
+  useEffect(() => {
+    available.current = true
+    return () => { available.current = false }
+  }, [])
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight })
@@ -87,6 +89,7 @@ export default function RambleSheet({
   // Unmounting the sheet must never leave the mic hot or a timer running.
   useEffect(
     () => () => {
+      pendingMic.current?.abort()
       if (timerRef.current !== null) window.clearInterval(timerRef.current)
       const recorder = recorderRef.current
       if (recorder && recorder.state !== 'inactive') {
@@ -112,10 +115,16 @@ export default function RambleSheet({
 
   const settings = loadSettings()
   const configured = isConfigured(settings)
-  const hasStt = configured && supportsStt(settings)
-  const noMic = micUnavailable()
+  const recordingReason = configured ? recordingUnavailableReason(settings) : null
+  const canRecord = configured && !recordingReason
+  const handsFreeReason = handsFreeUnavailableReason(recordingReason, configured)
+  const handsFree = useHandsFree(
+    view === 'ramble' && !onTranscript && !handsFreeReason,
+    (text, signal) => guidedTurn(text, signal),
+    (signal) => startGuidance(signal),
+  )
 
-  const ask = async (text: string, kind: 'transcript' | 'user') => {
+  const ask = async (text: string, kind: 'transcript' | 'user', signal?: AbortSignal) => {
     if (onTranscript) {
       pushEntry({ kind: 'transcript', text })
       onTranscript(text)
@@ -145,9 +154,11 @@ export default function RambleSheet({
     try {
       const ai = loadSettings()
       const reply = await chat(
-        [{ role: 'system', content: rambleSystemPrompt(ai.webLookup) }, ...history, { role: 'user', content }],
+        [{ role: 'system', content: rambleSystemPrompt(ai.webLookup, !!signal) }, ...history, { role: 'user', content }],
         ai,
+        signal,
       )
+      if (signal?.aborted || !available.current) return
       const parsed = parseReply(reply)
       const displayMessage = (raw: string) => formatPlaceReply(raw.trim())
       const only = parsed.proposals.length === 1 ? parsed.proposals[0] : null
@@ -180,8 +191,14 @@ export default function RambleSheet({
           text: "The AI suggested changes that don't fit creating one new decision — try rambling again.",
         })
       }
-      if (voiceRef.current && spokenText) void speak(spokenText, loadSettings())
+      if (signal && only?.type === 'createDecision') {
+        await readReview(only.decision, signal)
+      } else if (spokenText && (signal || voiceRef.current)) {
+        if (signal) await speak(spokenText, loadSettings(), signal)
+        else void speak(spokenText, loadSettings())
+      }
     } catch (e) {
+      if (signal?.aborted || !available.current) return
       const message =
         e instanceof ProposalParseError
           ? `Couldn't read the suggested decision: ${e.message}`
@@ -189,6 +206,7 @@ export default function RambleSheet({
             ? e.message
             : String(e)
       pushEntry({ kind: 'error', text: message })
+      if (signal) await speak('I could not finish that request. Try saying it again.', loadSettings(), signal)
     } finally {
       setPhase('idle')
       setElapsed(0)
@@ -223,17 +241,26 @@ export default function RambleSheet({
   }
 
   const startRecording = async () => {
+    if (!canRecord || phase !== 'idle' || pendingMic.current || handsFree.status) return
+    const request = new AbortController()
+    pendingMic.current = request
+    let stream: MediaStream | undefined
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const inputStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream = inputStream
+      if (request.signal.aborted) {
+        inputStream.getTracks().forEach((track) => track.stop())
+        return
+      }
       const mimeType = pickRecordingMimeType()
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      const recorder = new MediaRecorder(inputStream, mimeType ? { mimeType } : undefined)
       chunksRef.current = []
       cancelledRef.current = false
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop())
+        inputStream.getTracks().forEach((t) => t.stop())
         if (timerRef.current !== null) {
           window.clearInterval(timerRef.current)
           timerRef.current = null
@@ -258,11 +285,15 @@ export default function RambleSheet({
       setPhase('recording')
       timerRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000)
     } catch (e) {
+      stream?.getTracks().forEach((track) => track.stop())
+      if (request.signal.aborted) return
       const message =
         e instanceof DOMException && e.name === 'NotAllowedError'
           ? 'Microphone permission was denied — allow the mic for this site and try again.'
           : `Could not start the microphone: ${e instanceof Error ? e.message : String(e)}`
       pushEntry({ kind: 'error', text: message })
+    } finally {
+      if (pendingMic.current === request) pendingMic.current = null
     }
   }
 
@@ -275,10 +306,16 @@ export default function RambleSheet({
     recorderRef.current?.stop()
   }
 
-  const approve = async (cardId: number, skeleton: DecisionSkeletonInput) => {
+  const approve = async (cardId: number, skeleton: DecisionSkeletonInput, signal?: AbortSignal) => {
+    if (applying.current) return
+    applying.current = true
+    setSaving(true)
     try {
       const decision = await applyDecisionSkeleton(skeleton)
       const bundle = await queryDecision(decision.id)
+      if (signal && !signal.aborted) {
+        await speak('Decision saved. Open Hands-free in Ask AI to work through the choice.', loadSettings(), signal)
+      }
       onCreated?.(
         decision.id,
         bundle ? entryTab(bundle.dimensions, bundle.options, bundle.scores) : 'dimensions',
@@ -290,12 +327,82 @@ export default function RambleSheet({
           entry.kind === 'card' && entry.id === cardId ? { ...entry, outcome: { error: message } } : entry,
         ),
       )
+      if (signal && !signal.aborted) {
+        await speak('I could not save the decision. Review the error and try again.', loadSettings(), signal)
+      }
+    } finally {
+      applying.current = false
+      setSaving(false)
+    }
+  }
+
+  async function readReview(skeleton: DecisionSkeletonInput, signal: AbortSignal) {
+    voicedReview.current = null
+    const rows = [`Create ${skeleton.name}`]
+    for (const option of skeleton.options) {
+      rows.push(`Add option ${option.name}${option.notes ? `, with notes: ${option.notes}` : ''}`)
+    }
+    for (const dimension of skeleton.dimensions) {
+      const scale = dimension.unit ? `, measured in ${dimension.unit}` : ''
+      const direction = dimension.direction ? `, ${dimension.direction} is better` : ''
+      rows.push(`Add ${dimension.name} as ${dimension.kind}, importance ${dimension.importance} out of 5${scale}${direction}`)
+    }
+    for (const score of skeleton.scores ?? []) {
+      rows.push(`${score.dimension} for ${score.option}: ${score.labels?.join(', ') ?? score.value}`)
+    }
+    const help = 'Say “save changes” or “discard changes.”'
+    pushEntry({ kind: 'assistant', text: `**Proposed decision**\n\n${rows.map((row) => `- ${row}`).join('\n')}\n\n${help}` })
+    await speak(`${rows.join('. ')}. ${help}`, loadSettings(), signal)
+    if (!signal.aborted) voicedReview.current = JSON.stringify(skeleton)
+  }
+
+  async function startGuidance(signal: AbortSignal) {
+    voicedReview.current = null
+    const draft = reviewRef.current?.()
+    if (draft) {
+      await readReview(draft, signal)
+    } else {
+      const text = 'What are you trying to decide?'
+      pushEntry({ kind: 'assistant', text })
+      await speak(text, loadSettings(), signal)
+    }
+  }
+
+  async function guidedTurn(text: string, signal: AbortSignal) {
+    const command = voiceReviewCommand(text)
+    if (!command) {
+      await ask(text, 'transcript', signal)
+      return
+    }
+    const card = [...entriesRef.current].reverse().find((entry) => entry.kind === 'card')
+    const draft = reviewRef.current?.()
+    if (!card) {
+      await speak('There are no pending changes. Tell me what you are trying to decide.', loadSettings(), signal)
+    } else if (command === 'discard') {
+      setEntries((prev) => prev.filter((entry) => entry.id !== card.id))
+      voicedReview.current = null
+      const reply = 'Draft discarded. What would you like to decide?'
+      pushEntry({ kind: 'assistant', text: reply })
+      await speak(reply, loadSettings(), signal)
+    } else if (!draft) {
+      await speak('The draft needs a fix before saving. Tell me what to revise.', loadSettings(), signal)
+    } else if (voicedReview.current !== JSON.stringify(draft)) {
+      await readReview(draft, signal)
+    } else {
+      voicedReview.current = null
+      await approve(card.id, draft, signal)
     }
   }
 
   const sendTyped = () => {
     const text = input.trim()
     if (!text || phase !== 'idle') return
+    handsFree.stop()
+    pendingMic.current?.abort()
+    if (!configured && !onTranscript) {
+      setView('settings')
+      return
+    }
     if (voiceRef.current) unlockSpeech()
     setInput('')
     void ask(text, 'user')
@@ -303,9 +410,9 @@ export default function RambleSheet({
 
   if (view === 'settings') {
     return (
-      <SheetShell>
+      <SheetShell label="AI settings" onClose={() => setView('ramble')}>
         <div
-          className="shrink-0 px-4"
+          className="sheet-content shrink-0"
           style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
           <button
@@ -322,39 +429,51 @@ export default function RambleSheet({
   }
 
   return (
-    <SheetShell>
-      <div
-        className="relative flex shrink-0 items-center gap-2 border-b border-hairline px-4 pb-2"
-        style={{ paddingTop: 'var(--sheet-pad-top, calc(env(safe-area-inset-top) + 0.75rem))' }}
-      >
-        <span className="flex-1 text-center text-sm font-semibold text-ink">Ramble</span>
-        <button
-          type="button"
-          className={`min-h-11 rounded-md px-2 font-mono text-[10px] uppercase tracking-[0.08em] ${
-            voice ? 'text-accent-ink' : 'text-ink-4'
-          }`}
-          onClick={toggleVoice}
-        >
-          Voice {voice ? 'on' : 'off'}
-        </button>
-        <button
-          type="button"
-          className="min-h-11 rounded-md px-2 text-xs font-medium text-ink-3 hover:bg-hover"
-          onClick={() => setView('settings')}
-        >
-          Settings
-        </button>
-        <button
-          type="button"
-          aria-label="Close"
-          className="h-11 w-11 rounded-md text-ink-3 hover:bg-hover"
-          onClick={onClose}
-        >
-          ✕
-        </button>
-      </div>
+    <SheetShell label="Ramble" onClose={onClose}>
+      <header className="shrink-0 border-b border-hairline">
+        <div className="sheet-content flex flex-wrap items-center gap-1 pb-2 pt-[var(--sheet-pad-top)]">
+          <h2 className="mr-auto text-base font-semibold text-ink sm:text-lg">Ramble</h2>
+          <button
+            type="button"
+            aria-pressed={voice || !!handsFree.status}
+            disabled={!!handsFree.status}
+            className={`min-h-11 rounded-md px-2 text-sm font-medium ${
+              voice || handsFree.status ? 'text-accent-ink' : 'text-ink-2'
+            }`}
+            onClick={toggleVoice}
+          >
+            Replies {voice || handsFree.status ? 'on' : 'off'}
+          </button>
+          <button
+            type="button"
+            disabled={phase === 'recording'}
+            className="min-h-11 rounded-md px-2 text-sm font-medium text-ink-2 hover:bg-hover disabled:opacity-40"
+            onClick={() => {
+              handsFree.stop()
+              pendingMic.current?.abort()
+              setView('settings')
+            }}
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            aria-label="Close"
+            className="h-11 w-11 rounded-md text-ink-3 hover:bg-hover"
+            onClick={onClose}
+          >
+            ✕
+          </button>
+        </div>
+      </header>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-label="Conversation"
+        aria-live={handsFree.status ? 'off' : 'polite'}
+        className="sheet-content min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-3"
+      >
         {!configured && entries.length === 0 && (
           <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
             <p className="text-sm text-ink-2">
@@ -370,28 +489,13 @@ export default function RambleSheet({
             </button>
           </div>
         )}
-        {configured && !hasStt && (
-          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
-            <p className="text-sm text-ink-2">
-              Voice needs a provider with speech-to-text — OpenAI, Gemini or a custom endpoint.
-              The current provider has none, so the mic is greyed out.
-            </p>
-            <button
-              type="button"
-              className="mt-3 min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent"
-              onClick={() => setView('settings')}
-            >
-              Change provider
-            </button>
-          </div>
-        )}
-        {hasStt && noMic && (
-          <div className="mt-8 rounded-xl border border-hairline bg-surface p-4 text-center">
-            <p className="text-sm text-ink-2">
-              The microphone needs a secure page (HTTPS or localhost), and this one isn't — open
-              the https link instead.
-            </p>
-          </div>
+        {configured && entries.length === 0 && phase === 'idle' && (
+          <p className="mt-6 rounded-xl border border-hairline bg-surface p-4 text-sm text-ink-2">
+            {canRecord ? 'Type or record' : 'Type'} what you’re weighing up.
+            {onTranscript
+              ? ' Ask AI will use the decision you have open.'
+              : ' Include any options or priorities you already have in mind.'}
+          </p>
         )}
         {entries.map((entry) =>
           entry.kind === 'card' ? (
@@ -399,6 +503,8 @@ export default function RambleSheet({
               key={`${entry.id}-${entry.rev}`}
               initial={entry.skeleton}
               outcome={entry.outcome}
+              applying={saving}
+              reviewRef={reviewRef}
               onApply={(skeleton) => void approve(entry.id, skeleton)}
               onKeepChatting={() => inputRef.current?.focus()}
               onChange={(skeleton) =>
@@ -410,28 +516,12 @@ export default function RambleSheet({
               }
             />
           ) : (
-            <div
+            <ConversationMessage
               key={entry.id}
-              className={
-                entry.kind === 'transcript' || entry.kind === 'user'
-                  ? 'ml-8 rounded-xl bg-accent px-3 py-2 text-sm text-on-accent'
-                  : entry.kind === 'error'
-                    ? 'rounded-xl border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-300'
-                    : 'mr-8 rounded-xl bg-surface px-3 py-2 text-sm text-ink-2'
-              }
-            >
-              {entry.kind === 'transcript' && (
-                <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.1em] opacity-70">
-                  You said
-                </span>
-              )}
-              {entry.kind === 'user' && (
-                <span className="mr-1 font-mono text-[10px] uppercase tracking-[0.1em] opacity-70">
-                  You
-                </span>
-              )}
-              {entry.text}
-            </div>
+              kind={entry.kind === 'transcript' ? 'user' : entry.kind}
+              label={entry.kind === 'transcript' ? 'You said' : undefined}
+              text={entry.text}
+            />
           ),
         )}
         {phase === 'transcribing' && (
@@ -439,72 +529,80 @@ export default function RambleSheet({
             Transcribing…
           </div>
         )}
-        {phase === 'thinking' && (
+        {phase === 'thinking' && !handsFree.status && (
           <div className="mr-8 animate-pulse rounded-xl bg-surface px-3 py-2 text-sm text-ink-3">
             {loadSettings().webLookup ? 'Looking up…' : 'Thinking…'}
           </div>
         )}
       </div>
 
-      <div
-        className="shrink-0 border-t border-hairline bg-menu px-4 pt-3"
-        style={{ paddingBottom: 'var(--sheet-pad-bottom, calc(env(safe-area-inset-bottom) + 0.75rem))' }}
-      >
-        {phase === 'recording' ? (
-          <div className="flex items-center justify-center gap-4">
-            <button
-              type="button"
-              className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
-              onClick={cancelRecording}
-            >
-              Cancel
-            </button>
-            <div className="flex items-center gap-2">
-              <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
-              <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
-            </div>
-            <button
-              type="button"
-              className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
-              onClick={stopRecording}
-            >
-              Stop
-            </button>
-          </div>
-        ) : (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              sendTyped()
-            }}
-          >
-            <button
-              type="button"
-              disabled={!hasStt || noMic || phase !== 'idle'}
-              aria-label="Record a ramble"
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
-              onClick={() => void startRecording()}
-            >
-              <span className="size-1.5 rounded-full bg-accent" />
-            </button>
-            <input
-              ref={inputRef}
-              className="min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
-              placeholder={onTranscript ? 'Write or speak…' : 'Type or ramble…'}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
+      <footer className="shrink-0 border-t border-hairline bg-menu">
+        <div className="sheet-content pt-2 pb-[var(--sheet-pad-bottom)]">
+          {!onTranscript && phase !== 'recording' && (
+            <HandsFreeControls
+              session={handsFree}
+              unavailable={handsFreeReason}
+              busy={phase !== 'idle' || saving}
             />
-            <button
-              type="submit"
-              disabled={phase !== 'idle' || input.trim() === ''}
-              className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40"
+          )}
+          {phase === 'recording' ? (
+            <div className="flex items-center justify-center gap-4">
+              <button
+                type="button"
+                className="min-h-11 rounded-md px-3 text-sm font-medium text-ink-3 hover:bg-hover"
+                onClick={cancelRecording}
+              >
+                Cancel
+              </button>
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 animate-pulse rounded-full bg-red-500" />
+                <span className="font-mono text-sm font-medium text-ink-2">{formatElapsed(elapsed)}</span>
+              </div>
+              <button
+                type="button"
+                className="min-h-11 rounded-xl bg-accent px-6 text-sm font-semibold text-on-accent"
+                onClick={stopRecording}
+              >
+                Stop
+              </button>
+            </div>
+          ) : (
+            <form
+              className="flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                sendTyped()
+              }}
             >
-              Send
-            </button>
-          </form>
-        )}
-      </div>
+              <button
+                type="button"
+                disabled={!canRecord || phase !== 'idle' || !!handsFree.status}
+                aria-label="Record a ramble"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface-2 disabled:opacity-40"
+                onClick={() => void startRecording()}
+              >
+                <span className="size-1.5 rounded-full bg-accent" />
+              </button>
+              <input
+                ref={inputRef}
+                aria-label="Ramble message"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-hairline bg-surface-2 px-3 py-2.5 text-base text-ink placeholder:text-ink-4 focus:border-accent focus:outline-none"
+                placeholder={canRecord ? 'Type or ramble…' : 'Type a message…'}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button
+                type="submit"
+                disabled={phase !== 'idle' || input.trim() === ''}
+                className="min-h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40"
+              >
+                Send
+              </button>
+            </form>
+          )}
+          {onTranscript && recordingReason && <p className="mt-1 text-sm text-ink-2">{recordingReason}</p>}
+        </div>
+      </footer>
     </SheetShell>
   )
 }

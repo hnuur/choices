@@ -80,9 +80,11 @@ async function openAiCompatibleChat(
   model: string,
   messages: ChatMessage[],
   webLookup = false,
+  signal?: AbortSignal,
 ): Promise<string> {
   const res = await fetch(`${stripTrailingSlash(baseUrl)}/chat/completions`, {
     method: 'POST',
+    ...(signal ? { signal } : {}),
     headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
       model,
@@ -149,6 +151,7 @@ async function openAiResponsesChat(
   apiKey: string,
   model: string,
   messages: ChatMessage[],
+  signal?: AbortSignal,
 ): Promise<string> {
   let previous: string | undefined
   let lastSources: Source[] = []
@@ -161,6 +164,7 @@ async function openAiResponsesChat(
     else payload.input = messages.map((m) => ({ role: m.role, content: m.content }))
     const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
+      ...(signal ? { signal } : {}),
       headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(payload),
     })
@@ -205,6 +209,7 @@ async function anthropicChat(
   apiKey: string,
   messages: ChatMessage[],
   webLookup = false,
+  signal?: AbortSignal,
 ): Promise<string> {
   const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n')
   const thread: { role: string; content: string | AnthropicBlock[] }[] = messages
@@ -221,6 +226,7 @@ async function anthropicChat(
   for (let turn = 0; turn < MAX_LOOKUP_TURNS; turn++) {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      ...(signal ? { signal } : {}),
       headers,
       body: JSON.stringify({
         model,
@@ -249,6 +255,7 @@ async function geminiChat(
   apiKey: string,
   messages: ChatMessage[],
   webLookup = false,
+  signal?: AbortSignal,
 ): Promise<string> {
   const system = messages.filter((m) => m.role === 'system').map((m) => m.content).join('\n\n')
   const rest = messages.filter((m) => m.role !== 'system')
@@ -256,6 +263,7 @@ async function geminiChat(
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
     {
       method: 'POST',
+      ...(signal ? { signal } : {}),
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
@@ -284,9 +292,9 @@ async function geminiChat(
   return withSources(text, sources)
 }
 
-export async function chat(messages: ChatMessage[], settings: AiSettings): Promise<string> {
+export async function chat(messages: ChatMessage[], settings: AiSettings, signal?: AbortSignal): Promise<string> {
   try {
-    return await chatInner(messages, settings)
+    return await chatInner(messages, settings, signal)
   } catch (e) {
     remapNetworkError(e)
   }
@@ -301,21 +309,23 @@ function remapNetworkError(e: unknown): never {
   throw e instanceof Error ? e : new ProviderError(msg)
 }
 
-async function chatInner(messages: ChatMessage[], settings: AiSettings): Promise<string> {
+async function chatInner(messages: ChatMessage[], settings: AiSettings, signal?: AbortSignal): Promise<string> {
   const lookup = settings.webLookup === true
   switch (settings.mode) {
     case 'anthropic':
-      return anthropicChat(effectiveModel(settings), settings.apiKey.trim(), messages, lookup)
+      return anthropicChat(effectiveModel(settings), settings.apiKey.trim(), messages, lookup, signal)
     case 'gemini':
-      return geminiChat(effectiveModel(settings), settings.apiKey.trim(), messages, lookup)
+      return geminiChat(effectiveModel(settings), settings.apiKey.trim(), messages, lookup, signal)
     case 'openai':
       return lookup
-        ? openAiResponsesChat(settings.apiKey.trim(), effectiveModel(settings), messages)
+        ? openAiResponsesChat(settings.apiKey.trim(), effectiveModel(settings), messages, signal)
         : openAiCompatibleChat(
             'https://api.openai.com/v1',
             settings.apiKey.trim(),
             effectiveModel(settings),
             messages,
+            false,
+            signal,
           )
     case 'custom':
       return openAiCompatibleChat(
@@ -324,6 +334,7 @@ async function chatInner(messages: ChatMessage[], settings: AiSettings): Promise
         effectiveModel(settings),
         messages,
         lookup,
+        signal,
       )
     case 'relay':
       return openAiCompatibleChat(
@@ -332,6 +343,7 @@ async function chatInner(messages: ChatMessage[], settings: AiSettings): Promise
         effectiveModel(settings) || 'relay',
         messages,
         lookup,
+        signal,
       )
     default:
       throw new ProviderError('AI is not configured')

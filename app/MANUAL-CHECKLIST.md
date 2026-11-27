@@ -361,3 +361,43 @@ turn it on. Live lookup items need a model that can search.
       long unbroken replies do not force horizontal scrolling. With the
       keyboard open, the header and compose bar remain visible.
 
+## iPad and responsive follow-up
+
+- [ ] In Safari and from the Home Screen, check iPad portrait, landscape,
+      and a narrow Split View window. Home, all four decision sections,
+      and their action bar fit without horizontal scrolling. Decision
+      summaries and scoring cards wrap back to one column as space narrows.
+- [ ] Open Ramble and Ask AI. Header, messages, composer, and AI settings
+      use the same centered content width. With the software keyboard
+      open, send a message, edit a proposal, and scroll to Save in settings.
+      Rotate and close the keyboard. The bars clear both safe areas.
+- [ ] With a text-only provider or recording unavailable, open Ramble
+      from Home and from a decision. The microphone gives a reason and
+      typed messages still reach the corresponding AI flow.
+- [ ] With a supported provider, deny microphone permission, then retry
+      after granting it. Check recording, cancellation, and dismissal.
+- [ ] With a hardware keyboard, Tab through the sheet and press Escape
+      to return from AI settings or dismiss the sheet. Background controls
+      stay out of the tab order while a sheet is open.
+
+
+## Readable conversations and hands-free voice
+
+- [ ] In iPad portrait and landscape, bold text, line breaks, and lists
+      display clearly. A long reply stays in a readable-width column.
+- [ ] With a supported speech-to-text provider, open Ask AI, tap Hands-free
+      once, then talk through options, dimensions, importance, scores,
+      and the computed results. The app sends each spoken turn after a
+      pause and listens again after the reply finishes.
+- [ ] When the app reads a proposal, say “save changes” or “discard
+      changes.” Check that only the explicit save writes. Change a visible
+      row after readback and say “save changes.” The app reads the edited
+      version before it will save it.
+- [ ] Confirm foreground capture ends on “pause listening,” the pause
+      button, opening settings, dismissing the sheet, or leaving the app.
+      Silence by itself does not send a message.
+- [ ] In Home Ramble, start Hands-free and create a draft by speaking.
+      Save it by voice, then continue through Ask AI in the new decision.
+- [ ] Confirm typed messages, manual recording, and the spoken-replies
+      preference still work. Confirm a text-only provider reports why its
+      microphone is unavailable.

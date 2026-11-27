@@ -7,10 +7,12 @@ import type { DecisionSkeletonInput, DimensionInput, OptionInput, SkeletonScoreI
 import { dimensionScale, normalizeLabels } from '../units'
 
 export type Proposal =
+  | { type: 'renameDecision'; name: string }
   | { type: 'addDimension'; dimension: DimensionInput }
   | { type: 'updateDimension'; id: string; patch: DimensionPatch }
   | { type: 'deleteDimension'; id: string }
   | { type: 'addOption'; option: OptionInput }
+  | { type: 'updateOption'; id: string; patch: { name?: string; notes?: string | null } }
   | { type: 'deleteOption'; id: string }
   | { type: 'setScore'; optionId: string; dimensionId: string; value?: number; labels?: string[] }
   /** Phase-7 ramble scope: a whole decision skeleton, created in one go. */
@@ -190,6 +192,10 @@ function parseProposal(raw: unknown, index: number): Proposal {
   const label = `proposal ${index + 1}`
   const obj = requireRecord(raw, label)
   switch (obj.type) {
+    case 'renameDecision': {
+      rejectUnknownKeys(obj, ['type', 'name'], label)
+      return { type: 'renameDecision', name: requireString(obj.name, `${label}.name`) }
+    }
     case 'addDimension': {
       rejectUnknownKeys(obj, ['type', 'dimension'], label)
       return { type: 'addDimension', dimension: parseDimensionInput(obj.dimension, `${label}.dimension`) }
@@ -209,6 +215,19 @@ function parseProposal(raw: unknown, index: number): Proposal {
     case 'addOption': {
       rejectUnknownKeys(obj, ['type', 'option'], label)
       return { type: 'addOption', option: parseOptionInput(obj.option, `${label}.option`) }
+    }
+    case 'updateOption': {
+      rejectUnknownKeys(obj, ['type', 'id', 'patch'], label)
+      const raw = requireRecord(obj.patch, `${label}.patch`)
+      rejectUnknownKeys(raw, ['name', 'notes'], `${label}.patch`)
+      const patch: { name?: string; notes?: string | null } = {}
+      if ('name' in raw) patch.name = requireString(raw.name, `${label}.patch.name`)
+      if ('notes' in raw) {
+        if (raw.notes !== null && typeof raw.notes !== 'string') fail(`${label}.patch.notes must be text or null`)
+        patch.notes = raw.notes?.trim() || null
+      }
+      if (Object.keys(patch).length === 0) fail(`${label}.patch must change at least one field`)
+      return { type: 'updateOption', id: requireString(obj.id, `${label}.id`), patch }
     }
     case 'deleteOption': {
       rejectUnknownKeys(obj, ['type', 'id'], label)

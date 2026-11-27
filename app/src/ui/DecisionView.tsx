@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { isConfigured, loadSettings } from '../ai/settings'
-import { supportsStt } from '../ai/stt'
+import { loadSettings } from '../ai/settings'
 import { unlockSpeech } from '../ai/tts'
 import { ValidationError, exportDecision, renameDecision } from '../mutations'
 import { queryDecision } from '../queries'
@@ -8,7 +7,7 @@ import { useLiveQuery } from '../useLiveQuery'
 import ChatSheet, { type ChatState } from './ChatSheet'
 import DimensionsTab from './DimensionsTab'
 import OptionsTab from './OptionsTab'
-import RambleSheet, { micUnavailable } from './RambleSheet'
+import RambleSheet from './RambleSheet'
 import ResultsTab from './ResultsTab'
 import ScoreTab from './ScoreTab'
 import { FieldError } from './bits'
@@ -74,7 +73,7 @@ function DecisionTitle({ id, name }: { id: string; name: string }) {
         }}
         onBlur={() => void save()}
         onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) e.currentTarget.blur()
           if (e.key === 'Escape') {
             skipSave.current = true
             setDraft(name)
@@ -108,12 +107,6 @@ export default function DecisionView({
   const [aiStatus, setAiStatus] = useState<string | null>(null)
   const [rambleOpen, setRambleOpen] = useState(false)
   const [injection, setInjection] = useState<{ text: string; nonce: number } | null>(null)
-
-  // Same mic guards as Home: greyed when the provider has no STT, dead when
-  // the page is not a secure context.
-  const settings = loadSettings()
-  const sttGreyed = isConfigured(settings) && !supportsStt(settings)
-  const noMic = micUnavailable()
 
   // The chip in the sheet header cycles the tab the AI is looking at.
   const cycleTab = () => {
@@ -153,7 +146,7 @@ export default function DecisionView({
   if (bundle === null) return null
 
   return (
-    <main className="mx-auto max-w-md px-4 pb-44 pt-3">
+    <main className="page-content pb-[calc(8rem+env(safe-area-inset-bottom))] pt-3 sm:pt-6">
       <button
         type="button"
         className="min-h-11 text-sm text-ink-3 hover:text-ink-2"
@@ -221,13 +214,14 @@ export default function DecisionView({
         </p>
       )}
 
-      <div className="mt-4 flex gap-5 border-b border-divider">
+      <nav aria-label="Decision sections" className="mt-4 flex flex-wrap gap-x-3 border-b border-divider sm:gap-x-6">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            aria-current={tab === t.id ? 'true' : undefined}
             onClick={() => setTab(t.id)}
-            className={`-mb-px min-h-11 border-b-2 px-0.5 text-[15px] ${
+            className={`-mb-px min-h-11 min-w-11 border-b-2 px-0.5 text-[15px] ${
               tab === t.id
                 ? 'border-accent font-semibold text-ink'
                 : 'border-transparent font-medium text-ink-3 hover:text-ink-2'
@@ -236,7 +230,7 @@ export default function DecisionView({
             {t.label}
           </button>
         ))}
-      </div>
+      </nav>
 
       <div className="mt-4">
         {tab === 'dimensions' && <DimensionsTab bundle={bundle} />}
@@ -249,7 +243,7 @@ export default function DecisionView({
           the chat sheet's peek surface after approve. */}
       <div className="fixed inset-x-0 bottom-0 z-30 bg-gradient-to-t from-bg via-bg/80 to-transparent backdrop-blur-xl">
         <div
-          className="mx-auto max-w-md px-4 pt-8"
+          className="page-content pt-8"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
         >
           {aiStatus && <p className="pb-2 text-center text-xs text-ink-3">{aiStatus}</p>}
@@ -257,8 +251,7 @@ export default function DecisionView({
             <button
               type="button"
               aria-label="Ramble"
-              disabled={sttGreyed || noMic}
-              className="flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 enabled:hover:bg-white/9 disabled:opacity-40"
+              className="flex h-[52px] min-w-0 flex-1 items-center justify-center gap-2 rounded-2xl border border-hairline bg-hover px-4 text-sm font-medium text-ink-2 hover:bg-white/9"
               onClick={() => {
                 if (loadSettings().voiceReplies) unlockSpeech()
                 setRambleOpen(true)

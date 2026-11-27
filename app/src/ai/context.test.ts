@@ -36,6 +36,14 @@ describe('place option blurbs', () => {
 })
 
 describe('score contract', () => {
+  it('guides one step at a time and keeps existing scores in voice mode', () => {
+    const prompt = systemPrompt('dimensions', false, true)
+    expect(prompt).toContain('Ask one focused question at a time')
+    expect(prompt).toContain('Keep existing scores unless they request an edit')
+    expect(prompt).toContain('explain the actual ranking')
+    expect(prompt).not.toContain('emit exactly one setScore for EVERY')
+  })
+
   it('tells the model to copy distinct option ids and emit exactly one of value or labels', () => {
     const prompt = systemPrompt('score')
     expect(prompt).toMatch(/never reuse one option's id/)

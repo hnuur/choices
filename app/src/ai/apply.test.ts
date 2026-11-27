@@ -6,7 +6,7 @@ import { db } from '../db'
 import { addDimension, addOption, createDecision, setScore } from '../mutations'
 import { queryDecision } from '../queries'
 import { applyDecisionSkeleton, applyProposals, formatApplyError, summarizeApplyOutcomes } from './apply'
-import type { Proposal } from './proposals'
+import { parseReply, type Proposal } from './proposals'
 
 beforeEach(async () => {
   await Promise.all(db.tables.map((t) => t.clear()))
@@ -32,6 +32,27 @@ async function buildDecision() {
 }
 
 describe('applyProposals', () => {
+  it('renames the current decision and edits an option without dropping its scores', async () => {
+    const { decision, feel, sony } = await buildDecision()
+    const other = await createDecision('Other decision')
+    const outside = await addOption(other.id, { name: 'Other option' })
+    await setScore(sony.id, feel.id, 4)
+    const payload = { proposals: [
+      { type: 'renameDecision', name: 'Travel camera' },
+      { type: 'updateOption', id: sony.id, patch: { name: 'Compact Sony', notes: 'Used' } },
+      { type: 'updateOption', id: outside.id, patch: { name: 'Wrong decision' } },
+    ] }
+    const { proposals } = parseReply(`\`\`\`json\n${JSON.stringify(payload)}\n\`\`\``)
+    const outcomes = await applyProposals(decision.id, proposals)
+    expect(outcomes.map((outcome) => outcome.ok)).toEqual([true, true, false])
+    expect(await queryDecision(decision.id)).toMatchObject({
+      decision: { name: 'Travel camera' },
+      options: expect.arrayContaining([{ ...sony, name: 'Compact Sony', notes: 'Used' }]),
+      scores: [{ optionId: sony.id, dimensionId: feel.id, value: 4 }],
+    })
+    await applyProposals(decision.id, [{ type: 'updateOption', id: sony.id, patch: { notes: null } }])
+    expect((await queryDecision(decision.id))?.options.find((option) => option.id === sony.id)?.notes).toBeUndefined()
+  })
   it('applies exactly the card contents through the mutation layer', async () => {
     const { decision, weight, sony } = await buildDecision()
     const proposals: Proposal[] = [

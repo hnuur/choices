@@ -47,7 +47,7 @@ grep -q 'speak(spokenText' "$R" || fail "ramble replies are not spoken"
 # stop-on-close must live in the unmount teardown, not just the toggle
 grep -A3 'recorder.stop()' "$R" | grep -q 'stopSpeaking()' \
   || fail "unmount teardown does not stop speech"
-grep -q 'Voice {voice' "$R" || fail "voice toggle missing from the ramble header"
+grep -q 'Replies {voice' "$R" || fail "spoken-replies toggle missing from the ramble header"
 # the chat sheet must re-read the shared setting on open (it stays mounted)
 grep -q "state === 'full') setVoice(loadSettings().voiceReplies)" "$C" \
   || fail "chat sheet does not re-read the shared toggle on open"
